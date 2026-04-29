@@ -372,6 +372,7 @@ tbody td{padding:12px 14px;vertical-align:middle}
 .flow-keyword{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .flow-keyword span{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;flex:1}
 </style>
+<!-- build: 20260429185618 -->
 </head>
 <body>
 
@@ -969,20 +970,25 @@ const pageInfo = {
 };
 
 function navigate(view) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const viewEl = document.getElementById(`view-${view}`);
-  if (viewEl) viewEl.classList.add('active');
-  document.querySelector(`[data-view="${view}"]`)?.classList.add('active');
-  const [title, desc] = pageInfo[view] || [view, ''];
-  document.getElementById('page-title').textContent = title;
-  document.getElementById('page-desc').textContent = desc;
-  document.getElementById('topbar-actions').innerHTML = '';
-  if (view === 'dashboard') loadDashboard();
-  else if (view === 'leads') loadLeads();
-  else if (view === 'messages') loadMessages();
-  else if (view === 'dispatch') loadDispatchView();
-  else if (view === 'whatsapp') wppInit();
+  try {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const viewEl = document.getElementById('view-' + view);
+    if (viewEl) viewEl.classList.add('active');
+    else { console.error('View não encontrada: view-' + view); return; }
+    document.querySelector('[data-view="' + view + '"]')?.classList.add('active');
+    const info = pageInfo[view] || [view, ''];
+    document.getElementById('page-title').textContent = info[0];
+    document.getElementById('page-desc').textContent = info[1];
+    document.getElementById('topbar-actions').innerHTML = '';
+    if (view === 'dashboard') loadDashboard();
+    else if (view === 'leads') loadLeads();
+    else if (view === 'messages') loadMessages();
+    else if (view === 'dispatch') loadDispatchView();
+    else if (view === 'whatsapp') { try { wppInit(); } catch(e) { console.error('wppInit error:', e); } }
+  } catch(e) {
+    console.error('navigate error:', e);
+  }
 }
 
 // ============ DASHBOARD ============
@@ -1486,6 +1492,8 @@ function wppUpdateUI(data) {
   const testLocked = document.getElementById('wpp-test-locked');
   const testForm = document.getElementById('wpp-test-form');
   const navDot = document.getElementById('wpp-nav-dot');
+  // Guard: se os elementos não existem, a view não está montada
+  if (!icon || !connectBtn) { console.warn('[WPP] elementos não encontrados no DOM'); return; }
 
   if (data.status === 'connected') {
     icon.textContent = '✅';
