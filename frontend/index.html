@@ -706,51 +706,48 @@ tbody td{padding:12px 14px;vertical-align:middle}
       
         <!-- PLANS -->
         <div class="view" id="view-plans">
-          <div id="current-plan-banner" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div id="current-plan-banner" style="background:linear-gradient(135deg,var(--card),var(--bg2));border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
             <div>
-              <div style="font-size:12px;color:var(--text2);margin-bottom:4px">PLANO ATUAL</div>
-              <div id="current-plan-name" style="font-size:22px;font-weight:700;color:var(--green)">Gratuito</div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px;letter-spacing:.05em">PLANO ATUAL</div>
+              <div id="current-plan-name" style="font-size:24px;font-weight:800;color:var(--green)">Gratuito</div>
+              <div id="current-plan-expires" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
             </div>
-            <button id="portal-btn" onclick="openPortal()" style="display:none;background:var(--card);border:1px solid var(--border);color:var(--text1);padding:10px 18px;border-radius:8px;cursor:pointer;font-size:13px">⚙️ Gerenciar Assinatura</button>
+            <button id="portal-btn" onclick="openPortal()" style="display:none;background:var(--card);border:1px solid var(--border);color:var(--text1);padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">⚙️ Gerenciar Assinatura</button>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
-            <div class="plan-card" id="plan-basic">
-              <div style="font-size:28px;margin-bottom:8px">📦</div>
-              <div style="font-weight:700;font-size:18px;margin-bottom:4px">Básico</div>
-              <div style="font-size:28px;font-weight:800;color:var(--green);margin:12px 0">R$97<span style="font-size:14px;font-weight:400;color:var(--text2)">/mês</span></div>
-              <div style="font-size:12px;color:var(--text2);line-height:2;margin-bottom:20px">
-                <div>✅ 500 contatos</div>
-                <div>✅ 10 disparos/mês</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:700px">
+
+            <!-- FREE -->
+            <div id="plan-card-free" style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;text-align:center">
+              <div style="font-size:32px;margin-bottom:10px">🆓</div>
+              <div style="font-weight:700;font-size:20px;margin-bottom:4px;color:var(--text1)">Gratuito</div>
+              <div style="font-size:32px;font-weight:800;color:var(--text2);margin:14px 0">R$0<span style="font-size:14px;font-weight:400">/mês</span></div>
+              <div style="font-size:12px;color:var(--text2);line-height:2.2;margin-bottom:24px;text-align:left">
+                <div>✅ Até 50 contatos</div>
+                <div>✅ 3 disparos/mês</div>
                 <div>✅ WhatsApp conectado</div>
-                <div>✅ Chatbot básico</div>
+                <div>❌ Sem agendamento</div>
+                <div>❌ Sem suporte</div>
               </div>
-              <button onclick="subscribePlan('basic')" style="width:100%;background:var(--green);color:#000;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer">Assinar Básico</button>
+              <button id="btn-free" disabled style="width:100%;background:var(--bg2);color:var(--text3);border:1px solid var(--border);padding:12px;border-radius:8px;font-weight:600;cursor:default">Plano Atual</button>
             </div>
-            <div class="plan-card" id="plan-pro" style="border-color:var(--green);position:relative">
-              <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px">MAIS POPULAR</div>
-              <div style="font-size:28px;margin-bottom:8px">🚀</div>
-              <div style="font-weight:700;font-size:18px;margin-bottom:4px">Pro</div>
-              <div style="font-size:28px;font-weight:800;color:var(--green);margin:12px 0">R$197<span style="font-size:14px;font-weight:400;color:var(--text2)">/mês</span></div>
-              <div style="font-size:12px;color:var(--text2);line-height:2;margin-bottom:20px">
-                <div>✅ 2.000 contatos</div>
-                <div>✅ 50 disparos/mês</div>
-                <div>✅ Agendamento</div>
-                <div>✅ Suporte prioritário</div>
-              </div>
-              <button onclick="subscribePlan('pro')" style="width:100%;background:var(--green);color:#000;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer">Assinar Pro</button>
-            </div>
-            <div class="plan-card" id="plan-enterprise">
-              <div style="font-size:28px;margin-bottom:8px">💎</div>
-              <div style="font-weight:700;font-size:18px;margin-bottom:4px">Enterprise</div>
-              <div style="font-size:28px;font-weight:800;color:var(--green);margin:12px 0">R$397<span style="font-size:14px;font-weight:400;color:var(--text2)">/mês</span></div>
-              <div style="font-size:12px;color:var(--text2);line-height:2;margin-bottom:20px">
+
+            <!-- PRO -->
+            <div id="plan-card-pro" style="background:var(--card);border:2px solid var(--green);border-radius:14px;padding:28px;text-align:center;position:relative">
+              <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-size:11px;font-weight:800;padding:4px 16px;border-radius:20px;white-space:nowrap">⚡ RECOMENDADO</div>
+              <div style="font-size:32px;margin-bottom:10px">🚀</div>
+              <div style="font-weight:700;font-size:20px;margin-bottom:4px;color:var(--text1)">Pro</div>
+              <div style="font-size:32px;font-weight:800;color:var(--green);margin:14px 0">R$47<span style="font-size:14px;font-weight:400;color:var(--text2)">/mês</span></div>
+              <div style="font-size:12px;color:var(--text2);line-height:2.2;margin-bottom:24px;text-align:left">
                 <div>✅ Contatos ilimitados</div>
                 <div>✅ Disparos ilimitados</div>
-                <div>✅ API dedicada</div>
-                <div>✅ Suporte 24/7</div>
+                <div>✅ WhatsApp conectado</div>
+                <div>✅ Agendamento</div>
+                <div>✅ Suporte por WhatsApp</div>
               </div>
-              <button onclick="subscribePlan('enterprise')" style="width:100%;background:var(--green);color:#000;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer">Assinar Enterprise</button>
+              <button id="btn-pro" onclick="subscribePlan('pro')" style="width:100%;background:var(--green);color:#000;border:none;padding:12px;border-radius:8px;font-weight:800;cursor:pointer;font-size:15px">Assinar Pro — R$47/mês</button>
             </div>
+
           </div>
         </div>
 
@@ -1667,27 +1664,29 @@ async function loadPlans() {
     const res = await authFetch(`${API}/subscription`);
     if (!res.ok) return;
     const sub = await res.json();
-    const planNames = { free: 'Gratuito', basic: 'Básico', pro: 'Pro', enterprise: 'Enterprise' };
-    document.getElementById('current-plan-name').textContent = planNames[sub.plan] || 'Gratuito';
-    if (sub.plan !== 'free') {
-      document.getElementById('portal-btn').style.display = 'inline-block';
+    const planNames = { free: 'Gratuito', pro: 'Pro' };
+    const nameEl = document.getElementById('current-plan-name');
+    if (nameEl) nameEl.textContent = planNames[sub.plan] || 'Gratuito';
+    if (sub.expires_at) {
+      const expEl = document.getElementById('current-plan-expires');
+      if (expEl) expEl.textContent = 'Renova em ' + new Date(sub.expires_at).toLocaleDateString('pt-BR');
     }
-    // Highlight active plan
-    ['basic','pro','enterprise'].forEach(p => {
-      const card = document.getElementById('plan-' + p);
-      if (card) {
-        if (sub.plan === p) {
-          card.style.borderColor = 'var(--green)';
-          card.querySelector('button').textContent = '✅ Plano Atual';
-          card.querySelector('button').disabled = true;
-          card.querySelector('button').style.opacity = '0.6';
-        }
-      }
-    });
-    // Check payment success in URL
+    if (sub.plan === 'pro') {
+      const portalBtn = document.getElementById('portal-btn');
+      if (portalBtn) portalBtn.style.display = 'inline-block';
+      const btnPro = document.getElementById('btn-pro');
+      if (btnPro) { btnPro.textContent = '✅ Plano Atual'; btnPro.disabled = true; btnPro.style.opacity = '0.7'; btnPro.style.cursor = 'default'; }
+      const freeCard = document.getElementById('plan-card-free');
+      if (freeCard) freeCard.style.opacity = '0.6';
+    }
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
-      notify('🎉 Pagamento confirmado! Seu plano foi ativado.');
+      notify('🎉 Pagamento confirmado! Plano Pro ativado.');
+      history.replaceState({}, '', '/');
+      setTimeout(loadPlans, 1500);
+    }
+    if (params.get('payment') === 'cancelled') {
+      notify('Pagamento cancelado.', 'error');
       history.replaceState({}, '', '/');
     }
   } catch(e) { console.error('loadPlans:', e); }

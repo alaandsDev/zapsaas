@@ -612,13 +612,12 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 const PLANS = {
-  basic:      { name: 'Básico',     price: 9700,  priceId: process.env.STRIPE_PRICE_BASIC,      leads: 500,   dispatches: 10 },
-  pro:        { name: 'Pro',        price: 19700, priceId: process.env.STRIPE_PRICE_PRO,        leads: 2000,  dispatches: 50 },
-  enterprise: { name: 'Enterprise', price: 39700, priceId: process.env.STRIPE_PRICE_ENTERPRISE, leads: 99999, dispatches: 999 },
+  free: { name: 'Gratuito', price: 0,    priceId: null,                          leads: 50,    dispatches: 3  },
+  pro:  { name: 'Pro',      price: 4700, priceId: process.env.STRIPE_PRICE_PRO,  leads: 99999, dispatches: 999 },
 };
 
 app.get('/api/plans', (req, res) => {
-  res.json(Object.entries(PLANS).map(([id, p]) => ({ id, ...p, priceId: undefined })));
+  res.json(Object.entries(PLANS).map(([id, p]) => ({ id, name: p.name, price: p.price, leads: p.leads, dispatches: p.dispatches })));
 });
 
 app.get('/api/subscription', requireAuth, async (req, res) => {
@@ -634,7 +633,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
   try {
     const { planId } = req.body;
     const plan = PLANS[planId];
-    if (!plan) return res.status(400).json({ error: 'Plano inválido' });
+    if (!plan || planId === 'free') return res.status(400).json({ error: 'Plano inválido' });
     if (!plan.priceId) return res.status(400).json({ error: `Configure STRIPE_PRICE_${planId.toUpperCase()} nas variáveis de ambiente` });
 
     const { data: user } = await supabase.from('users').select('*').eq('id', req.user.id).single();
