@@ -26,6 +26,15 @@ app.use(cors({
 app.use(express.json());
 
 // ── SUPABASE ──────────────────────────────────────────────────
+console.log('[startup] SUPABASE_URL:', process.env.SUPABASE_URL ? 'OK' : 'MISSING');
+console.log('[startup] SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? 'OK' : 'MISSING');
+console.log('[startup] PORT:', process.env.PORT || 3001);
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+  console.error('[FATAL] Variáveis SUPABASE_URL e SUPABASE_SERVICE_KEY são obrigatórias!');
+  process.exit(1);
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY

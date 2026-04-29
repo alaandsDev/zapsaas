@@ -1,11 +1,14 @@
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  makeInMemoryStore,
-  Browsers
-} = require('@whiskeysockets/baileys');
+let makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers;
+try {
+  const baileys = require('@whiskeysockets/baileys');
+  makeWASocket = baileys.default;
+  useMultiFileAuthState = baileys.useMultiFileAuthState;
+  DisconnectReason = baileys.DisconnectReason;
+  fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
+  Browsers = baileys.Browsers;
+} catch(e) {
+  console.error('[WPP] Erro ao carregar Baileys:', e.message);
+}
 const qrcode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
@@ -30,6 +33,7 @@ class WhatsAppManager extends EventEmitter {
   }
 
   async createSession(sessionId) {
+    if (!makeWASocket) throw new Error('Baileys não carregado corretamente no servidor');
     // Se já existe sessão conectada, retorna
     const existing = this.sessions.get(sessionId);
     if (existing && existing.status === 'connected') {
