@@ -4,6 +4,10 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const wpp = require('./whatsapp');
+const Stripe = require('stripe');
+const cron = require('node-cron');
+
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 
@@ -285,59 +289,86 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
 
 app.post('/api/dispatches', requireAuth, async (req, res) => {
   try {
-    const { messageId, contactIds, scheduledAt } = req.body;
+    const { messageId, contactIds, scheduledAt, useWhatsapp } = req.body;
     if (!messageId || !contactIds?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
 
-    const { data: message } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('id', messageId)
-      .single();
-
+    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).single();
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
 
-    const { data: contacts } = await supabase
-      .from('leads')
-      .select('id, name, phone')
-      .in('id', contactIds);
+    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds);
+    const items = (contacts || []).map(c => ({ contactId: c.id, contactName: c.name, contactPhone: c.phone, status: 'pending' }));
 
-    const items = (contacts || []).map(c => ({
-      contactId: c.id,
-      contactName: c.name,
-      contactPhone: c.phone,
-      status: 'pending'
-    }));
+    // Se agendado, verifica se é futuro
+    const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
+    const wppStatus = wpp.getStatus(req.user.id);
+    const hasWhatsapp = wppStatus.status === 'connected';
 
-    const { data: dispatch, error } = await supabase
-      .from('dispatches')
-      .insert({
-        message_id: messageId,
-        message_title: message.title,
-        message_content: message.content,
-        total: items.length,
-        sent: 0,
-        failed: 0,
-        status: 'pending',
-        items,
-        scheduled_at: scheduledAt || null,
-        user_id: req.user.id
-      })
-      .select()
-      .single();
+    const { data: dispatch, error } = await supabase.from('dispatches').insert({
+      message_id: messageId,
+      message_title: message.title,
+      message_content: message.content,
+      total: items.length,
+      sent: 0, failed: 0,
+      status: isScheduled ? 'scheduled' : 'pending',
+      items,
+      scheduled_at: scheduledAt || null,
+      user_id: req.user.id
+    }).select().single();
 
     if (error) throw error;
 
-    // Simulate sending async
-    simulateSending(dispatch.id);
+    if (!isScheduled) {
+      if (hasWhatsapp && useWhatsapp !== false) {
+        // Disparo REAL via WhatsApp
+        executeRealDispatch(dispatch.id, req.user.id);
+      } else {
+        // Simulação
+        simulateSending(dispatch.id);
+      }
+    }
 
-    res.json(dispatch);
+    res.json({ ...dispatch, via: hasWhatsapp ? 'whatsapp' : 'simulated', scheduled: isScheduled });
   } catch (e) {
     console.error('Dispatch error:', e);
     res.status(500).json({ error: 'Erro ao criar disparo' });
   }
 });
+
+app.delete('/api/dispatches/:id', requireAuth, async (req, res) => {
+  try {
+    await supabase.from('dispatches').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+    res.json({ message: 'Disparo removido' });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao remover disparo' });
+  }
+});
+
+async function executeRealDispatch(dispatchId, userId) {
+  const { data: dispatch } = await supabase.from('dispatches').select('*').eq('id', dispatchId).single();
+  if (!dispatch) return;
+
+  await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatchId);
+
+  const results = await wpp.sendBulk(userId, dispatch.items.map(i => ({
+    id: i.contactId, name: i.contactName, phone: i.contactPhone
+  })), dispatch.message_content, 2500);
+
+  const sent = results.filter(r => r.status === 'sent').length;
+  const failed = results.filter(r => r.status === 'failed').length;
+  const updatedItems = dispatch.items.map((item, idx) => ({
+    ...item, status: results[idx]?.status || 'failed', sentAt: new Date().toISOString()
+  }));
+
+  await supabase.from('dispatches').update({
+    sent, failed, status: 'completed',
+    items: updatedItems,
+    completed_at: new Date().toISOString()
+  }).eq('id', dispatchId);
+
+  console.log(`[dispatch] Real dispatch ${dispatchId}: ${sent} enviados, ${failed} falhas`);
+}
 
 async function simulateSending(dispatchId) {
   const { data: dispatch } = await supabase
@@ -576,12 +607,157 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// STRIPE — PLANOS E PAGAMENTOS
+// ═══════════════════════════════════════════════════════════════
+
+const PLANS = {
+  basic:      { name: 'Básico',     price: 9700,  priceId: process.env.STRIPE_PRICE_BASIC,      leads: 500,   dispatches: 10 },
+  pro:        { name: 'Pro',        price: 19700, priceId: process.env.STRIPE_PRICE_PRO,        leads: 2000,  dispatches: 50 },
+  enterprise: { name: 'Enterprise', price: 39700, priceId: process.env.STRIPE_PRICE_ENTERPRISE, leads: 99999, dispatches: 999 },
+};
+
+app.get('/api/plans', (req, res) => {
+  res.json(Object.entries(PLANS).map(([id, p]) => ({ id, ...p, priceId: undefined })));
+});
+
+app.get('/api/subscription', requireAuth, async (req, res) => {
+  try {
+    const { data: user } = await supabase.from('users').select('plan, plan_expires_at, stripe_customer_id').eq('id', req.user.id).single();
+    res.json({ plan: user?.plan || 'free', expires_at: user?.plan_expires_at || null });
+  } catch (e) {
+    res.json({ plan: 'free', expires_at: null });
+  }
+});
+
+app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
+  try {
+    const { planId } = req.body;
+    const plan = PLANS[planId];
+    if (!plan) return res.status(400).json({ error: 'Plano inválido' });
+    if (!plan.priceId) return res.status(400).json({ error: `Configure STRIPE_PRICE_${planId.toUpperCase()} nas variáveis de ambiente` });
+
+    const { data: user } = await supabase.from('users').select('*').eq('id', req.user.id).single();
+
+    // Cria ou recupera customer no Stripe
+    let customerId = user?.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email, name: user.name });
+      customerId = customer.id;
+      await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', req.user.id);
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: plan.priceId, quantity: 1 }],
+      success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=success&plan=${planId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=cancelled`,
+      metadata: { userId: req.user.id, planId },
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('[stripe] checkout error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/stripe/portal', requireAuth, async (req, res) => {
+  try {
+    const { data: user } = await supabase.from('users').select('stripe_customer_id').eq('id', req.user.id).single();
+    if (!user?.stripe_customer_id) return res.status(400).json({ error: 'Nenhuma assinatura ativa' });
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripe_customer_id,
+      return_url: process.env.FRONTEND_URL || 'https://zapsaas.vercel.app',
+    });
+    res.json({ url: session.url });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Webhook Stripe — atualiza plano após pagamento
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
+  } catch (e) {
+    console.error('[stripe] webhook signature error:', e.message);
+    return res.status(400).send(`Webhook Error: ${e.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const { userId, planId } = session.metadata;
+    if (userId && planId) {
+      const expires = new Date();
+      expires.setMonth(expires.getMonth() + 1);
+      await supabase.from('users').update({
+        plan: planId,
+        plan_expires_at: expires.toISOString(),
+        stripe_customer_id: session.customer
+      }).eq('id', userId);
+      console.log(`[stripe] Plano ${planId} ativado para user ${userId}`);
+    }
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const sub = event.data.object;
+    const { data: users } = await supabase.from('users').select('id').eq('stripe_customer_id', sub.customer);
+    if (users?.[0]) {
+      await supabase.from('users').update({ plan: 'free', plan_expires_at: null }).eq('id', users[0].id);
+      console.log(`[stripe] Assinatura cancelada para customer ${sub.customer}`);
+    }
+  }
+
+  res.json({ received: true });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CRON — DISPAROS AGENDADOS (verifica a cada minuto)
+// ═══════════════════════════════════════════════════════════════
+
+cron.schedule('* * * * *', async () => {
+  try {
+    const now = new Date().toISOString();
+    const { data: pending } = await supabase
+      .from('dispatches')
+      .select('*')
+      .eq('status', 'scheduled')
+      .lte('scheduled_at', now);
+
+    if (!pending?.length) return;
+
+    console.log(`[cron] ${pending.length} disparos agendados para executar`);
+
+    for (const dispatch of pending) {
+      const wppStatus = wpp.getStatus(dispatch.user_id);
+      await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatch.id);
+
+      if (wppStatus.status === 'connected') {
+        console.log(`[cron] Executando disparo real ${dispatch.id}`);
+        executeRealDispatch(dispatch.id, dispatch.user_id);
+      } else {
+        console.log(`[cron] WhatsApp não conectado para user ${dispatch.user_id}, simulando`);
+        simulateSending(dispatch.id);
+      }
+    }
+  } catch (e) {
+    console.error('[cron] Erro:', e.message);
+  }
+});
+
 // ── START ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   console.log(`\n🚀 ZapSaaS v2 rodando em http://localhost:${PORT}`);
   console.log(`📦 Banco: Supabase`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`💳 Stripe: ${process.env.STRIPE_SECRET_KEY ? 'configurado' : 'não configurado'}`);
   // Restaura sessões WhatsApp salvas
   await wpp.restoreSessions();
   console.log(`📱 WhatsApp: sessions restauradas\n`);

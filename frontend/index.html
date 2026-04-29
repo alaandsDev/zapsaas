@@ -371,6 +371,8 @@ tbody td{padding:12px 14px;vertical-align:middle}
 /* Chatbot flow editor */
 .flow-keyword{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .flow-keyword span{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;flex:1}
+.plan-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;transition:transform .2s,border-color .2s}.plan-card:hover{transform:translateY(-4px);border-color:var(--green)}
+@media(max-width:900px){.plan-card{margin-bottom:16px}}
 </style>
 <!-- v1777491798 build: 20260429185618 -->
 </head>
@@ -455,6 +457,10 @@ tbody td{padding:12px 14px;vertical-align:middle}
         <div class="nav-section">
           <div class="nav-label">Integrações</div>
           <div class="nav-item" data-view="whatsapp" onclick="navigate('whatsapp')"><span class="icon">💬</span>WhatsApp <span id="wpp-nav-dot" style="margin-left:auto;width:8px;height:8px;background:var(--text3);border-radius:50%;display:inline-block"></span></div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-label">Conta</div>
+          <div class="nav-item" data-view="plans" onclick="navigate('plans')"><span class="icon">💳</span>Planos</div>
         </div>
       </div>
       <div class="sidebar-footer">
@@ -611,9 +617,10 @@ tbody td{padding:12px 14px;vertical-align:middle}
           <div class="grid-2">
             <div class="section-card">
               <div class="section-title" style="margin-bottom:18px">🚀 Novo Disparo</div>
+              <div id="wpp-dispatch-status" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px"></div>
               <div class="form-group">
                 <label>Mensagem</label>
-                <select id="dispatch-message">
+                <select id="dispatch-message" onchange="previewMessage()">
                   <option value="">Selecione uma mensagem...</option>
                 </select>
               </div>
@@ -628,7 +635,17 @@ tbody td{padding:12px 14px;vertical-align:middle}
                 </div>
                 <div class="contact-list" id="dispatch-contacts"></div>
               </div>
-              <button class="btn btn-primary" onclick="sendDispatch()">🚀 Disparar Mensagens</button>
+              <div class="form-group">
+                <label>⏰ Agendar para (opcional)</label>
+                <input type="datetime-local" id="dispatch-schedule" style="background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text1);width:100%;box-sizing:border-box"/>
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">Deixe em branco para disparar agora</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px;background:var(--bg2);border-radius:8px">
+                <input type="checkbox" id="dispatch-use-wpp" checked style="width:16px;height:16px;cursor:pointer"/>
+                <label for="dispatch-use-wpp" style="font-size:13px;cursor:pointer">📱 Usar WhatsApp conectado para envio real</label>
+              </div>
+              <div class="error-msg" id="dispatch-error"></div>
+              <button class="btn btn-primary" style="width:100%" onclick="sendDispatch()">🚀 Disparar Mensagens</button>
             </div>
             <div>
               <div class="section-card">
@@ -686,7 +703,58 @@ tbody td{padding:12px 14px;vertical-align:middle}
         </div>
 
         <!-- WHATSAPP -->
-        <div class="view" id="view-whatsapp">
+      
+        <!-- PLANS -->
+        <div class="view" id="view-plans">
+          <div id="current-plan-banner" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:12px;color:var(--text2);margin-bottom:4px">PLANO ATUAL</div>
+              <div id="current-plan-name" style="font-size:22px;font-weight:700;color:var(--green)">Gratuito</div>
+            </div>
+            <button id="portal-btn" onclick="openPortal()" style="display:none;background:var(--card);border:1px solid var(--border);color:var(--text1);padding:10px 18px;border-radius:8px;cursor:pointer;font-size:13px">⚙️ Gerenciar Assinatura</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+            <div class="plan-card" id="plan-basic">
+              <div style="font-size:28px;margin-bottom:8px">📦</div>
+              <div style="font-weight:700;font-size:18px;margin-bottom:4px">Básico</div>
+              <div style="font-size:28px;font-weight:800;color:var(--green);margin:12px 0">R$97<span style="font-size:14px;font-weight:400;color:var(--text2)">/mês</span></div>
+              <div style="font-size:12px;color:var(--text2);line-height:2;margin-bottom:20px">
+                <div>✅ 500 contatos</div>
+                <div>✅ 10 disparos/mês</div>
+                <div>✅ WhatsApp conectado</div>
+                <div>✅ Chatbot básico</div>
+              </div>
+              <button onclick="subscribePlan('basic')" style="width:100%;background:var(--green);color:#000;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer">Assinar Básico</button>
+            </div>
+            <div class="plan-card" id="plan-pro" style="border-color:var(--green);position:relative">
+              <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px">MAIS POPULAR</div>
+              <div style="font-size:28px;margin-bottom:8px">🚀</div>
+              <div style="font-weight:700;font-size:18px;margin-bottom:4px">Pro</div>
+              <div style="font-size:28px;font-weight:800;color:var(--green);margin:12px 0">R$197<span style="font-size:14px;font-weight:400;color:var(--text2)">/mês</span></div>
+              <div style="font-size:12px;color:var(--text2);line-height:2;margin-bottom:20px">
+                <div>✅ 2.000 contatos</div>
+                <div>✅ 50 disparos/mês</div>
+                <div>✅ Agendamento</div>
+                <div>✅ Suporte prioritário</div>
+              </div>
+              <button onclick="subscribePlan('pro')" style="width:100%;background:var(--green);color:#000;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer">Assinar Pro</button>
+            </div>
+            <div class="plan-card" id="plan-enterprise">
+              <div style="font-size:28px;margin-bottom:8px">💎</div>
+              <div style="font-weight:700;font-size:18px;margin-bottom:4px">Enterprise</div>
+              <div style="font-size:28px;font-weight:800;color:var(--green);margin:12px 0">R$397<span style="font-size:14px;font-weight:400;color:var(--text2)">/mês</span></div>
+              <div style="font-size:12px;color:var(--text2);line-height:2;margin-bottom:20px">
+                <div>✅ Contatos ilimitados</div>
+                <div>✅ Disparos ilimitados</div>
+                <div>✅ API dedicada</div>
+                <div>✅ Suporte 24/7</div>
+              </div>
+              <button onclick="subscribePlan('enterprise')" style="width:100%;background:var(--green);color:#000;border:none;padding:12px;border-radius:8px;font-weight:700;cursor:pointer">Assinar Enterprise</button>
+            </div>
+          </div>
+        </div>
+
+  <div class="view" id="view-whatsapp">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px">
       <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;text-align:center">
         <div id="wpp-status-icon" style="font-size:48px;margin-bottom:16px">💬</div>
@@ -953,6 +1021,7 @@ const pageInfo = {
   dispatch: ['Disparos', 'Enviar mensagens em massa'],
   leadform: ['Formulário de Captura', 'Formulário público de captação de leads'],
   whatsapp: ['WhatsApp', 'Conectar e enviar mensagens reais via WhatsApp'],
+  plans: ['Planos', 'Gerencie sua assinatura'],
 };
 
 function navigate(view) {
@@ -972,6 +1041,7 @@ function navigate(view) {
     else if (view === 'messages') loadMessages();
     else if (view === 'dispatch') loadDispatchView();
     else if (view === 'whatsapp') { try { wppInit(); } catch(e) { console.error('wppInit error:', e); } }
+    else if (view === 'plans') loadPlans();
   } catch(e) {
     console.error('navigate error:', e);
   }
@@ -1221,16 +1291,30 @@ function deselectAllContacts() { document.querySelectorAll('#dispatch-contacts i
 async function sendDispatch() {
   const messageId = document.getElementById('dispatch-message').value;
   const contactIds = [...document.querySelectorAll('#dispatch-contacts input:checked')].map(i=>i.value);
+  const scheduleVal = document.getElementById('dispatch-schedule')?.value;
+  const useWhatsapp = document.getElementById('dispatch-use-wpp')?.checked !== false;
+  const errEl = document.getElementById('dispatch-error');
+  if (errEl) { errEl.style.display='none'; }
   if (!messageId) { notify('Selecione uma mensagem','error'); return; }
   if (!contactIds.length) { notify('Selecione pelo menos um contato','error'); return; }
   try {
-    const res = await authFetch(`${API}/dispatches`, { method:'POST', body:JSON.stringify({messageId,contactIds}) });
+    const body = { messageId, contactIds, useWhatsapp };
+    if (scheduleVal) body.scheduledAt = new Date(scheduleVal).toISOString();
+    const res = await authFetch(`${API}/dispatches`, { method:'POST', body:JSON.stringify(body) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    notify(`Disparo iniciado para ${contactIds.length} contatos!`,'success');
+    if (data.scheduled) {
+      notify(`⏰ Disparo agendado para ${new Date(scheduleVal).toLocaleString('pt-BR')}!`);
+    } else {
+      notify(data.via === 'whatsapp' ? `📱 Disparo real iniciado via WhatsApp para ${contactIds.length} contatos!` : `✅ Disparo iniciado para ${contactIds.length} contatos!`, 'success');
+    }
+    if (document.getElementById('dispatch-schedule')) document.getElementById('dispatch-schedule').value = '';
     loadDispatches();
     startPollDispatches();
-  } catch(e) { notify(e.message,'error'); }
+  } catch(e) {
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+    notify(e.message,'error');
+  }
 }
 
 async function loadDispatches() {
@@ -1241,8 +1325,8 @@ async function loadDispatches() {
     el.innerHTML = '<p style="color:var(--text3);text-align:center;padding:30px;font-size:13px">Nenhum disparo realizado</p>';
     return;
   }
-  const statusMap = { pending:'badge-yellow', sending:'badge-blue', completed:'badge-green' };
-  const statusLabel = { pending:'Pendente', sending:'Enviando...', completed:'Concluído' };
+  const statusMap = { pending:'badge-yellow', scheduled:'badge-yellow', sending:'badge-blue', completed:'badge-green', failed:'badge-red' };
+  const statusLabel = { pending:'Pendente', scheduled:'⏰ Agendado', sending:'Enviando...', completed:'Concluído', failed:'Falhou' };
   el.innerHTML = dispatches.slice().reverse().map(d => {
     const pct = d.total ? Math.round((d.sent+d.failed)/d.total*100) : 0;
     return `<div class="dispatch-item">
@@ -1573,6 +1657,61 @@ async function wppTestSend() {
   } catch(e) {
     errEl.textContent = e.message;
     errEl.style.display = 'block';
+  }
+}
+
+
+// ============ PLANS ============
+async function loadPlans() {
+  try {
+    const res = await authFetch(`${API}/subscription`);
+    if (!res.ok) return;
+    const sub = await res.json();
+    const planNames = { free: 'Gratuito', basic: 'Básico', pro: 'Pro', enterprise: 'Enterprise' };
+    document.getElementById('current-plan-name').textContent = planNames[sub.plan] || 'Gratuito';
+    if (sub.plan !== 'free') {
+      document.getElementById('portal-btn').style.display = 'inline-block';
+    }
+    // Highlight active plan
+    ['basic','pro','enterprise'].forEach(p => {
+      const card = document.getElementById('plan-' + p);
+      if (card) {
+        if (sub.plan === p) {
+          card.style.borderColor = 'var(--green)';
+          card.querySelector('button').textContent = '✅ Plano Atual';
+          card.querySelector('button').disabled = true;
+          card.querySelector('button').style.opacity = '0.6';
+        }
+      }
+    });
+    // Check payment success in URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      notify('🎉 Pagamento confirmado! Seu plano foi ativado.');
+      history.replaceState({}, '', '/');
+    }
+  } catch(e) { console.error('loadPlans:', e); }
+}
+
+async function subscribePlan(planId) {
+  try {
+    const res = await authFetch(`${API}/stripe/checkout`, { method: 'POST', body: JSON.stringify({ planId }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    window.location.href = data.url;
+  } catch(e) {
+    notify(e.message, 'error');
+  }
+}
+
+async function openPortal() {
+  try {
+    const res = await authFetch(`${API}/stripe/portal`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    window.location.href = data.url;
+  } catch(e) {
+    notify(e.message, 'error');
   }
 }
 
