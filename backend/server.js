@@ -93,7 +93,7 @@ app.post('/api/auth/login', async (req, res) => {
       token,
       user_id: user.id,
       user_data: userData,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     });
 
     res.json({ token, user: userData });

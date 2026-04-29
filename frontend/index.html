@@ -938,7 +938,16 @@ async function doLogout() {
 }
 
 function authFetch(url, opts = {}) {
-  return fetch(url, { ...opts, headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}`, ...(opts.headers||{}) } });
+  return fetch(url, { ...opts, headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}`, ...(opts.headers||{}) } })
+    .then(res => {
+      if (res.status === 401) {
+        // Token expirado — força logout e recarrega
+        localStorage.removeItem('zap_token');
+        localStorage.removeItem('zap_user');
+        location.reload();
+      }
+      return res;
+    });
 }
 
 // ============ APP INIT ============
