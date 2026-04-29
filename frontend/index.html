@@ -790,7 +790,7 @@ tbody td{padding:12px 14px;vertical-align:middle}
 </div>
 
 <script>
-const API = 'http://localhost:3001/api';
+const API = window.ZAPSAAS_API_URL || 'https://SEU-PROJETO.up.railway.app/api';
 let token = localStorage.getItem('zap_token');
 let currentUser = JSON.parse(localStorage.getItem('zap_user') || 'null');
 let currentMenu = 'main';
