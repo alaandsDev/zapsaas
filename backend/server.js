@@ -49,23 +49,28 @@ async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Não autorizado' });
 
-  const { data: session, error } = await supabase
-    .from('sessions')
-    .select('*')
-    .eq('token', token)
-    .single();
+  try {
+    const { data: session, error } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('token', token)
+      .single();
 
-  if (error || !session) {
-    console.log('[auth] Sessão não encontrada. Token:', token?.substring(0,8), 'Erro:', error?.message);
-    return res.status(401).json({ error: 'Sessão inválida' });
-  }
-  if (new Date(session.expires_at) < new Date()) {
-    await supabase.from('sessions').delete().eq('token', token);
-    return res.status(401).json({ error: 'Sessão expirada' });
-  }
+    if (error || !session) {
+      console.log('[auth] 401 - token:', token?.substring(0,12), '| erro:', error?.code, error?.message);
+      return res.status(401).json({ error: 'Sessão inválida' });
+    }
+    if (new Date(session.expires_at) < new Date()) {
+      await supabase.from('sessions').delete().eq('token', token);
+      return res.status(401).json({ error: 'Sessão expirada' });
+    }
 
-  req.user = session.user_data;
-  next();
+    req.user = session.user_data;
+    next();
+  } catch (e) {
+    console.error('[auth] Erro inesperado:', e.message);
+    return res.status(500).json({ error: 'Erro de autenticação' });
+  }
 }
 
 // ── HEALTH CHECK ──────────────────────────────────────────────
