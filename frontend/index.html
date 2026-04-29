@@ -451,6 +451,10 @@ tbody td{padding:12px 14px;vertical-align:middle}
           <div class="nav-label">Captação</div>
           <div class="nav-item" data-view="leadform" onclick="navigate('leadform')"><span class="icon">📋</span>Formulário</div>
         </div>
+        <div class="nav-section">
+          <div class="nav-label">Integrações</div>
+          <div class="nav-item" data-view="whatsapp" onclick="navigate('whatsapp')"><span class="icon">💬</span>WhatsApp <span id="wpp-nav-dot" style="margin-left:auto;width:8px;height:8px;background:var(--text3);border-radius:50%;display:inline-block"></span></div>
+        </div>
       </div>
       <div class="sidebar-footer">
         <div class="user-info" onclick="doLogout()">
@@ -678,6 +682,78 @@ tbody td{padding:12px 14px;vertical-align:middle}
               </div>
             </div>
           </div>
+
+        <!-- WHATSAPP -->
+        <div class="view" id="view-whatsapp">
+          <div class="grid-2" style="max-width:900px">
+            <!-- Coluna esquerda: status e QR -->
+            <div>
+              <div class="section-card" style="text-align:center;padding:32px">
+                <div id="wpp-status-icon" style="font-size:48px;margin-bottom:16px">💬</div>
+                <h3 id="wpp-status-title" style="font-size:18px;margin-bottom:8px">WhatsApp Desconectado</h3>
+                <p id="wpp-status-desc" style="font-size:13px;color:var(--text2);margin-bottom:24px">Conecte seu WhatsApp para enviar mensagens reais</p>
+
+                <!-- QR Code -->
+                <div id="wpp-qr-container" style="display:none;margin-bottom:24px">
+                  <div style="font-size:12px;color:var(--text2);margin-bottom:12px">📱 Abra o WhatsApp → Dispositivos → Conectar dispositivo → Escaneie:</div>
+                  <img id="wpp-qr-img" src="" style="border-radius:12px;max-width:260px;border:4px solid var(--green);padding:8px;background:#fff"/>
+                  <div style="font-size:11px;color:var(--text3);margin-top:10px">QR expira em 60 segundos — atualize se necessário</div>
+                </div>
+
+                <!-- Número conectado -->
+                <div id="wpp-connected-info" style="display:none;margin-bottom:24px">
+                  <div style="background:rgba(0,232,122,0.1);border:1px solid rgba(0,232,122,0.2);border-radius:10px;padding:16px;display:inline-block">
+                    <div style="font-size:11px;color:var(--text2);margin-bottom:4px">NÚMERO CONECTADO</div>
+                    <div id="wpp-phone-number" style="font-size:20px;font-weight:700;color:var(--green)">+55 11 99999-9999</div>
+                  </div>
+                </div>
+
+                <!-- Botões -->
+                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                  <button id="wpp-connect-btn" class="btn btn-primary" onclick="wppConnect()">Conectar WhatsApp</button>
+                  <button id="wpp-refresh-btn" class="btn btn-ghost" style="display:none" onclick="wppRefreshStatus()">🔄 Atualizar QR</button>
+                  <button id="wpp-disconnect-btn" class="btn btn-danger" style="display:none" onclick="wppDisconnect()">Desconectar</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna direita: teste de envio -->
+            <div>
+              <div class="section-card">
+                <div class="section-title" style="margin-bottom:16px">🧪 Testar Envio</div>
+                <div id="wpp-test-locked" style="color:var(--text3);font-size:13px;text-align:center;padding:20px">
+                  🔒 Conecte o WhatsApp para testar o envio
+                </div>
+                <div id="wpp-test-form" style="display:none">
+                  <div class="form-group">
+                    <label>Número de destino</label>
+                    <input type="text" id="wpp-test-phone" placeholder="(11) 99999-9999" oninput="maskPhone(this)"/>
+                    <div style="font-size:11px;color:var(--text3);margin-top:4px">Número que vai receber a mensagem de teste</div>
+                  </div>
+                  <div class="form-group">
+                    <label>Mensagem</label>
+                    <textarea id="wpp-test-msg" style="min-height:80px" placeholder="Olá {nome}! Esta é uma mensagem de teste do ZapSaaS 🚀">Olá! Esta é uma mensagem de teste do ZapSaaS 🚀</textarea>
+                  </div>
+                  <div class="error-msg" id="wpp-test-error"></div>
+                  <div class="success-msg" id="wpp-test-success"></div>
+                  <button class="btn btn-primary" onclick="wppTestSend()">📤 Enviar Teste</button>
+                </div>
+              </div>
+
+              <div class="section-card" style="margin-top:0">
+                <div class="section-title" style="margin-bottom:12px">ℹ️ Como funciona</div>
+                <div style="font-size:12px;color:var(--text2);line-height:1.8">
+                  <div style="margin-bottom:8px">1️⃣ Clique em <b style="color:var(--green)">Conectar</b> e aguarde o QR Code</div>
+                  <div style="margin-bottom:8px">2️⃣ Abra o <b>WhatsApp</b> no celular</div>
+                  <div style="margin-bottom:8px">3️⃣ Vá em <b>Dispositivos Conectados → Conectar</b></div>
+                  <div style="margin-bottom:8px">4️⃣ Escaneie o QR Code</div>
+                  <div>5️⃣ Use a aba <b style="color:var(--blue)">Disparos</b> para enviar mensagens reais!</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         </div>
 
       </div>
@@ -889,9 +965,11 @@ const pageInfo = {
   messages: ['Mensagens', 'Criar e gerenciar mensagens para disparo'],
   dispatch: ['Disparos', 'Enviar mensagens em massa'],
   leadform: ['Formulário de Captura', 'Formulário público de captação de leads'],
+  whatsapp: ['WhatsApp', 'Conectar e enviar mensagens reais via WhatsApp'],
 };
 
 function navigate(view) {
+  if (view === 'whatsapp') { wppRefreshStatus(); }
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`view-${view}`).classList.add('active');
@@ -1352,6 +1430,135 @@ function notify(msg, type='success') {
   n.innerHTML = `${type==='success'?'✅':'❌'} ${msg}`;
   document.body.appendChild(n);
   setTimeout(() => n.remove(), 3000);
+}
+
+
+// ============ WHATSAPP ============
+let wppPollInterval = null;
+
+async function wppConnect() {
+  document.getElementById('wpp-connect-btn').innerHTML = '<span class="spinner"></span> Conectando...';
+  try {
+    await authFetch(`${API}/whatsapp/connect`, { method: 'POST' });
+    await wppRefreshStatus();
+    // Começa a fazer polling do QR/status
+    wppStartPolling();
+  } catch(e) {
+    notify('Erro ao conectar WhatsApp', 'error');
+    document.getElementById('wpp-connect-btn').textContent = 'Conectar WhatsApp';
+  }
+}
+
+async function wppRefreshStatus() {
+  try {
+    const res = await authFetch(`${API}/whatsapp/status`);
+    const data = await res.json();
+    wppUpdateUI(data);
+  } catch(e) {}
+}
+
+function wppUpdateUI(data) {
+  const icon = document.getElementById('wpp-status-icon');
+  const title = document.getElementById('wpp-status-title');
+  const desc = document.getElementById('wpp-status-desc');
+  const qrContainer = document.getElementById('wpp-qr-container');
+  const connInfo = document.getElementById('wpp-connected-info');
+  const connectBtn = document.getElementById('wpp-connect-btn');
+  const refreshBtn = document.getElementById('wpp-refresh-btn');
+  const disconnectBtn = document.getElementById('wpp-disconnect-btn');
+  const testLocked = document.getElementById('wpp-test-locked');
+  const testForm = document.getElementById('wpp-test-form');
+  const navDot = document.getElementById('wpp-nav-dot');
+
+  if (data.status === 'connected') {
+    icon.textContent = '✅';
+    title.textContent = 'WhatsApp Conectado!';
+    desc.textContent = 'Pronto para enviar mensagens reais';
+    qrContainer.style.display = 'none';
+    connInfo.style.display = 'block';
+    document.getElementById('wpp-phone-number').textContent = data.phone ? `+${data.phone}` : 'Conectado';
+    connectBtn.style.display = 'none';
+    refreshBtn.style.display = 'none';
+    disconnectBtn.style.display = 'inline-flex';
+    testLocked.style.display = 'none';
+    testForm.style.display = 'block';
+    if (navDot) { navDot.style.background = 'var(--green)'; }
+    wppStopPolling();
+  } else if (data.status === 'qr_ready' && data.qr) {
+    icon.textContent = '📱';
+    title.textContent = 'Escaneie o QR Code';
+    desc.textContent = 'Abra o WhatsApp no celular e escaneie';
+    qrContainer.style.display = 'block';
+    document.getElementById('wpp-qr-img').src = data.qr;
+    connInfo.style.display = 'none';
+    connectBtn.style.display = 'none';
+    refreshBtn.style.display = 'inline-flex';
+    disconnectBtn.style.display = 'none';
+    if (navDot) { navDot.style.background = 'var(--yellow)'; }
+  } else if (data.status === 'connecting') {
+    icon.textContent = '⏳';
+    title.textContent = 'Aguardando QR Code...';
+    desc.textContent = 'Gerando QR Code, aguarde alguns segundos';
+    connectBtn.innerHTML = '<span class="spinner"></span> Aguarde...';
+  } else {
+    // disconnected
+    icon.textContent = '💬';
+    title.textContent = 'WhatsApp Desconectado';
+    desc.textContent = 'Conecte seu WhatsApp para enviar mensagens reais';
+    qrContainer.style.display = 'none';
+    connInfo.style.display = 'none';
+    connectBtn.style.display = 'inline-flex';
+    connectBtn.textContent = 'Conectar WhatsApp';
+    refreshBtn.style.display = 'none';
+    disconnectBtn.style.display = 'none';
+    testLocked.style.display = 'block';
+    testForm.style.display = 'none';
+    if (navDot) { navDot.style.background = 'var(--text3)'; }
+  }
+}
+
+function wppStartPolling() {
+  wppStopPolling();
+  wppPollInterval = setInterval(async () => {
+    const res = await authFetch(`${API}/whatsapp/status`);
+    const data = await res.json();
+    wppUpdateUI(data);
+    if (data.status === 'connected') wppStopPolling();
+  }, 2500);
+}
+
+function wppStopPolling() {
+  if (wppPollInterval) { clearInterval(wppPollInterval); wppPollInterval = null; }
+}
+
+async function wppDisconnect() {
+  if (!confirm('Desconectar o WhatsApp? Você precisará escanear o QR novamente.')) return;
+  try {
+    await authFetch(`${API}/whatsapp/disconnect`, { method: 'POST' });
+    wppUpdateUI({ status: 'disconnected' });
+    notify('WhatsApp desconectado');
+  } catch(e) {
+    notify('Erro ao desconectar', 'error');
+  }
+}
+
+async function wppTestSend() {
+  const phone = document.getElementById('wpp-test-phone').value.trim();
+  const message = document.getElementById('wpp-test-msg').value.trim();
+  const errEl = document.getElementById('wpp-test-error');
+  const succEl = document.getElementById('wpp-test-success');
+  errEl.style.display = 'none'; succEl.style.display = 'none';
+  if (!phone || !message) { errEl.textContent = 'Preencha o número e a mensagem'; errEl.style.display = 'block'; return; }
+  try {
+    const res = await authFetch(`${API}/whatsapp/send`, { method: 'POST', body: JSON.stringify({ phone, message }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    succEl.textContent = '✅ Mensagem enviada com sucesso!';
+    succEl.style.display = 'block';
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
 }
 
 // ============ START ============

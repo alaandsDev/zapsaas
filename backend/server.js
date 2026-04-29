@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
+const wpp = require('./whatsapp');
 
 const app = express();
 
@@ -451,10 +452,114 @@ app.get('/api/stats', requireAuth, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// WHATSAPP
+// ═══════════════════════════════════════════════════════════════
+
+// Iniciar / conectar sessão (gera QR)
+app.post('/api/whatsapp/connect', requireAuth, async (req, res) => {
+  try {
+    const sessionId = req.user.id; // cada usuário tem sua sessão
+    const result = await wpp.createSession(sessionId);
+    res.json(result);
+  } catch (e) {
+    console.error('[WPP] connect error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Status da sessão + QR Code atual
+app.get('/api/whatsapp/status', requireAuth, async (req, res) => {
+  const sessionId = req.user.id;
+  res.json(wpp.getStatus(sessionId));
+});
+
+// Desconectar / logout
+app.post('/api/whatsapp/disconnect', requireAuth, async (req, res) => {
+  try {
+    await wpp.disconnectSession(req.user.id);
+    res.json({ message: 'Desconectado com sucesso' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Enviar mensagem única (teste)
+app.post('/api/whatsapp/send', requireAuth, async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+    if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem são obrigatórios' });
+    const result = await wpp.sendMessage(req.user.id, phone, message);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Disparo em massa REAL via WhatsApp
+app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
+  try {
+    const { messageId, contactIds } = req.body;
+    if (!messageId || !contactIds?.length) {
+      return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
+    }
+
+    const status = wpp.getStatus(req.user.id);
+    if (status.status !== 'connected') {
+      return res.status(400).json({ error: 'WhatsApp não conectado. Escaneie o QR Code primeiro.' });
+    }
+
+    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).single();
+    if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
+
+    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds);
+    if (!contacts?.length) return res.status(404).json({ error: 'Nenhum contato encontrado' });
+
+    // Cria registro do disparo no banco
+    const items = contacts.map(c => ({ contactId: c.id, contactName: c.name, contactPhone: c.phone, status: 'pending' }));
+    const { data: dispatch } = await supabase.from('dispatches').insert({
+      message_id: messageId,
+      message_title: message.title,
+      message_content: message.content,
+      total: contacts.length,
+      sent: 0, failed: 0,
+      status: 'sending',
+      items,
+      user_id: req.user.id
+    }).select().single();
+
+    res.json({ dispatchId: dispatch.id, total: contacts.length, message: 'Disparo iniciado!' });
+
+    // Executa envio real em background
+    (async () => {
+      const results = await wpp.sendBulk(req.user.id, contacts, message.content, 2500);
+      const sent = results.filter(r => r.status === 'sent').length;
+      const failed = results.filter(r => r.status === 'failed').length;
+      const updatedItems = results.map(r => ({
+        contactId: r.id, contactName: r.name, contactPhone: r.phone,
+        status: r.status, sentAt: new Date().toISOString(), error: r.error || null
+      }));
+      await supabase.from('dispatches').update({
+        sent, failed, status: 'completed',
+        items: updatedItems,
+        completed_at: new Date().toISOString()
+      }).eq('id', dispatch.id);
+      console.log(`[WPP] Disparo ${dispatch.id} concluído: ${sent} enviados, ${failed} falhas`);
+    })();
+
+  } catch (e) {
+    console.error('[WPP] dispatch error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── START ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`\n🚀 ZapSaaS v2 rodando em http://localhost:${PORT}`);
   console.log(`📦 Banco: Supabase`);
-  console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}\n`);
+  console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  // Restaura sessões WhatsApp salvas
+  await wpp.restoreSessions();
+  console.log(`📱 WhatsApp: sessions restauradas\n`);
 });
