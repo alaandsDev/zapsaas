@@ -55,7 +55,10 @@ async function requireAuth(req, res, next) {
     .eq('token', token)
     .single();
 
-  if (error || !session) return res.status(401).json({ error: 'Sessão inválida' });
+  if (error || !session) {
+    console.log('[auth] Sessão não encontrada. Token:', token?.substring(0,8), 'Erro:', error?.message);
+    return res.status(401).json({ error: 'Sessão inválida' });
+  }
   if (new Date(session.expires_at) < new Date()) {
     await supabase.from('sessions').delete().eq('token', token);
     return res.status(401).json({ error: 'Sessão expirada' });
@@ -89,13 +92,19 @@ app.post('/api/auth/login', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const userData = { id: user.id, name: user.name, email: user.email, role: user.role };
 
-    await supabase.from('sessions').insert({
+    const { error: sessionError } = await supabase.from('sessions').insert({
       token,
       user_id: user.id,
       user_data: userData,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     });
 
+    if (sessionError) {
+      console.error('[login] Erro ao salvar sessão:', sessionError);
+      return res.status(500).json({ error: 'Erro ao criar sessão: ' + sessionError.message });
+    }
+
+    console.log('[login] Sessão criada para:', userData.email);
     res.json({ token, user: userData });
   } catch (e) {
     console.error('Login error:', e);
