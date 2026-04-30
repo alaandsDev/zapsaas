@@ -1289,7 +1289,7 @@ function navigate(view) {
     else if (view === 'leads') loadLeads();
     else if (view === 'messages') loadMessages();
     else if (view === 'dispatch') loadDispatchView();
-    else if (view === 'contacts') loadContacts();
+    else if (view === 'contacts') { loadContacts(); loadLists(); }
     else if (view === 'settings') loadSettings();
     else if (view === 'whatsapp') { try { wppInit(); } catch(e) { console.error('wppInit error:', e); } }
     else if (view === 'plans') loadPlans();
