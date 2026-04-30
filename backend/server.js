@@ -482,12 +482,12 @@ app.get('/api/stats', requireAuth, async (req, res) => {
       { data: dispatchData },
       { data: lastLeads }
     ] = await Promise.all([
-      supabase.from('leads').select('*', { count: 'exact', head: true }),
-      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'new'),
-      supabase.from('messages').select('*', { count: 'exact', head: true }),
-      supabase.from('dispatches').select('*', { count: 'exact', head: true }),
-      supabase.from('dispatches').select('sent'),
-      supabase.from('leads').select('id, name, phone, status, created_at').order('created_at', { ascending: false }).limit(5)
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id).eq('status', 'new'),
+      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
+      supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
+      supabase.from('dispatches').select('sent').eq('user_id', req.user.id),
+      supabase.from('leads').select('id, name, phone, status, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(5)
     ]);
 
     const messagesSent = (dispatchData || []).reduce((acc, d) => acc + (d.sent || 0), 0);

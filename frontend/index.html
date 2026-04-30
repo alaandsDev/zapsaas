@@ -1309,6 +1309,14 @@ async function loadDashboard() {
     document.getElementById('stat-sent').textContent = data.messagesSent;
     const lbDash = document.getElementById('leads-badge');
     if (lbDash) lbDash.textContent = data.leads;
+    // Also show lists count in contacts badge
+    try {
+      const lr = await authFetch(`${API}/lists`);
+      const lists = await lr.json();
+      allLists = lists;
+      const cb = document.getElementById('contacts-badge');
+      if (cb) cb.textContent = lists.length;
+    } catch {}
     const rl = document.getElementById('recent-leads-list');
     if (!data.lastLeads?.length) {
       rl.innerHTML = '<p style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Nenhum lead ainda</p>';
@@ -1320,7 +1328,7 @@ async function loadDashboard() {
             <div style="font-size:13px;font-weight:600">${esc(l.name)}</div>
             <div style="font-size:11px;color:var(--text3)">${esc(l.phone)} ${l.interest?'• '+esc(l.interest):''}</div>
           </div>
-          <div style="font-size:11px;color:var(--text3)">${timeAgo(l.createdAt)}</div>
+          <div style="font-size:11px;color:var(--text3)">${timeAgo(l.created_at || l.createdAt)}</div>
         </div>`).join('');
     }
   } catch {}
@@ -2290,10 +2298,13 @@ function fmtDate(iso) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 function timeAgo(iso) {
-  const s = Math.floor((Date.now()-new Date(iso))/1000);
-  if (s<60) return 'agora';
-  if (s<3600) return `${Math.floor(s/60)}min atrás`;
-  if (s<86400) return `${Math.floor(s/3600)}h atrás`;
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const s = Math.floor((Date.now() - d) / 1000);
+  if (s < 60) return 'agora';
+  if (s < 3600) return `${Math.floor(s/60)}min atrás`;
+  if (s < 86400) return `${Math.floor(s/3600)}h atrás`;
   return `${Math.floor(s/86400)}d atrás`;
 }
 function maskPhone(el) {
