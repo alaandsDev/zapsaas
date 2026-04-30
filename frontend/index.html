@@ -414,6 +414,19 @@ tbody td{padding:12px 14px;vertical-align:middle}
 .wachat-no-chat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text3);padding:40px}
 .wachat-no-chat .big-icon{font-size:80px;margin-bottom:20px;opacity:.2}
 
+/* ===== MULTI-MESSAGE DISPATCH ===== */
+.msg-block{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;position:relative}
+.msg-block-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.msg-block-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase}
+.msg-block-actions{display:flex;gap:6px;align-items:center}
+.msg-block textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;font-family:'DM Sans',sans-serif;resize:vertical;min-height:80px;box-sizing:border-box}
+.msg-block textarea:focus{border-color:var(--green)}
+.msg-var-btn{display:inline-flex;align-items:center;gap:4px;background:rgba(0,232,122,.1);border:1px solid rgba(0,232,122,.2);color:var(--green);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;transition:background .15s}
+.msg-var-btn:hover{background:rgba(0,232,122,.2)}
+.msg-remove-btn{background:rgba(255,80,80,.1);border:1px solid rgba(255,80,80,.15);color:var(--red);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;transition:background .15s}
+.msg-remove-btn:hover{background:rgba(255,80,80,.2)}
+.msg-counter{background:var(--green);color:#000;font-size:10px;font-weight:800;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+
 /* ===== LIST CARDS ===== */
 .list-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;transition:border-color .2s}
 .list-card:hover{border-color:var(--green)}
@@ -799,8 +812,16 @@ tbody td{padding:12px 14px;vertical-align:middle}
                 </select>
               </div>
               <div class="form-group">
-                <label>Mensagem</label>
-                <textarea id="dispatch-text" rows="5" placeholder="Digite a mensagem aqui...&#10;&#10;Use {nome} para personalizar com o nome do contato." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;font-family:'DM Sans',sans-serif;resize:vertical"></textarea>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <label style="margin:0">Mensagens <span style="color:var(--text3);font-size:11px;font-weight:400">(cada número recebe 1 mensagem em sequência)</span></label>
+                  <button class="btn btn-ghost btn-sm" onclick="addDispatchMessage()" style="font-size:11px">+ Adicionar Mensagem</button>
+                </div>
+                <div id="dispatch-messages-list">
+                  <!-- Messages added dynamically -->
+                </div>
+                <div style="margin-top:6px;font-size:11px;color:var(--text3)">
+                  💡 Nº1 vai pro contato 1, Nº2 pro contato 2... evita padrão e reduz risco de banimento
+                </div>
               </div>
               <div class="form-group">
                 <label>Lista de Contatos</label>
@@ -1515,8 +1536,66 @@ async function deleteMessage(id) {
   loadMessages();
 }
 
-// ============ DISPATCH ============
+// ============ MULTI-MESSAGE DISPATCH ============
+let dispatchMessages = [];
+
+function initDispatchMessages() {
+  dispatchMessages = [{ id: Date.now(), text: '' }];
+  renderDispatchMessages();
+}
+
+function addDispatchMessage() {
+  dispatchMessages.push({ id: Date.now(), text: '' });
+  renderDispatchMessages();
+}
+
+function removeDispatchMessage(id) {
+  if (dispatchMessages.length <= 1) { notify('Precisa ter pelo menos 1 mensagem', 'error'); return; }
+  dispatchMessages = dispatchMessages.filter(m => m.id !== id);
+  renderDispatchMessages();
+}
+
+function renderDispatchMessages() {
+  const el = document.getElementById('dispatch-messages-list');
+  if (!el) return;
+  el.innerHTML = dispatchMessages.map((m, i) => `
+    <div class="msg-block" id="msg-block-${m.id}">
+      <div class="msg-block-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="msg-counter">${i+1}</span>
+          <span class="msg-block-label">Mensagem ${i+1}</span>
+        </div>
+        <div class="msg-block-actions">
+          <span class="msg-var-btn" onclick="insertVar(${m.id}, '{nome}')">+ {nome}</span>
+          <span class="msg-var-btn" onclick="insertVar(${m.id}, '{numero}')">+ {numero}</span>
+          ${dispatchMessages.length > 1 ? `<span class="msg-remove-btn" onclick="removeDispatchMessage(${m.id})">✕ Remover</span>` : ''}
+        </div>
+      </div>
+      <textarea id="msg-textarea-${m.id}" rows="4" placeholder="Digite a mensagem ${i+1} aqui..." oninput="syncMessage(${m.id}, this.value)">${esc(m.text)}</textarea>
+    </div>`).join('');
+}
+
+function syncMessage(id, value) {
+  const msg = dispatchMessages.find(m => m.id === id);
+  if (msg) msg.text = value;
+}
+
+function insertVar(id, variable) {
+  const ta = document.getElementById(`msg-textarea-${id}`);
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const before = ta.value.substring(0, start);
+  const after = ta.value.substring(end);
+  ta.value = before + variable + after;
+  ta.focus();
+  ta.setSelectionRange(start + variable.length, start + variable.length);
+  syncMessage(id, ta.value);
+}
+
+
 async function loadDispatchView() {
+  initDispatchMessages();
   await loadLeads();
   // Populate connection dropdown
   const connSel = document.getElementById('dispatch-connection');
@@ -1604,57 +1683,59 @@ function selectAllContacts() { document.querySelectorAll('#dispatch-contacts inp
 function deselectAllContacts() { document.querySelectorAll('#dispatch-contacts input').forEach(i=>i.checked=false); updateSelectedCount(); }
 
 async function sendDispatch() {
-  const text = document.getElementById('dispatch-text')?.value?.trim();
+  // Collect all messages
+  const messages = dispatchMessages.map(m => m.text.trim()).filter(Boolean);
   const checkedInputs = [...document.querySelectorAll('#dispatch-contacts input:checked')];
-  const phones = checkedInputs.map(i => ({ phone: i.value, name: i.dataset.name || '' }));
+  const phones = checkedInputs.map(i => ({ phone: i.value, name: i.dataset.name || '', _leadId: i.dataset.leadId || '' }));
   const scheduleVal = document.getElementById('dispatch-schedule')?.value;
   const delay = parseInt(document.getElementById('dispatch-delay')?.value || '3');
   const pauseEvery = parseInt(document.getElementById('dispatch-pause-every')?.value || '0');
   const pauseDuration = parseInt(document.getElementById('dispatch-pause-duration')?.value || '5');
-  const listType = document.getElementById('dispatch-contact-list')?.value?.startsWith('list:') ? 'imported' : 'leads';
+  const listVal = document.getElementById('dispatch-contact-list')?.value;
   const errEl = document.getElementById('dispatch-error');
   if (errEl) errEl.style.display = 'none';
 
-  if (!text) { notify('Digite uma mensagem para o disparo', 'error'); return; }
+  if (!messages.length) { notify('Digite pelo menos uma mensagem', 'error'); return; }
   if (!phones.length) { notify('Selecione pelo menos um contato', 'error'); return; }
+
+  // Build phones array with round-robin message assigned
+  const phonesWithMsg = phones.map((p, i) => ({
+    ...p,
+    message: messages[i % messages.length]
+      .replace(/\{nome\}/gi, p.name || '')
+      .replace(/\{name\}/gi, p.name || '')
+      .replace(/\{numero\}/gi, p.phone || '')
+  }));
 
   const btnDisparar = document.querySelector('button[onclick="sendDispatch()"]');
   if (btnDisparar) { btnDisparar.disabled = true; btnDisparar.textContent = '⏳ Enviando...'; }
 
   try {
     let res, data;
+    const isLeads = listVal === 'leads';
 
-    if (listType === 'leads') {
-      // Leads: criar mensagem no banco e usar /api/dispatches
+    if (isLeads && messages.length === 1) {
+      // Single message to leads: use standard dispatches endpoint
       const msgRes = await authFetch(`${API}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ title: `Disparo ${new Date().toLocaleDateString('pt-BR')}`, content: text, tags: [] })
+        body: JSON.stringify({ title: `Disparo ${new Date().toLocaleDateString('pt-BR')}`, content: messages[0], tags: [] })
       });
       const msgData = await msgRes.json();
       if (!msgRes.ok) throw new Error(msgData.error || 'Erro ao criar mensagem');
-
-      const contactIds = phones.map(p => {
-        const lead = allLeads.find(l => l.phone === p.phone);
-        return lead?.id;
-      }).filter(Boolean);
-
+      const contactIds = phones.map(p => p._leadId).filter(Boolean);
       res = await authFetch(`${API}/dispatches`, {
         method: 'POST',
-        body: JSON.stringify({
-          messageId: msgData.id,
-          contactIds,
-          useWhatsapp: true,
-          scheduledAt: scheduleVal ? new Date(scheduleVal).toISOString() : undefined
-        })
+        body: JSON.stringify({ messageId: msgData.id, contactIds, useWhatsapp: true, scheduledAt: scheduleVal ? new Date(scheduleVal).toISOString() : undefined })
       });
       data = await res.json();
     } else {
-      // Contatos importados: usar /api/whatsapp/bulk
+      // Multi-message or imported contacts: use /api/whatsapp/bulk with pre-personalized messages
       res = await authFetch(`${API}/whatsapp/bulk`, {
         method: 'POST',
         body: JSON.stringify({
-          phones,
-          message: text,
+          phones: phonesWithMsg.map(p => ({ phone: p.phone, name: p.name, text: p.message })),
+          message: messages[0], // fallback
+          multiMessage: true,
           delay,
           pauseEvery,
           pauseDuration,
@@ -1666,10 +1747,11 @@ async function sendDispatch() {
 
     if (!res.ok) throw new Error(data.error || 'Erro no disparo');
 
+    const totalMsgs = messages.length > 1 ? `${messages.length} variações` : '1 mensagem';
     if (scheduleVal) {
       notify(`⏰ Disparo agendado para ${new Date(scheduleVal).toLocaleString('pt-BR')}!`, 'success');
     } else {
-      notify(`🚀 Disparo iniciado para ${phones.length} contatos!`, 'success');
+      notify(`🚀 Disparo iniciado! ${phones.length} contatos · ${totalMsgs} em rotação`, 'success');
     }
     document.getElementById('dispatch-schedule').value = '';
     loadDispatches();

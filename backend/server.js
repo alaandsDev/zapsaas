@@ -653,8 +653,9 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
         for (let i = 0; i < phones.length; i++) {
           const p = phones[i];
           try {
-            const personalizedMsg = message.replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '');
-            await wpp.sendMessage(req.user.id, p.phone, personalizedMsg);
+            // Support pre-personalized text per phone (multiMessage mode)
+            const msgText = p.text || message.replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '').replace(/\{numero\}/gi, p.phone || '');
+            await wpp.sendMessage(req.user.id, p.phone, msgText);
             updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString() };
             sent++;
           } catch (e) {
