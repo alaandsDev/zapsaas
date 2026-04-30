@@ -607,6 +607,69 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
   }
 });
 
+// Disparo em massa por lista de números diretos (contatos importados)
+app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
+  try {
+    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt } = req.body;
+    if (!message || !phones?.length) {
+      return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
+    }
+    const status = wpp.getStatus(req.user.id);
+    if (status.status !== 'connected') {
+      return res.status(400).json({ error: 'WhatsApp não conectado. Escaneie o QR Code primeiro.' });
+    }
+    const items = phones.map(p => ({ contactName: p.name || p.phone, contactPhone: p.phone, status: 'pending' }));
+    const { data: dispatch, error } = await supabase.from('dispatches').insert({
+      message_id: null,
+      message_title: `Disparo ${new Date().toLocaleDateString('pt-BR')}`,
+      message_content: message,
+      total: phones.length,
+      sent: 0, failed: 0,
+      status: scheduledAt ? 'scheduled' : 'sending',
+      items,
+      user_id: req.user.id,
+      scheduled_at: scheduledAt || null
+    }).select().single();
+    if (error) throw error;
+    res.json({ dispatchId: dispatch.id, total: phones.length, message: scheduledAt ? 'Disparo agendado!' : 'Disparo iniciado!' });
+    if (!scheduledAt) {
+      (async () => {
+        const delayMs = Math.max(1000, (parseInt(delay) || 3) * 1000);
+        const pause = parseInt(pauseEvery) || 0;
+        const pauseMs = (parseInt(pauseDuration) || 5) * 60 * 1000;
+        const updatedItems = [...items];
+        let sent = 0, failed = 0;
+        for (let i = 0; i < phones.length; i++) {
+          const p = phones[i];
+          try {
+            const personalizedMsg = message.replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '');
+            await wpp.sendMessage(req.user.id, p.phone, personalizedMsg);
+            updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString() };
+            sent++;
+          } catch (e) {
+            updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message };
+            failed++;
+          }
+          await supabase.from('dispatches').update({ sent, failed, items: updatedItems }).eq('id', dispatch.id);
+          if (i < phones.length - 1) {
+            await new Promise(r => setTimeout(r, delayMs));
+            if (pause > 0 && (i + 1) % pause === 0) {
+              await new Promise(r => setTimeout(r, pauseMs));
+            }
+          }
+        }
+        await supabase.from('dispatches').update({
+          sent, failed, status: 'completed', items: updatedItems,
+          completed_at: new Date().toISOString()
+        }).eq('id', dispatch.id);
+      })();
+    }
+  } catch (e) {
+    console.error('[bulk] error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // STRIPE — PLANOS E PAGAMENTOS
 // ═══════════════════════════════════════════════════════════════

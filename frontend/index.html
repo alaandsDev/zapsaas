@@ -1517,52 +1517,75 @@ async function sendDispatch() {
   const scheduleVal = document.getElementById('dispatch-schedule')?.value;
   const delay = parseInt(document.getElementById('dispatch-delay')?.value || '3');
   const pauseEvery = parseInt(document.getElementById('dispatch-pause-every')?.value || '0');
+  const pauseDuration = parseInt(document.getElementById('dispatch-pause-duration')?.value || '5');
+  const listType = document.getElementById('dispatch-contact-list')?.value;
   const errEl = document.getElementById('dispatch-error');
-  if (errEl) errEl.style.display='none';
-  if (!text) { notify('Digite uma mensagem para o disparo','error'); return; }
-  if (!phones.length) { notify('Selecione pelo menos um contato','error'); return; }
-  
-  // Build contactIds array (try to match leads by phone)
-  const contactIds = phones.map(p => {
-    const lead = allLeads.find(l => l.phone === p.phone);
-    return lead ? lead.id : null;
-  }).filter(Boolean);
+  if (errEl) errEl.style.display = 'none';
+
+  if (!text) { notify('Digite uma mensagem para o disparo', 'error'); return; }
+  if (!phones.length) { notify('Selecione pelo menos um contato', 'error'); return; }
+
+  const btnDisparar = document.querySelector('button[onclick="sendDispatch()"]');
+  if (btnDisparar) { btnDisparar.disabled = true; btnDisparar.textContent = '⏳ Enviando...'; }
 
   try {
-    const body = { 
-      messageId: null, 
-      contactIds: contactIds.length ? contactIds : undefined,
-      phones: contactIds.length ? undefined : phones,
-      text,
-      useWhatsapp: true,
-      delay,
-      pauseEvery,
-    };
-    if (scheduleVal) body.scheduledAt = new Date(scheduleVal).toISOString();
-    // Try the API; if contactIds available use standard endpoint
     let res, data;
-    if (contactIds.length) {
-      // create a temp message and dispatch
-      const msgRes = await authFetch(`${API}/messages`, { method:'POST', body: JSON.stringify({title:`Disparo ${new Date().toLocaleDateString('pt-BR')}`, content: text, tags:[]}) });
+
+    if (listType === 'leads') {
+      // Leads: criar mensagem no banco e usar /api/dispatches
+      const msgRes = await authFetch(`${API}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ title: `Disparo ${new Date().toLocaleDateString('pt-BR')}`, content: text, tags: [] })
+      });
       const msgData = await msgRes.json();
-      res = await authFetch(`${API}/dispatches`, { method:'POST', body: JSON.stringify({messageId: msgData.id, contactIds, useWhatsapp: true, scheduledAt: scheduleVal ? new Date(scheduleVal).toISOString() : undefined}) });
+      if (!msgRes.ok) throw new Error(msgData.error || 'Erro ao criar mensagem');
+
+      const contactIds = phones.map(p => {
+        const lead = allLeads.find(l => l.phone === p.phone);
+        return lead?.id;
+      }).filter(Boolean);
+
+      res = await authFetch(`${API}/dispatches`, {
+        method: 'POST',
+        body: JSON.stringify({
+          messageId: msgData.id,
+          contactIds,
+          useWhatsapp: true,
+          scheduledAt: scheduleVal ? new Date(scheduleVal).toISOString() : undefined
+        })
+      });
       data = await res.json();
     } else {
-      res = await authFetch(`${API}/dispatches`, { method:'POST', body: JSON.stringify(body) });
+      // Contatos importados: usar /api/whatsapp/bulk
+      res = await authFetch(`${API}/whatsapp/bulk`, {
+        method: 'POST',
+        body: JSON.stringify({
+          phones,
+          message: text,
+          delay,
+          pauseEvery,
+          pauseDuration,
+          scheduledAt: scheduleVal ? new Date(scheduleVal).toISOString() : undefined
+        })
+      });
       data = await res.json();
     }
+
     if (!res.ok) throw new Error(data.error || 'Erro no disparo');
+
     if (scheduleVal) {
-      notify(`⏰ Disparo agendado para ${new Date(scheduleVal).toLocaleString('pt-BR')}!`,'success');
+      notify(`⏰ Disparo agendado para ${new Date(scheduleVal).toLocaleString('pt-BR')}!`, 'success');
     } else {
       notify(`🚀 Disparo iniciado para ${phones.length} contatos!`, 'success');
     }
-    if (document.getElementById('dispatch-schedule')) document.getElementById('dispatch-schedule').value = '';
+    document.getElementById('dispatch-schedule').value = '';
     loadDispatches();
     startPollDispatches();
-  } catch(e) {
+  } catch (e) {
     if (errEl) { errEl.textContent = e.message; errEl.style.display = 'block'; }
-    notify(e.message,'error');
+    notify(e.message, 'error');
+  } finally {
+    if (btnDisparar) { btnDisparar.disabled = false; btnDisparar.textContent = '🚀 Disparar Mensagens'; }
   }
 }
 
