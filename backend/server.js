@@ -649,7 +649,13 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'boleto'],
+      payment_method_options: {
+        boleto: { expires_after_days: 3 }
+      },
+      locale: 'pt-BR',
+      phone_number_collection: { enabled: true },
+      tax_id_collection: { enabled: true },
       line_items: [{ price: plan.priceId, quantity: 1 }],
       success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=success&plan=${planId}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=cancelled`,
