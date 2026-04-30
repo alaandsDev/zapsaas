@@ -1,16 +1,13 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "frontend/index.html",
-      "use": "@vercel/static"
-    }
+    { "src": "landing/index.html", "use": "@vercel/static" },
+    { "src": "frontend/index.html", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/index.html"
-    }
+    { "src": "/app(.*)", "dest": "/frontend/index.html" },
+    { "src": "/", "dest": "/landing/index.html" },
+    { "src": "/(.*)", "dest": "/landing/index.html" }
   ],
   "headers": [
     {
