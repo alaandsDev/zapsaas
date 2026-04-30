@@ -671,8 +671,69 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// STRIPE — PLANOS E PAGAMENTOS
+// LISTAS DE CONTATOS
 // ═══════════════════════════════════════════════════════════════
+
+// Listar todas as listas do usuário
+app.get('/api/lists', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contact_lists')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Criar nova lista com contatos
+app.post('/api/lists', requireAuth, async (req, res) => {
+  try {
+    const { name, contacts } = req.body;
+    if (!name || !contacts?.length) return res.status(400).json({ error: 'Nome e contatos são obrigatórios' });
+    const { data, error } = await supabase.from('contact_lists').insert({
+      name,
+      contacts,
+      total: contacts.length,
+      user_id: req.user.id
+    }).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Buscar contatos de uma lista
+app.get('/api/lists/:id', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('contact_lists')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(404).json({ error: 'Lista não encontrada' });
+  }
+});
+
+// Deletar lista
+app.delete('/api/lists/:id', requireAuth, async (req, res) => {
+  try {
+    await supabase.from('contact_lists').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 
 const PLANS = {
   free: { name: 'Gratuito', price: 0,    priceId: null,                          leads: 50,    dispatches: 3  },

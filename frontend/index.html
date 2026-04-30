@@ -410,7 +410,16 @@ tbody td{padding:12px 14px;vertical-align:middle}
 .wachat-no-chat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text3);padding:40px}
 .wachat-no-chat .big-icon{font-size:80px;margin-bottom:20px;opacity:.2}
 
-/* ===== CONTACTS ===== */
+/* ===== LIST CARDS ===== */
+.list-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;transition:border-color .2s}
+.list-card:hover{border-color:var(--green)}
+.list-card-icon{width:42px;height:42px;background:rgba(0,232,122,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.list-card-info{flex:1;min-width:0}
+.list-card-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-card-meta{font-size:11px;color:var(--text3);margin-top:3px}
+.list-card-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* ===== CONTACTS / SUPPORT / SETTINGS ===== */
 .contacts-import-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:40px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
 .contacts-import-zone:hover,.contacts-import-zone.dragover{border-color:var(--green);background:var(--green-dim)}
 .contacts-import-zone .icon{font-size:40px;margin-bottom:12px}
@@ -677,10 +686,15 @@ tbody td{padding:12px 14px;vertical-align:middle}
         <!-- CONTACTS -->
         <div class="view" id="view-contacts">
           <div class="grid-2" style="align-items:start">
+            <!-- LEFT: Import -->
             <div>
               <div class="section-card">
                 <div class="section-header">
-                  <div class="section-title">📥 Importar Contatos</div>
+                  <div class="section-title">📥 Importar Nova Lista</div>
+                </div>
+                <div class="form-group">
+                  <label>Nome da Lista</label>
+                  <input type="text" id="list-name-input" placeholder="Ex: Clientes Janeiro, Campanha Saúde..." style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);width:100%;box-sizing:border-box;font-size:13px;outline:none"/>
                 </div>
                 <div class="contacts-import-zone" id="import-drop-zone" onclick="document.getElementById('contacts-file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleContactsDrop(event)">
                   <div class="icon">📂</div>
@@ -688,41 +702,56 @@ tbody td{padding:12px 14px;vertical-align:middle}
                   <p>Formato aceito: Excel (.xlsx) ou CSV (.csv)<br>Colunas obrigatórias: <b>NOME</b> e <b>NUMERO</b></p>
                   <input type="file" id="contacts-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleContactsFile(this.files[0])"/>
                 </div>
-                <div style="margin-top:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
-                  <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">📋 Exemplo de planilha:</div>
+                <div style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+                  <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Exemplo de planilha</div>
                   <table style="width:100%;font-size:12px">
-                    <thead><tr style="color:var(--text3)"><th style="text-align:left;padding:4px 8px">NOME</th><th style="text-align:left;padding:4px 8px">NUMERO</th></tr></thead>
+                    <thead><tr style="color:var(--text3)"><th style="text-align:left;padding:3px 8px">NOME</th><th style="text-align:left;padding:3px 8px">NUMERO</th></tr></thead>
                     <tbody>
-                      <tr><td style="padding:4px 8px">João Silva</td><td style="padding:4px 8px">11999998888</td></tr>
-                      <tr><td style="padding:4px 8px">Maria Santos</td><td style="padding:4px 8px">21988887777</td></tr>
+                      <tr><td style="padding:3px 8px">João Silva</td><td style="padding:3px 8px;font-family:monospace">11999998888</td></tr>
+                      <tr><td style="padding:3px 8px">Maria Santos</td><td style="padding:3px 8px;font-family:monospace">21988887777</td></tr>
                     </tbody>
                   </table>
                 </div>
-                <div id="import-status" style="display:none;margin-top:12px"></div>
+                <div id="import-status" style="display:none;margin-top:10px"></div>
                 <div id="import-preview" style="display:none;margin-top:12px">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                    <span id="import-preview-count" style="font-size:13px;color:var(--text2)"></span>
-                    <button class="btn btn-primary btn-sm" onclick="confirmImportContacts()">✅ Confirmar Importação</button>
+                    <span id="import-preview-count" style="font-size:13px;color:var(--text2);font-weight:600"></span>
+                    <button class="btn btn-primary btn-sm" onclick="confirmImportList()">✅ Salvar Lista</button>
                   </div>
-                  <div id="import-preview-table" style="max-height:200px;overflow-y:auto"></div>
+                  <div id="import-preview-table" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:6px"></div>
                 </div>
               </div>
             </div>
+
+            <!-- RIGHT: Lists -->
             <div class="section-card">
               <div class="section-header">
-                <div class="section-title">Contatos Importados (<span id="contacts-count">0</span>)</div>
-                <div style="display:flex;gap:8px">
-                  <div class="search-bar">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" placeholder="Buscar..." oninput="filterContacts(this.value)" id="contacts-search"/>
-                  </div>
-                  <button class="btn btn-danger btn-sm" onclick="clearAllContacts()" id="btn-clear-contacts" style="display:none">🗑️ Limpar</button>
+                <div class="section-title">📋 Minhas Listas (<span id="lists-count">0</span>)</div>
+                <button class="btn btn-ghost btn-sm" onclick="loadLists()">🔄</button>
+              </div>
+              <div id="lists-container">
+                <div style="text-align:center;padding:40px;color:var(--text3)">
+                  <div style="font-size:36px;margin-bottom:10px">📭</div>
+                  <p style="font-size:13px">Nenhuma lista importada ainda</p>
                 </div>
               </div>
-              <div class="table-wrap">
-                <table>
-                  <thead><tr><th>#</th><th>Nome</th><th>Número</th><th>Importado em</th></tr></thead>
-                  <tbody id="contacts-tbody"><tr class="empty-row"><td colspan="4">Nenhum contato importado</td></tr></tbody>
+            </div>
+          </div>
+
+          <!-- List detail modal -->
+          <div id="list-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);width:90%;max-width:560px;max-height:80vh;display:flex;flex-direction:column">
+              <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <div style="font-size:16px;font-weight:700" id="modal-list-name"></div>
+                  <div style="font-size:12px;color:var(--text3);margin-top:2px" id="modal-list-info"></div>
+                </div>
+                <button onclick="closeListModal()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer">✕</button>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:16px">
+                <table style="width:100%;font-size:12px">
+                  <thead><tr style="color:var(--text3)"><th style="text-align:left;padding:4px 8px">#</th><th style="text-align:left;padding:4px 8px">Nome</th><th style="text-align:left;padding:4px 8px">Número</th></tr></thead>
+                  <tbody id="modal-list-contacts"></tbody>
                 </table>
               </div>
             </div>
@@ -749,9 +778,9 @@ tbody td{padding:12px 14px;vertical-align:middle}
                 <label>Lista de Contatos</label>
                 <select id="dispatch-contact-list" onchange="loadDispatchContacts()">
                   <option value="">— Selecione uma lista —</option>
-                  <option value="imported">📋 Contatos Importados</option>
-                  <option value="leads">👥 Leads</option>
+                  <option value="leads">👥 Leads do sistema</option>
                 </select>
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">Importe listas em <b>Contatos</b> para aparecerem aqui</div>
               </div>
               <div style="display:none" id="dispatch-contacts-wrap">
                 <div class="select-actions">
@@ -1191,11 +1220,9 @@ function initApp() {
   document.getElementById('user-name-display').textContent = currentUser.name;
   document.getElementById('user-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
   document.getElementById('welcome-name').textContent = currentUser.name.split(' ')[0];
-  // Update contacts badge from localStorage
-  const savedContacts = JSON.parse(localStorage.getItem('zap_contacts') || '[]');
-  allContacts = savedContacts;
+  // Update contacts badge from API (will refresh after loadLists)
   const cb = document.getElementById('contacts-badge');
-  if (cb) cb.textContent = savedContacts.length;
+  if (cb) cb.textContent = '…';
   navigate('dashboard');
   startChatbot();
   loadKeywords();
@@ -1468,6 +1495,22 @@ async function loadDispatchView() {
       }
     } catch { connSel.innerHTML = `<option value="">⚠️ Erro ao carregar conexões</option>`; }
   }
+
+  // Populate lists dropdown
+  const listSel = document.getElementById('dispatch-contact-list');
+  if (listSel) {
+    try {
+      const res = await authFetch(`${API}/lists`);
+      const lists = await res.json();
+      allLists = lists;
+      listSel.innerHTML = `<option value="">— Selecione uma lista —</option>
+        <option value="leads">👥 Leads do sistema</option>
+        ${lists.map(l => `<option value="list:${l.id}">📋 ${esc(l.name)} (${l.total} contatos)</option>`).join('')}`;
+    } catch {
+      listSel.innerHTML = `<option value="">— Selecione uma lista —</option><option value="leads">👥 Leads do sistema</option>`;
+    }
+  }
+
   // Show pause duration when pause > 0
   const pauseEl = document.getElementById('dispatch-pause-every');
   const pauseDurWrap = document.getElementById('dispatch-pause-duration-wrap');
@@ -1479,25 +1522,39 @@ async function loadDispatchView() {
   loadDispatches();
 }
 
-function loadDispatchContacts() {
-  const list = document.getElementById('dispatch-contact-list').value;
+async function loadDispatchContacts() {
+  const listVal = document.getElementById('dispatch-contact-list').value;
   const wrap = document.getElementById('dispatch-contacts-wrap');
   const cl = document.getElementById('dispatch-contacts');
-  if (!list) { wrap.style.display = 'none'; return; }
+  if (!listVal) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
+  cl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">⏳ Carregando...</div>';
+
   let contacts = [];
-  if (list === 'imported') {
-    contacts = allContacts.map(c => ({ id: c.NUMERO||c.numero||c.phone, name: c.NOME||c.nome||c.name, phone: c.NUMERO||c.numero||c.phone }));
-  } else {
-    contacts = allLeads;
+  if (listVal === 'leads') {
+    contacts = allLeads.map(l => ({ phone: l.phone, name: l.name, _leadId: l.id }));
+  } else if (listVal.startsWith('list:')) {
+    const listId = listVal.replace('list:', '');
+    try {
+      const res = await authFetch(`${API}/lists/${listId}`);
+      const list = await res.json();
+      contacts = (list.contacts || []).map(c => ({
+        phone: c.NUMERO || c.numero || c.phone || '',
+        name: c.NOME || c.nome || c.name || ''
+      }));
+    } catch(e) {
+      cl.innerHTML = `<p style="color:var(--red);font-size:12px;padding:12px">Erro ao carregar lista</p>`;
+      return;
+    }
   }
+
   if (!contacts.length) {
-    cl.innerHTML = `<p style="color:var(--text3);font-size:12px;padding:12px">Nenhum contato disponível nesta lista</p>`;
+    cl.innerHTML = `<p style="color:var(--text3);font-size:12px;padding:12px">Nenhum contato nesta lista</p>`;
   } else {
     cl.innerHTML = contacts.map(c => `
       <label class="contact-item">
-        <input type="checkbox" value="${esc(c.phone||c.id)}" data-name="${esc(c.name||c.NOME||'')}" onchange="updateSelectedCount()"/>
-        <div class="contact-item-info">${esc(c.name||c.NOME||'')} <span>${esc(c.phone||c.NUMERO||'')}</span></div>
+        <input type="checkbox" value="${esc(c.phone)}" data-name="${esc(c.name)}" data-lead-id="${c._leadId||''}" onchange="updateSelectedCount()"/>
+        <div class="contact-item-info">${esc(c.name)} <span>${esc(c.phone)}</span></div>
       </label>`).join('');
   }
   updateSelectedCount();
@@ -1518,7 +1575,7 @@ async function sendDispatch() {
   const delay = parseInt(document.getElementById('dispatch-delay')?.value || '3');
   const pauseEvery = parseInt(document.getElementById('dispatch-pause-every')?.value || '0');
   const pauseDuration = parseInt(document.getElementById('dispatch-pause-duration')?.value || '5');
-  const listType = document.getElementById('dispatch-contact-list')?.value;
+  const listType = document.getElementById('dispatch-contact-list')?.value?.startsWith('list:') ? 'imported' : 'leads';
   const errEl = document.getElementById('dispatch-error');
   if (errEl) errEl.style.display = 'none';
 
@@ -1629,9 +1686,188 @@ function startPollDispatches() {
   }, 800);
 }
 
-// ============ CONTACTS ============
-let allContacts = JSON.parse(localStorage.getItem('zap_contacts') || '[]');
+// ============ CONTACT LISTS ============
+let allLists = [];
 let importPreviewData = [];
+
+function loadContacts() {
+  loadLists();
+}
+
+async function loadLists() {
+  try {
+    const res = await authFetch(`${API}/lists`);
+    allLists = await res.json();
+  } catch(e) {
+    allLists = [];
+  }
+  renderLists();
+}
+
+function renderLists() {
+  const el = document.getElementById('lists-container');
+  const countEl = document.getElementById('lists-count');
+  if (countEl) countEl.textContent = allLists.length;
+  // Update contacts badge in nav
+  const cb = document.getElementById('contacts-badge');
+  if (cb) cb.textContent = allLists.length;
+
+  if (!allLists.length) {
+    el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3)">
+      <div style="font-size:36px;margin-bottom:10px">📭</div>
+      <p style="font-size:13px">Nenhuma lista importada ainda.<br>Importe sua primeira planilha ao lado!</p>
+    </div>`;
+    return;
+  }
+  el.innerHTML = allLists.map(l => `
+    <div class="list-card">
+      <div class="list-card-icon">📋</div>
+      <div class="list-card-info">
+        <div class="list-card-name">${esc(l.name)}</div>
+        <div class="list-card-meta">${l.total} contatos · importado ${fmtDate(l.created_at)}</div>
+      </div>
+      <div class="list-card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="viewList('${l.id}')">👁️ Ver</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteList('${l.id}', '${esc(l.name)}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+async function viewList(id) {
+  const list = allLists.find(l => l.id === id);
+  if (!list) return;
+  document.getElementById('modal-list-name').textContent = list.name;
+  document.getElementById('modal-list-info').textContent = `${list.total} contatos · importado ${fmtDate(list.created_at)}`;
+  const contacts = list.contacts || [];
+  document.getElementById('modal-list-contacts').innerHTML = contacts.map((c, i) => `
+    <tr>
+      <td style="padding:4px 8px;color:var(--text3)">${i+1}</td>
+      <td style="padding:4px 8px">${esc(c.NOME||c.nome||c.name||'')}</td>
+      <td style="padding:4px 8px;font-family:monospace;font-size:11px;color:var(--text2)">${esc(c.NUMERO||c.numero||c.phone||'')}</td>
+    </tr>`).join('');
+  const modal = document.getElementById('list-detail-modal');
+  modal.style.display = 'flex';
+}
+
+function closeListModal() {
+  document.getElementById('list-detail-modal').style.display = 'none';
+}
+
+async function deleteList(id, name) {
+  if (!confirm(`Remover a lista "${name}"?`)) return;
+  try {
+    await authFetch(`${API}/lists/${id}`, { method: 'DELETE' });
+    notify('Lista removida!', 'success');
+    loadLists();
+  } catch(e) {
+    notify('Erro ao remover lista', 'error');
+  }
+}
+
+function handleContactsDrop(e) {
+  e.preventDefault();
+  document.getElementById('import-drop-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleContactsFile(file);
+}
+
+async function handleContactsFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('import-status');
+  const previewEl = document.getElementById('import-preview');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<div style="color:var(--text2);font-size:13px">⏳ Lendo arquivo...</div>';
+  previewEl.style.display = 'none';
+  try {
+    let rows = [];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'csv') {
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      const headers = lines[0].split(/[,;]/).map(h => h.trim().replace(/"/g,'').toUpperCase());
+      const nameIdx = headers.findIndex(h => h.includes('NOME') || h.includes('NAME'));
+      const numIdx = headers.findIndex(h => h.includes('NUMERO') || h.includes('NUMBER') || h.includes('TELEFONE') || h.includes('PHONE'));
+      if (nameIdx === -1 || numIdx === -1) throw new Error('Colunas NOME e NUMERO não encontradas no arquivo');
+      rows = lines.slice(1).filter(l => l.trim()).map(l => {
+        const cols = l.split(/[,;]/).map(c => c.trim().replace(/"/g,''));
+        return { NOME: cols[nameIdx]||'', NUMERO: (cols[numIdx]||'').replace(/\D/g,'') };
+      }).filter(r => r.NOME && r.NUMERO);
+    } else {
+      if (!window.XLSX) {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (!raw.length) throw new Error('Planilha vazia');
+      const headers = raw[0].map(h => String(h||'').trim().toUpperCase());
+      const nameIdx = headers.findIndex(h => h.includes('NOME') || h.includes('NAME'));
+      const numIdx = headers.findIndex(h => h.includes('NUMERO') || h.includes('NUMBER') || h.includes('TELEFONE') || h.includes('PHONE'));
+      if (nameIdx === -1 || numIdx === -1) throw new Error('Colunas NOME e NUMERO não encontradas no arquivo');
+      rows = raw.slice(1).filter(r => r[nameIdx] && r[numIdx]).map(r => ({
+        NOME: String(r[nameIdx]||'').trim(),
+        NUMERO: String(r[numIdx]||'').replace(/\D/g,'')
+      }));
+    }
+    if (!rows.length) throw new Error('Nenhum contato válido encontrado');
+    importPreviewData = rows;
+    // Suggest name from filename
+    const nameInput = document.getElementById('list-name-input');
+    if (nameInput && !nameInput.value) {
+      nameInput.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    }
+    statusEl.innerHTML = `<div style="color:var(--green);font-size:13px">✅ ${rows.length} contatos lidos com sucesso!</div>`;
+    document.getElementById('import-preview-count').textContent = `${rows.length} contato(s) prontos para salvar`;
+    document.getElementById('import-preview-table').innerHTML = `
+      <table style="width:100%;font-size:12px">
+        <thead><tr style="color:var(--text3);background:var(--bg)"><th style="text-align:left;padding:5px 8px">Nome</th><th style="text-align:left;padding:5px 8px">Número</th></tr></thead>
+        <tbody>${rows.slice(0,15).map(r=>`<tr><td style="padding:4px 8px">${esc(r.NOME)}</td><td style="padding:4px 8px;font-family:monospace;font-size:11px">${esc(r.NUMERO)}</td></tr>`).join('')}
+        ${rows.length>15?`<tr><td colspan="2" style="padding:6px 8px;color:var(--text3);font-style:italic">...e mais ${rows.length-15} contatos</td></tr>`:''}</tbody>
+      </table>`;
+    previewEl.style.display = 'block';
+  } catch(e) {
+    statusEl.innerHTML = `<div style="color:var(--red);font-size:13px">❌ ${e.message}</div>`;
+  }
+}
+
+async function confirmImportList() {
+  if (!importPreviewData.length) return;
+  const nameInput = document.getElementById('list-name-input');
+  const name = nameInput?.value?.trim();
+  if (!name) { notify('Digite um nome para a lista antes de salvar!', 'error'); nameInput?.focus(); return; }
+
+  const btn = document.querySelector('button[onclick="confirmImportList()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvando...'; }
+
+  try {
+    const res = await authFetch(`${API}/lists`, {
+      method: 'POST',
+      body: JSON.stringify({ name, contacts: importPreviewData })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao salvar lista');
+
+    notify(`✅ Lista "${name}" salva com ${importPreviewData.length} contatos!`, 'success');
+    importPreviewData = [];
+    nameInput.value = '';
+    document.getElementById('import-status').style.display = 'none';
+    document.getElementById('import-preview').style.display = 'none';
+    document.getElementById('contacts-file-input').value = '';
+    loadLists();
+  } catch(e) {
+    notify(e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Salvar Lista'; }
+  }
+}
+
+
 
 function loadContacts() {
   renderContacts(allContacts);
