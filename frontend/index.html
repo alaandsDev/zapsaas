@@ -373,6 +373,62 @@ tbody td{padding:12px 14px;vertical-align:middle}
 .flow-keyword span{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;flex:1}
 .plan-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;transition:transform .2s,border-color .2s}.plan-card:hover{transform:translateY(-4px);border-color:var(--green)}
 @media(max-width:900px){.plan-card{margin-bottom:16px}}
+
+/* ===== WHATSAPP WEB CHAT ===== */
+.wachat-layout{display:flex;height:calc(100vh - 120px);min-height:500px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.wachat-sidebar{width:340px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2);flex-shrink:0}
+.wachat-sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--card)}
+.wachat-sidebar-header h3{font-size:15px;font-weight:700}
+.wachat-search{padding:8px 12px;border-bottom:1px solid var(--border)}
+.wachat-search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:8px 14px;color:var(--text);font-size:13px;outline:none}
+.wachat-search input:focus{border-color:var(--green)}
+.wachat-contacts{flex:1;overflow-y:auto}
+.wachat-contact{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.03);transition:background .15s}
+.wachat-contact:hover{background:var(--card)}
+.wachat-contact.active{background:var(--card2);border-right:3px solid var(--green)}
+.wachat-contact-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#000;flex-shrink:0}
+.wachat-contact-info{flex:1;min-width:0}
+.wachat-contact-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wachat-contact-preview{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.wachat-contact-time{font-size:10px;color:var(--text3);flex-shrink:0}
+.wachat-main{flex:1;display:flex;flex-direction:column;background:var(--bg)}
+.wachat-main-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--card)}
+.wachat-main-header .wachat-contact-avatar{width:38px;height:38px;font-size:13px}
+.wachat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text3)}
+.wachat-empty .icon{font-size:64px;margin-bottom:16px;opacity:.3}
+.wachat-messages{flex:1;overflow-y:auto;padding:20px 18px;display:flex;flex-direction:column;gap:10px;background:var(--bg);background-image:radial-gradient(var(--border) 1px,transparent 0);background-size:20px 20px;background-position:-2px -2px}
+.wachat-msg{max-width:65%;padding:9px 13px;border-radius:10px;font-size:13px;line-height:1.5;word-break:break-word;position:relative}
+.wachat-msg-in{background:var(--card2);border:1px solid var(--border);align-self:flex-start;border-top-left-radius:2px}
+.wachat-msg-out{background:rgba(0,232,122,0.15);border:1px solid rgba(0,232,122,.2);align-self:flex-end;border-top-right-radius:2px}
+.wachat-msg-time{font-size:10px;color:var(--text3);display:block;margin-top:3px;text-align:right}
+.wachat-msg-check{font-size:10px;margin-left:2px;color:var(--green)}
+.wachat-input-area{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;background:var(--card)}
+.wachat-input-area textarea{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:22px;padding:10px 16px;color:var(--text);font-size:13px;outline:none;font-family:'DM Sans',sans-serif;resize:none;line-height:1.4;max-height:100px;min-height:40px}
+.wachat-input-area textarea:focus{border-color:var(--green)}
+.wachat-send-btn{width:42px;height:42px;background:var(--green);border:none;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s}
+.wachat-send-btn:hover{transform:scale(1.08)}
+.wachat-no-chat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text3);padding:40px}
+.wachat-no-chat .big-icon{font-size:80px;margin-bottom:20px;opacity:.2}
+
+/* ===== CONTACTS ===== */
+.contacts-import-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:40px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.contacts-import-zone:hover,.contacts-import-zone.dragover{border-color:var(--green);background:var(--green-dim)}
+.contacts-import-zone .icon{font-size:40px;margin-bottom:12px}
+.contacts-import-zone h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.contacts-import-zone p{font-size:13px;color:var(--text2)}
+
+/* ===== SUPPORT ===== */
+.support-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:32px;text-align:center;max-width:480px;margin:0 auto}
+.support-card .big-icon{font-size:56px;margin-bottom:16px}
+
+/* ===== SETTINGS ===== */
+.settings-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px}
+.settings-section h3{font-size:15px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.settings-row:last-child{border-bottom:none}
+.settings-row-label{font-size:13px;font-weight:500}
+.settings-row-desc{font-size:12px;color:var(--text3);margin-top:2px}
+.plan-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,232,122,.1);border:1px solid rgba(0,232,122,.25);color:var(--green);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
 </style>
 <!-- v1777491798 build: 20260429185618 -->
 </head>
@@ -440,27 +496,14 @@ tbody td{padding:12px 14px;vertical-align:middle}
       </div>
       <div class="sidebar-nav">
         <div class="nav-section">
-          <div class="nav-label">Principal</div>
           <div class="nav-item active" data-view="dashboard" onclick="navigate('dashboard')"><span class="icon">📊</span>Dashboard</div>
+          <div class="nav-item" data-view="chat" onclick="navigate('chat')"><span class="icon">💬</span>Chat <span id="chat-badge" style="margin-left:auto;width:8px;height:8px;background:var(--text3);border-radius:50%;display:inline-block"></span></div>
           <div class="nav-item" data-view="chatbot" onclick="navigate('chatbot')"><span class="icon">🤖</span>Chatbot</div>
-        </div>
-        <div class="nav-section">
-          <div class="nav-label">Leads & Mensagens</div>
-          <div class="nav-item" data-view="leads" onclick="navigate('leads')"><span class="icon">👥</span>Leads <span class="badge" id="leads-badge">0</span></div>
-          <div class="nav-item" data-view="messages" onclick="navigate('messages')"><span class="icon">✉️</span>Mensagens</div>
-          <div class="nav-item" data-view="dispatch" onclick="navigate('dispatch')"><span class="icon">🚀</span>Disparos</div>
-        </div>
-        <div class="nav-section">
-          <div class="nav-label">Captação</div>
-          <div class="nav-item" data-view="leadform" onclick="navigate('leadform')"><span class="icon">📋</span>Formulário</div>
-        </div>
-        <div class="nav-section">
-          <div class="nav-label">Integrações</div>
-          <div class="nav-item" data-view="whatsapp" onclick="navigate('whatsapp')"><span class="icon">💬</span>WhatsApp <span id="wpp-nav-dot" style="margin-left:auto;width:8px;height:8px;background:var(--text3);border-radius:50%;display:inline-block"></span></div>
-        </div>
-        <div class="nav-section">
-          <div class="nav-label">Conta</div>
-          <div class="nav-item" data-view="plans" onclick="navigate('plans')"><span class="icon">💳</span>Planos</div>
+          <div class="nav-item" data-view="whatsapp" onclick="navigate('whatsapp')"><span class="icon">🔗</span>Conexões <span id="wpp-nav-dot" style="margin-left:auto;width:8px;height:8px;background:var(--text3);border-radius:50%;display:inline-block"></span></div>
+          <div class="nav-item" data-view="contacts" onclick="navigate('contacts')"><span class="icon">👥</span>Contatos <span class="badge" id="contacts-badge">0</span></div>
+          <div class="nav-item" data-view="dispatch" onclick="navigate('dispatch')"><span class="icon">🚀</span>Disparo</div>
+          <div class="nav-item" data-view="support" onclick="navigate('support')"><span class="icon">🆘</span>Suporte</div>
+          <div class="nav-item" data-view="settings" onclick="navigate('settings')"><span class="icon">⚙️</span>Configurações</div>
         </div>
       </div>
       <div class="sidebar-footer">
@@ -526,7 +569,37 @@ tbody td{padding:12px 14px;vertical-align:middle}
           </div>
         </div>
 
-        <!-- CHATBOT -->
+        <!-- CHAT (WhatsApp Web) -->
+        <div class="view" id="view-chat">
+          <div class="wachat-layout">
+            <!-- Contacts sidebar -->
+            <div class="wachat-sidebar">
+              <div class="wachat-sidebar-header">
+                <h3>💬 Conversas</h3>
+                <div id="wachat-conn-status" style="font-size:11px;color:var(--text3)">Desconectado</div>
+              </div>
+              <div class="wachat-search">
+                <input type="text" id="wachat-search" placeholder="🔍 Buscar conversa..." oninput="filterChatContacts(this.value)"/>
+              </div>
+              <div class="wachat-contacts" id="wachat-contacts-list">
+                <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px">
+                  <div style="font-size:32px;margin-bottom:8px">📵</div>
+                  Conecte um WhatsApp em <b>Conexões</b> para ver as conversas
+                </div>
+              </div>
+            </div>
+            <!-- Chat main -->
+            <div class="wachat-main" id="wachat-main">
+              <div class="wachat-no-chat">
+                <div class="big-icon">💬</div>
+                <h3 style="font-size:20px;font-weight:700;color:var(--text2);margin-bottom:8px">ZapSaaS Chat</h3>
+                <p style="font-size:13px;color:var(--text3);max-width:280px;line-height:1.6">Selecione uma conversa ao lado para começar a responder mensagens do WhatsApp diretamente aqui.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHATBOT MENU -->
         <div class="view" id="view-chatbot">
           <div class="grid-2">
             <div>
@@ -601,14 +674,58 @@ tbody td{padding:12px 14px;vertical-align:middle}
           </div>
         </div>
 
-        <!-- MESSAGES -->
-        <div class="view" id="view-messages">
-          <div class="section-card">
-            <div class="section-header">
-              <div class="section-title">Mensagens (<span id="msgs-count">0</span>)</div>
-              <button class="btn btn-primary btn-sm" onclick="openAddMessageModal()">+ Nova Mensagem</button>
+        <!-- CONTACTS -->
+        <div class="view" id="view-contacts">
+          <div class="grid-2" style="align-items:start">
+            <div>
+              <div class="section-card">
+                <div class="section-header">
+                  <div class="section-title">📥 Importar Contatos</div>
+                </div>
+                <div class="contacts-import-zone" id="import-drop-zone" onclick="document.getElementById('contacts-file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleContactsDrop(event)">
+                  <div class="icon">📂</div>
+                  <h3>Clique ou arraste o arquivo aqui</h3>
+                  <p>Formato aceito: Excel (.xlsx) ou CSV (.csv)<br>Colunas obrigatórias: <b>NOME</b> e <b>NUMERO</b></p>
+                  <input type="file" id="contacts-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleContactsFile(this.files[0])"/>
+                </div>
+                <div style="margin-top:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">
+                  <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">📋 Exemplo de planilha:</div>
+                  <table style="width:100%;font-size:12px">
+                    <thead><tr style="color:var(--text3)"><th style="text-align:left;padding:4px 8px">NOME</th><th style="text-align:left;padding:4px 8px">NUMERO</th></tr></thead>
+                    <tbody>
+                      <tr><td style="padding:4px 8px">João Silva</td><td style="padding:4px 8px">11999998888</td></tr>
+                      <tr><td style="padding:4px 8px">Maria Santos</td><td style="padding:4px 8px">21988887777</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div id="import-status" style="display:none;margin-top:12px"></div>
+                <div id="import-preview" style="display:none;margin-top:12px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <span id="import-preview-count" style="font-size:13px;color:var(--text2)"></span>
+                    <button class="btn btn-primary btn-sm" onclick="confirmImportContacts()">✅ Confirmar Importação</button>
+                  </div>
+                  <div id="import-preview-table" style="max-height:200px;overflow-y:auto"></div>
+                </div>
+              </div>
             </div>
-            <div id="messages-list"><p style="color:var(--text3);text-align:center;padding:40px">Nenhuma mensagem criada</p></div>
+            <div class="section-card">
+              <div class="section-header">
+                <div class="section-title">Contatos Importados (<span id="contacts-count">0</span>)</div>
+                <div style="display:flex;gap:8px">
+                  <div class="search-bar">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" placeholder="Buscar..." oninput="filterContacts(this.value)" id="contacts-search"/>
+                  </div>
+                  <button class="btn btn-danger btn-sm" onclick="clearAllContacts()" id="btn-clear-contacts" style="display:none">🗑️ Limpar</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>#</th><th>Nome</th><th>Número</th><th>Importado em</th></tr></thead>
+                  <tbody id="contacts-tbody"><tr class="empty-row"><td colspan="4">Nenhum contato importado</td></tr></tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -619,14 +736,24 @@ tbody td{padding:12px 14px;vertical-align:middle}
               <div class="section-title" style="margin-bottom:18px">🚀 Novo Disparo</div>
               <div id="wpp-dispatch-status" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px"></div>
               <div class="form-group">
-                <label>Mensagem</label>
-                <select id="dispatch-message" onchange="previewMessage()">
-                  <option value="">Selecione uma mensagem...</option>
+                <label>Conexão (número de saída)</label>
+                <select id="dispatch-connection">
+                  <option value="">— Selecione a conexão WhatsApp —</option>
                 </select>
               </div>
-              <div id="msg-preview" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--text2);margin-bottom:16px;white-space:pre-wrap"></div>
               <div class="form-group">
-                <label>Contatos</label>
+                <label>Mensagem</label>
+                <textarea id="dispatch-text" rows="5" placeholder="Digite a mensagem aqui...&#10;&#10;Use {nome} para personalizar com o nome do contato." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;font-family:'DM Sans',sans-serif;resize:vertical"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Lista de Contatos</label>
+                <select id="dispatch-contact-list" onchange="loadDispatchContacts()">
+                  <option value="">— Selecione uma lista —</option>
+                  <option value="imported">📋 Contatos Importados</option>
+                  <option value="leads">👥 Leads</option>
+                </select>
+              </div>
+              <div style="display:none" id="dispatch-contacts-wrap">
                 <div class="select-actions">
                   <span class="select-all-btn" onclick="selectAllContacts()">Selecionar todos</span>
                   <span style="color:var(--text3)">|</span>
@@ -635,17 +762,34 @@ tbody td{padding:12px 14px;vertical-align:middle}
                 </div>
                 <div class="contact-list" id="dispatch-contacts"></div>
               </div>
-              <div class="form-group">
-                <label>⏰ Agendar para (opcional)</label>
-                <input type="datetime-local" id="dispatch-schedule" style="background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text1);width:100%;box-sizing:border-box"/>
-                <div style="font-size:11px;color:var(--text3);margin-top:4px">Deixe em branco para disparar agora</div>
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;margin-top:8px">
+                <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;letter-spacing:.5px">⏱️ CONFIGURAÇÕES DE ENVIO</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div class="form-group" style="margin:0">
+                    <label>Delay entre msgs (seg)</label>
+                    <input type="number" id="dispatch-delay" value="3" min="1" max="60" placeholder="3"/>
+                    <div style="font-size:10px;color:var(--text3);margin-top:4px">Recomendado: 3–10 seg</div>
+                  </div>
+                  <div class="form-group" style="margin:0">
+                    <label>Pausar a cada X msgs</label>
+                    <input type="number" id="dispatch-pause-every" value="25" min="0" max="1000" placeholder="0 = sem pausa"/>
+                    <div style="font-size:10px;color:var(--text3);margin-top:4px">0 = sem pausa. Recomendado: 25 (chips novos)</div>
+                  </div>
+                </div>
+                <div style="display:none" id="dispatch-pause-duration-wrap" style="margin-top:10px">
+                  <div class="form-group" style="margin-top:10px;margin-bottom:0">
+                    <label>Duração da pausa (minutos)</label>
+                    <input type="number" id="dispatch-pause-duration" value="5" min="1" max="60"/>
+                  </div>
+                </div>
               </div>
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:12px;background:var(--bg2);border-radius:8px">
-                <input type="checkbox" id="dispatch-use-wpp" checked style="width:16px;height:16px;cursor:pointer"/>
-                <label for="dispatch-use-wpp" style="font-size:13px;cursor:pointer">📱 Usar WhatsApp conectado para envio real</label>
+              <div class="form-group">
+                <label>⏰ Agendar envio (opcional)</label>
+                <input type="datetime-local" id="dispatch-schedule" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);width:100%;box-sizing:border-box"/>
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">Deixe em branco para disparar imediatamente</div>
               </div>
               <div class="error-msg" id="dispatch-error"></div>
-              <button class="btn btn-primary" style="width:100%" onclick="sendDispatch()">🚀 Disparar Mensagens</button>
+              <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="sendDispatch()">🚀 Disparar Mensagens</button>
             </div>
             <div>
               <div class="section-card">
@@ -659,52 +803,95 @@ tbody td{padding:12px 14px;vertical-align:middle}
           </div>
         </div>
 
-        <!-- LEAD FORM (public) -->
-        <div class="view" id="view-leadform">
-          <div style="max-width:500px;margin:0 auto">
-            <div class="lead-form-container">
-              <div class="lead-form-header">
-                <div style="font-size:32px;margin-bottom:12px">📋</div>
-                <h3>Interesse em nossos serviços?</h3>
-                <p>Preencha o formulário e entraremos em contato!</p>
+        <!-- SUPPORT -->
+        <div class="view" id="view-support">
+          <div style="max-width:600px;margin:0 auto">
+            <div class="support-card">
+              <div class="big-icon">🆘</div>
+              <h2 style="font-size:22px;font-weight:800;margin-bottom:8px">Suporte ZapSaaS</h2>
+              <p style="color:var(--text2);font-size:14px;margin-bottom:28px;line-height:1.6">Precisa de ajuda? Entre em contato diretamente pelo e-mail ou WhatsApp abaixo. Respondemos em até 24h úteis.</p>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <a href="mailto:dias.sdt@gmail.com" style="display:flex;align-items:center;gap:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;text-decoration:none;color:var(--text);transition:border-color .2s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+                  <div style="width:44px;height:44px;background:rgba(77,143,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📧</div>
+                  <div style="text-align:left">
+                    <div style="font-weight:600;font-size:14px">E-mail</div>
+                    <div style="font-size:12px;color:var(--green);margin-top:2px">dias.sdt@gmail.com</div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:2px">Resposta em até 24h úteis</div>
+                  </div>
+                </a>
+                <a href="https://wa.me/55?text=Olá! Preciso de suporte no ZapSaaS." target="_blank" style="display:flex;align-items:center;gap:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;text-decoration:none;color:var(--text);transition:border-color .2s" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='var(--border)'">
+                  <div style="width:44px;height:44px;background:rgba(0,232,122,.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💬</div>
+                  <div style="text-align:left">
+                    <div style="font-weight:600;font-size:14px">WhatsApp</div>
+                    <div style="font-size:12px;color:var(--green);margin-top:2px">Clique para abrir conversa</div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:2px">Atendimento via WhatsApp</div>
+                  </div>
+                </a>
               </div>
-              <div class="error-msg" id="lf-error"></div>
-              <div class="success-msg" id="lf-success"></div>
-              <div class="form-group">
-                <label>Nome completo *</label>
-                <input type="text" id="lf-name" placeholder="Seu nome"/>
-              </div>
-              <div class="form-group">
-                <label>WhatsApp / Telefone *</label>
-                <input type="text" id="lf-phone" placeholder="(11) 99999-9999" oninput="maskPhone(this)"/>
-              </div>
-              <div class="form-group">
-                <label>Interesse</label>
-                <select id="lf-interest">
-                  <option value="">Selecione...</option>
-                  <option>Plano Básico</option>
-                  <option>Plano Pro</option>
-                  <option>Plano Enterprise</option>
-                  <option>Dúvidas gerais</option>
-                </select>
-              </div>
-              <button class="btn btn-primary" onclick="submitLeadForm()">Quero ser contactado! 🚀</button>
-            </div>
-            <div class="section-card" style="margin-top:20px">
-              <div class="section-title" style="margin-bottom:12px">💡 Como usar este formulário</div>
-              <p style="font-size:13px;color:var(--text2);line-height:1.6">
-                Este formulário pode ser incorporado no seu site como um iframe, ou o link pode ser compartilhado diretamente. Os leads capturados aparecem automaticamente na aba <b>Leads</b>.
-              </p>
-              <div style="margin-top:12px;background:var(--bg2);border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:var(--text2)">
-                &lt;iframe src="http://localhost:3001/form" width="100%" height="500"&gt;&lt;/iframe&gt;
+              <div style="margin-top:24px;padding:16px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3);line-height:1.7;text-align:left">
+                <b style="color:var(--text2)">📖 Ao entrar em contato, informe:</b><br>
+                • Seu e-mail de cadastro<br>
+                • Descrição detalhada do problema<br>
+                • Capturas de tela se possível
               </div>
             </div>
           </div>
         </div>
 
-        <!-- WHATSAPP -->
-      
-        <!-- PLANS -->
+        <!-- SETTINGS -->
+        <div class="view" id="view-settings">
+          <div style="max-width:640px">
+            <div class="settings-section">
+              <h3>👤 Minha Conta</h3>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Nome</div><div class="settings-row-desc" id="settings-name-display">—</div></div>
+                <button class="btn btn-ghost btn-sm" onclick="openEditProfileModal()">Editar</button>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Email</div><div class="settings-row-desc" id="settings-email-display">—</div></div>
+              </div>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Senha</div><div class="settings-row-desc">••••••••</div></div>
+                <button class="btn btn-ghost btn-sm" onclick="openChangePasswordModal()">Alterar</button>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h3>💳 Plano</h3>
+              <div class="settings-row">
+                <div>
+                  <div class="settings-row-label">Plano atual</div>
+                  <div style="margin-top:6px"><span class="plan-badge" id="settings-plan-badge">⚡ Gratuito</span></div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="navigate('plans')">Ver Planos</button>
+              </div>
+              <div class="settings-row" id="settings-plan-limits">
+                <div>
+                  <div class="settings-row-label">Limites do plano</div>
+                  <div class="settings-row-desc" id="settings-plan-desc">—</div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h3>🔔 Notificações</h3>
+              <div class="settings-row">
+                <div><div class="settings-row-label">Notificações de disparos</div><div class="settings-row-desc">Receber alertas quando um disparo terminar</div></div>
+                <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+                  <input type="checkbox" id="notif-dispatch" checked style="opacity:0;width:0;height:0"/>
+                  <span onclick="this.previousElementSibling.checked=!this.previousElementSibling.checked;saveSettings()" style="position:absolute;inset:0;background:var(--green);border-radius:24px;transition:.3s"></span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h3>🗑️ Zona de Perigo</h3>
+              <div class="settings-row">
+                <div><div class="settings-row-label" style="color:var(--red)">Excluir conta</div><div class="settings-row-desc">Remove permanentemente sua conta e todos os dados</div></div>
+                <button class="btn btn-danger btn-sm" onclick="deleteAccount()">Excluir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
         <div class="view" id="view-plans">
           <div id="current-plan-banner" style="background:linear-gradient(135deg,var(--card),var(--bg2));border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
             <div>
@@ -1004,6 +1191,11 @@ function initApp() {
   document.getElementById('user-name-display').textContent = currentUser.name;
   document.getElementById('user-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
   document.getElementById('welcome-name').textContent = currentUser.name.split(' ')[0];
+  // Update contacts badge from localStorage
+  const savedContacts = JSON.parse(localStorage.getItem('zap_contacts') || '[]');
+  allContacts = savedContacts;
+  const cb = document.getElementById('contacts-badge');
+  if (cb) cb.textContent = savedContacts.length;
   navigate('dashboard');
   startChatbot();
   loadKeywords();
@@ -1012,12 +1204,16 @@ function initApp() {
 // ============ NAVIGATION ============
 const pageInfo = {
   dashboard: ['Dashboard', 'Visão geral da plataforma'],
-  chatbot: ['Chatbot', 'Simulador e configuração do chatbot'],
+  chat: ['Chat', 'Responda mensagens do WhatsApp em tempo real'],
+  chatbot: ['Chatbot Menu', 'Configure respostas automáticas e fluxos do chatbot'],
   leads: ['Leads', 'Gerenciar contatos capturados'],
   messages: ['Mensagens', 'Criar e gerenciar mensagens para disparo'],
-  dispatch: ['Disparos', 'Enviar mensagens em massa'],
+  dispatch: ['Disparo', 'Enviar mensagens em massa para seus contatos'],
+  whatsapp: ['Conexões', 'Conecte e gerencie seus números WhatsApp'],
+  contacts: ['Contatos', 'Importe e gerencie listas de contatos'],
+  support: ['Suporte', 'Entre em contato com o suporte'],
+  settings: ['Configurações', 'Configurações da conta e plano'],
   leadform: ['Formulário de Captura', 'Formulário público de captação de leads'],
-  whatsapp: ['WhatsApp', 'Conectar e enviar mensagens reais via WhatsApp'],
   plans: ['Planos', 'Gerencie sua assinatura'],
 };
 
@@ -1034,9 +1230,12 @@ function navigate(view) {
     document.getElementById('page-desc').textContent = info[1];
     document.getElementById('topbar-actions').innerHTML = '';
     if (view === 'dashboard') loadDashboard();
+    else if (view === 'chat') initWachat();
     else if (view === 'leads') loadLeads();
     else if (view === 'messages') loadMessages();
     else if (view === 'dispatch') loadDispatchView();
+    else if (view === 'contacts') loadContacts();
+    else if (view === 'settings') loadSettings();
     else if (view === 'whatsapp') { try { wppInit(); } catch(e) { console.error('wppInit error:', e); } }
     else if (view === 'plans') loadPlans();
   } catch(e) {
@@ -1053,7 +1252,8 @@ async function loadDashboard() {
     document.getElementById('stat-new-leads').textContent = data.newLeads;
     document.getElementById('stat-dispatches').textContent = data.dispatches;
     document.getElementById('stat-sent').textContent = data.messagesSent;
-    document.getElementById('leads-badge').textContent = data.leads;
+    const lbDash = document.getElementById('leads-badge');
+    if (lbDash) lbDash.textContent = data.leads;
     const rl = document.getElementById('recent-leads-list');
     if (!data.lastLeads?.length) {
       rl.innerHTML = '<p style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Nenhum lead ainda</p>';
@@ -1077,7 +1277,8 @@ async function loadLeads() {
     const res = await authFetch(`${API}/leads`);
     allLeads = await res.json();
     renderLeads(allLeads);
-    document.getElementById('leads-badge').textContent = allLeads.length;
+    const lb = document.getElementById('leads-badge');
+    if (lb) lb.textContent = allLeads.length;
   } catch {}
 }
 
@@ -1253,29 +1454,53 @@ async function deleteMessage(id) {
 
 // ============ DISPATCH ============
 async function loadDispatchView() {
-  await Promise.all([loadMessages(), loadLeads()]);
-  // Populate messages select
-  const sel = document.getElementById('dispatch-message');
-  sel.innerHTML = '<option value="">Selecione uma mensagem...</option>' +
-    allMessages.map(m=>`<option value="${m.id}">${esc(m.title)}</option>`).join('');
-  sel.onchange = () => {
-    const m = allMessages.find(x=>x.id===sel.value);
-    const prev = document.getElementById('msg-preview');
-    if (m) { prev.textContent = m.content; prev.style.display='block'; }
-    else prev.style.display='none';
-  };
-  // Populate contacts
+  await loadLeads();
+  // Populate connection dropdown
+  const connSel = document.getElementById('dispatch-connection');
+  if (connSel) {
+    try {
+      const res = await authFetch(`${API}/whatsapp/status`);
+      const data = await res.json();
+      if (data.status === 'connected') {
+        connSel.innerHTML = `<option value="wpp">📱 WhatsApp Conectado${data.phone ? ' — +'+data.phone : ''}</option>`;
+      } else {
+        connSel.innerHTML = `<option value="">⚠️ Nenhuma conexão ativa — conecte em Conexões</option>`;
+      }
+    } catch { connSel.innerHTML = `<option value="">⚠️ Erro ao carregar conexões</option>`; }
+  }
+  // Show pause duration when pause > 0
+  const pauseEl = document.getElementById('dispatch-pause-every');
+  const pauseDurWrap = document.getElementById('dispatch-pause-duration-wrap');
+  if (pauseEl && pauseDurWrap) {
+    pauseEl.oninput = () => {
+      pauseDurWrap.style.display = parseInt(pauseEl.value) > 0 ? 'block' : 'none';
+    };
+  }
+  loadDispatches();
+}
+
+function loadDispatchContacts() {
+  const list = document.getElementById('dispatch-contact-list').value;
+  const wrap = document.getElementById('dispatch-contacts-wrap');
   const cl = document.getElementById('dispatch-contacts');
-  if (!allLeads.length) { cl.innerHTML='<p style="color:var(--text3);font-size:12px;padding:12px">Nenhum lead cadastrado</p>'; }
-  else {
-    cl.innerHTML = allLeads.map(l=>`
+  if (!list) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  let contacts = [];
+  if (list === 'imported') {
+    contacts = allContacts.map(c => ({ id: c.NUMERO||c.numero||c.phone, name: c.NOME||c.nome||c.name, phone: c.NUMERO||c.numero||c.phone }));
+  } else {
+    contacts = allLeads;
+  }
+  if (!contacts.length) {
+    cl.innerHTML = `<p style="color:var(--text3);font-size:12px;padding:12px">Nenhum contato disponível nesta lista</p>`;
+  } else {
+    cl.innerHTML = contacts.map(c => `
       <label class="contact-item">
-        <input type="checkbox" value="${l.id}" onchange="updateSelectedCount()"/>
-        <div class="contact-item-info">${esc(l.name)}<span>${esc(l.phone)}</span></div>
+        <input type="checkbox" value="${esc(c.phone||c.id)}" data-name="${esc(c.name||c.NOME||'')}" onchange="updateSelectedCount()"/>
+        <div class="contact-item-info">${esc(c.name||c.NOME||'')} <span>${esc(c.phone||c.NUMERO||'')}</span></div>
       </label>`).join('');
   }
   updateSelectedCount();
-  loadDispatches();
 }
 
 function updateSelectedCount() {
@@ -1286,24 +1511,51 @@ function selectAllContacts() { document.querySelectorAll('#dispatch-contacts inp
 function deselectAllContacts() { document.querySelectorAll('#dispatch-contacts input').forEach(i=>i.checked=false); updateSelectedCount(); }
 
 async function sendDispatch() {
-  const messageId = document.getElementById('dispatch-message').value;
-  const contactIds = [...document.querySelectorAll('#dispatch-contacts input:checked')].map(i=>i.value);
+  const text = document.getElementById('dispatch-text')?.value?.trim();
+  const checkedInputs = [...document.querySelectorAll('#dispatch-contacts input:checked')];
+  const phones = checkedInputs.map(i => ({ phone: i.value, name: i.dataset.name || '' }));
   const scheduleVal = document.getElementById('dispatch-schedule')?.value;
-  const useWhatsapp = document.getElementById('dispatch-use-wpp')?.checked !== false;
+  const delay = parseInt(document.getElementById('dispatch-delay')?.value || '3');
+  const pauseEvery = parseInt(document.getElementById('dispatch-pause-every')?.value || '0');
   const errEl = document.getElementById('dispatch-error');
-  if (errEl) { errEl.style.display='none'; }
-  if (!messageId) { notify('Selecione uma mensagem','error'); return; }
-  if (!contactIds.length) { notify('Selecione pelo menos um contato','error'); return; }
+  if (errEl) errEl.style.display='none';
+  if (!text) { notify('Digite uma mensagem para o disparo','error'); return; }
+  if (!phones.length) { notify('Selecione pelo menos um contato','error'); return; }
+  
+  // Build contactIds array (try to match leads by phone)
+  const contactIds = phones.map(p => {
+    const lead = allLeads.find(l => l.phone === p.phone);
+    return lead ? lead.id : null;
+  }).filter(Boolean);
+
   try {
-    const body = { messageId, contactIds, useWhatsapp };
+    const body = { 
+      messageId: null, 
+      contactIds: contactIds.length ? contactIds : undefined,
+      phones: contactIds.length ? undefined : phones,
+      text,
+      useWhatsapp: true,
+      delay,
+      pauseEvery,
+    };
     if (scheduleVal) body.scheduledAt = new Date(scheduleVal).toISOString();
-    const res = await authFetch(`${API}/dispatches`, { method:'POST', body:JSON.stringify(body) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    if (data.scheduled) {
-      notify(`⏰ Disparo agendado para ${new Date(scheduleVal).toLocaleString('pt-BR')}!`);
+    // Try the API; if contactIds available use standard endpoint
+    let res, data;
+    if (contactIds.length) {
+      // create a temp message and dispatch
+      const msgRes = await authFetch(`${API}/messages`, { method:'POST', body: JSON.stringify({title:`Disparo ${new Date().toLocaleDateString('pt-BR')}`, content: text, tags:[]}) });
+      const msgData = await msgRes.json();
+      res = await authFetch(`${API}/dispatches`, { method:'POST', body: JSON.stringify({messageId: msgData.id, contactIds, useWhatsapp: true, scheduledAt: scheduleVal ? new Date(scheduleVal).toISOString() : undefined}) });
+      data = await res.json();
     } else {
-      notify(data.via === 'whatsapp' ? `📱 Disparo real iniciado via WhatsApp para ${contactIds.length} contatos!` : `✅ Disparo iniciado para ${contactIds.length} contatos!`, 'success');
+      res = await authFetch(`${API}/dispatches`, { method:'POST', body: JSON.stringify(body) });
+      data = await res.json();
+    }
+    if (!res.ok) throw new Error(data.error || 'Erro no disparo');
+    if (scheduleVal) {
+      notify(`⏰ Disparo agendado para ${new Date(scheduleVal).toLocaleString('pt-BR')}!`,'success');
+    } else {
+      notify(`🚀 Disparo iniciado para ${phones.length} contatos!`, 'success');
     }
     if (document.getElementById('dispatch-schedule')) document.getElementById('dispatch-schedule').value = '';
     loadDispatches();
@@ -1354,7 +1606,264 @@ function startPollDispatches() {
   }, 800);
 }
 
-// ============ LEAD FORM ============
+// ============ CONTACTS ============
+let allContacts = JSON.parse(localStorage.getItem('zap_contacts') || '[]');
+let importPreviewData = [];
+
+function loadContacts() {
+  renderContacts(allContacts);
+}
+
+function renderContacts(contacts) {
+  document.getElementById('contacts-count').textContent = contacts.length;
+  document.getElementById('contacts-badge').textContent = contacts.length;
+  const tbody = document.getElementById('contacts-tbody');
+  const clearBtn = document.getElementById('btn-clear-contacts');
+  if (clearBtn) clearBtn.style.display = contacts.length ? 'inline-flex' : 'none';
+  if (!contacts.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Nenhum contato importado</td></tr>';
+    return;
+  }
+  tbody.innerHTML = contacts.map((c, i) => `<tr>
+    <td style="color:var(--text3)">${i+1}</td>
+    <td><b>${esc(c.nome||c.NOME||c.name||'')}</b></td>
+    <td style="color:var(--text2);font-family:monospace;font-size:12px">${esc(c.numero||c.NUMERO||c.phone||'')}</td>
+    <td style="color:var(--text3);font-size:11px">${c.importedAt ? fmtDate(c.importedAt) : '—'}</td>
+  </tr>`).join('');
+}
+
+function filterContacts(q) {
+  const f = allContacts.filter(c => {
+    const name = (c.nome||c.NOME||c.name||'').toLowerCase();
+    const num = (c.numero||c.NUMERO||c.phone||'');
+    return name.includes(q.toLowerCase()) || num.includes(q);
+  });
+  renderContacts(f);
+}
+
+function clearAllContacts() {
+  if (!confirm('Remover todos os contatos importados?')) return;
+  allContacts = [];
+  localStorage.setItem('zap_contacts', JSON.stringify(allContacts));
+  renderContacts(allContacts);
+  notify('Contatos removidos', 'success');
+}
+
+function handleContactsDrop(e) {
+  e.preventDefault();
+  document.getElementById('import-drop-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleContactsFile(file);
+}
+
+async function handleContactsFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('import-status');
+  const previewEl = document.getElementById('import-preview');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<div style="color:var(--text2);font-size:13px">⏳ Processando arquivo...</div>';
+  previewEl.style.display = 'none';
+
+  try {
+    let rows = [];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'csv') {
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      const headers = lines[0].split(/[,;]/).map(h => h.trim().replace(/"/g,'').toUpperCase());
+      const nameIdx = headers.findIndex(h => h.includes('NOME') || h.includes('NAME'));
+      const numIdx = headers.findIndex(h => h.includes('NUMERO') || h.includes('NUMBER') || h.includes('TELEFONE') || h.includes('PHONE'));
+      if (nameIdx === -1 || numIdx === -1) throw new Error('Colunas NOME e NUMERO não encontradas');
+      rows = lines.slice(1).filter(l => l.trim()).map(l => {
+        const cols = l.split(/[,;]/).map(c => c.trim().replace(/"/g,''));
+        return { NOME: cols[nameIdx]||'', NUMERO: cols[numIdx]||'' };
+      }).filter(r => r.NOME && r.NUMERO);
+    } else {
+      // Excel - use SheetJS from CDN
+      if (!window.XLSX) {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {header:1});
+      if (!raw.length) throw new Error('Planilha vazia');
+      const headers = raw[0].map(h => String(h||'').trim().toUpperCase());
+      const nameIdx = headers.findIndex(h => h.includes('NOME') || h.includes('NAME'));
+      const numIdx = headers.findIndex(h => h.includes('NUMERO') || h.includes('NUMBER') || h.includes('TELEFONE') || h.includes('PHONE'));
+      if (nameIdx === -1 || numIdx === -1) throw new Error('Colunas NOME e NUMERO não encontradas');
+      rows = raw.slice(1).filter(r => r[nameIdx] && r[numIdx]).map(r => ({
+        NOME: String(r[nameIdx]||'').trim(),
+        NUMERO: String(r[numIdx]||'').replace(/\D/g,'')
+      }));
+    }
+    if (!rows.length) throw new Error('Nenhum contato válido encontrado');
+    importPreviewData = rows;
+    statusEl.innerHTML = `<div style="color:var(--green);font-size:13px">✅ Arquivo lido com sucesso!</div>`;
+    document.getElementById('import-preview-count').textContent = `${rows.length} contato(s) encontrado(s) — confirme para importar`;
+    document.getElementById('import-preview-table').innerHTML = `
+      <table style="width:100%;font-size:12px">
+        <thead><tr style="color:var(--text3)"><th style="text-align:left;padding:4px 8px">Nome</th><th style="text-align:left;padding:4px 8px">Número</th></tr></thead>
+        <tbody>${rows.slice(0,20).map(r=>`<tr><td style="padding:4px 8px">${esc(r.NOME)}</td><td style="padding:4px 8px;font-family:monospace">${esc(r.NUMERO)}</td></tr>`).join('')}
+        ${rows.length>20?`<tr><td colspan="2" style="padding:4px 8px;color:var(--text3)">...e mais ${rows.length-20} contatos</td></tr>`:''}</tbody>
+      </table>`;
+    previewEl.style.display = 'block';
+  } catch(e) {
+    statusEl.innerHTML = `<div style="color:var(--red);font-size:13px">❌ Erro: ${e.message}</div>`;
+  }
+}
+
+function confirmImportContacts() {
+  if (!importPreviewData.length) return;
+  const now = new Date().toISOString();
+  const newContacts = importPreviewData.map(r => ({...r, importedAt: now}));
+  allContacts = [...allContacts, ...newContacts];
+  localStorage.setItem('zap_contacts', JSON.stringify(allContacts));
+  importPreviewData = [];
+  document.getElementById('import-status').innerHTML = `<div style="color:var(--green);font-size:13px">✅ ${newContacts.length} contatos importados!</div>`;
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('contacts-file-input').value = '';
+  renderContacts(allContacts);
+  notify(`${newContacts.length} contatos importados com sucesso!`, 'success');
+}
+
+// ============ CHAT (WhatsApp Web) ============
+let wachatContacts = [];
+let wachatActive = null;
+let wachatMessages = {};
+let wachatPoll = null;
+
+function initWachat() {
+  // Check WPP connection status and load chats
+  authFetch(`${API}/whatsapp/status`).then(r => r.json()).then(data => {
+    const statusEl = document.getElementById('wachat-conn-status');
+    if (data.status === 'connected') {
+      statusEl.textContent = '🟢 ' + (data.phone ? `+${data.phone}` : 'Conectado');
+      statusEl.style.color = 'var(--green)';
+      loadWachatChats();
+    } else {
+      statusEl.textContent = '🔴 Desconectado';
+      statusEl.style.color = 'var(--red)';
+    }
+  }).catch(() => {});
+}
+
+function loadWachatChats() {
+  // Load from leads as contact list since backend may not have chat history endpoint
+  authFetch(`${API}/leads`).then(r => r.json()).then(leads => {
+    wachatContacts = leads;
+    renderWachatContacts(leads);
+  }).catch(() => {});
+}
+
+function renderWachatContacts(contacts) {
+  const el = document.getElementById('wachat-contacts-list');
+  if (!contacts.length) {
+    el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px">Nenhum contato disponível</div>';
+    return;
+  }
+  el.innerHTML = contacts.map(c => `
+    <div class="wachat-contact ${wachatActive===c.id?'active':''}" onclick="openWachat('${c.id}')">
+      <div class="wachat-contact-avatar">${(c.name||'?').charAt(0).toUpperCase()}</div>
+      <div class="wachat-contact-info">
+        <div class="wachat-contact-name">${esc(c.name)}</div>
+        <div class="wachat-contact-preview">${esc(c.phone)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function filterChatContacts(q) {
+  const f = wachatContacts.filter(c => c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q));
+  renderWachatContacts(f);
+}
+
+function openWachat(contactId) {
+  const contact = wachatContacts.find(c => c.id === contactId);
+  if (!contact) return;
+  wachatActive = contactId;
+  renderWachatContacts(wachatContacts);
+  const msgs = wachatMessages[contactId] || [];
+  const main = document.getElementById('wachat-main');
+  main.innerHTML = `
+    <div class="wachat-main-header">
+      <div class="wachat-contact-avatar">${contact.name.charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600">${esc(contact.name)}</div>
+        <div style="font-size:11px;color:var(--green)">${esc(contact.phone)}</div>
+      </div>
+    </div>
+    <div class="wachat-messages" id="wachat-msgs-${contactId}">
+      ${msgs.length ? msgs.map(m => `
+        <div class="wachat-msg ${m.out?'wachat-msg-out':'wachat-msg-in'}">
+          ${esc(m.text)}<span class="wachat-msg-time">${m.time}${m.out?'<span class="wachat-msg-check"> ✓✓</span>':''}</span>
+        </div>`).join('') : `<div style="text-align:center;color:var(--text3);font-size:12px;padding:20px;margin:auto">Nenhuma mensagem ainda. Envie a primeira! 👋</div>`}
+    </div>
+    <div class="wachat-input-area">
+      <textarea id="wachat-input-${contactId}" placeholder="Digite uma mensagem..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendWachatMsg('${contactId}','${esc(contact.phone)}')}"></textarea>
+      <button class="wachat-send-btn" onclick="sendWachatMsg('${contactId}','${esc(contact.phone)}')">➤</button>
+    </div>`;
+  const msgsEl = document.getElementById(`wachat-msgs-${contactId}`);
+  if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+}
+
+async function sendWachatMsg(contactId, phone) {
+  const inp = document.getElementById(`wachat-input-${contactId}`);
+  const text = inp?.value?.trim();
+  if (!text) return;
+  inp.value = '';
+  const time = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if (!wachatMessages[contactId]) wachatMessages[contactId] = [];
+  wachatMessages[contactId].push({text, out:true, time});
+  const msgsEl = document.getElementById(`wachat-msgs-${contactId}`);
+  if (msgsEl) {
+    const div = document.createElement('div');
+    div.className = 'wachat-msg wachat-msg-out';
+    div.innerHTML = `${esc(text)}<span class="wachat-msg-time">${time} <span class="wachat-msg-check">✓</span></span>`;
+    msgsEl.appendChild(div);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+  try {
+    await authFetch(`${API}/whatsapp/send`, { method:'POST', body: JSON.stringify({ phone, message: text }) });
+    const lastCheck = msgsEl?.lastElementChild?.querySelector('.wachat-msg-check');
+    if (lastCheck) lastCheck.textContent = ' ✓✓';
+  } catch(e) {
+    notify('Erro ao enviar mensagem', 'error');
+  }
+}
+
+// ============ SETTINGS ============
+function loadSettings() {
+  if (currentUser) {
+    document.getElementById('settings-name-display').textContent = currentUser.name || '—';
+    document.getElementById('settings-email-display').textContent = currentUser.email || '—';
+  }
+  authFetch(`${API}/subscription`).then(r => r.json()).then(sub => {
+    const badge = document.getElementById('settings-plan-badge');
+    const desc = document.getElementById('settings-plan-desc');
+    if (sub.plan === 'pro') {
+      badge.innerHTML = '⚡ Pro';
+      badge.style.background = 'rgba(0,232,122,.15)';
+      desc.textContent = 'Contatos ilimitados · Disparos ilimitados · Agendamento · Suporte';
+    } else {
+      badge.innerHTML = '🆓 Gratuito';
+      badge.style.background = 'rgba(143,164,196,.1)';
+      badge.style.color = 'var(--text2)';
+      desc.textContent = 'Até 50 contatos · 3 disparos/mês · Sem agendamento';
+    }
+  }).catch(() => {});
+}
+
+function openEditProfileModal() { notify('Função de editar perfil em breve!', 'success'); }
+function openChangePasswordModal() { notify('Função de alterar senha em breve!', 'success'); }
+function deleteAccount() { if(confirm('Tem certeza? Isso removerá sua conta permanentemente!')) notify('Fale com o suporte para excluir sua conta.','error'); }
+function saveSettings() { notify('Configuração salva!','success'); }
+
+
 async function submitLeadForm() {
   const name = document.getElementById('lf-name').value.trim();
   const phone = document.getElementById('lf-phone').value.trim();
