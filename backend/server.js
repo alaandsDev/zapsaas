@@ -307,6 +307,11 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
 
+    const limit = await checkDispatchLimit(req.user.id);
+    if (!limit.ok) {
+      return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
+    }
+
     const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', req.user.id).single();
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
 
@@ -572,6 +577,11 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
 
+    const limit = await checkDispatchLimit(req.user.id);
+    if (!limit.ok) {
+      return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
+    }
+
     const status = wpp.getStatus(req.user.id);
     if (status.status !== 'connected') {
       return res.status(400).json({ error: 'WhatsApp não conectado. Escaneie o QR Code primeiro.' });
@@ -628,6 +638,12 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
     if (!message || !phones?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
+
+    const limit = await checkDispatchLimit(req.user.id);
+    if (!limit.ok) {
+      return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
+    }
+
     const status = wpp.getStatus(req.user.id);
     if (status.status !== 'connected') {
       return res.status(400).json({ error: 'WhatsApp não conectado. Escaneie o QR Code primeiro.' });
@@ -759,6 +775,36 @@ app.get('/api/plans', (req, res) => {
   res.json(Object.entries(PLANS).map(([id, p]) => ({ id, name: p.name, price: p.price, leads: p.leads, dispatches: p.dispatches })));
 });
 
+async function getEffectivePlan(userId) {
+  const { data: user } = await supabase.from('users').select('plan, plan_expires_at').eq('id', userId).single();
+  let plan = user?.plan || 'free';
+  if (user?.plan_expires_at && new Date(user.plan_expires_at) < new Date()) plan = 'free';
+  return plan;
+}
+
+async function checkDispatchLimit(userId) {
+  const plan = await getEffectivePlan(userId);
+  const limit = PLANS[plan]?.dispatches ?? 3;
+  if (limit >= 999) return { ok: true, plan, used: 0, limit };
+  const start = new Date(); start.setDate(1); start.setHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from('dispatches')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', start.toISOString());
+  const used = count || 0;
+  return { ok: used < limit, plan, used, limit };
+}
+
+app.get('/api/usage', requireAuth, async (req, res) => {
+  try {
+    const dispatch = await checkDispatchLimit(req.user.id);
+    res.json({ plan: dispatch.plan, dispatches: { used: dispatch.used, limit: dispatch.limit } });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao buscar uso' });
+  }
+});
+
 app.get('/api/subscription', requireAuth, async (req, res) => {
   try {
     const { data: user } = await supabase.from('users').select('plan, plan_expires_at, stripe_customer_id').eq('id', req.user.id).single();
@@ -785,14 +831,10 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', req.user.id);
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams = {
       customer: customerId,
       customer_update: { name: 'auto', address: 'auto' },
       mode: 'subscription',
-      payment_method_types: ['card', 'boleto'],
-      payment_method_options: {
-        boleto: { expires_after_days: 3 }
-      },
       locale: 'pt-BR',
       phone_number_collection: { enabled: true },
       tax_id_collection: { enabled: true },
@@ -800,7 +842,12 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=success&plan=${planId}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=cancelled`,
       metadata: { userId: req.user.id, planId },
-    });
+    };
+    if (process.env.STRIPE_ENABLE_BOLETO === 'true') {
+      sessionParams.payment_method_types = ['card', 'boleto'];
+      sessionParams.payment_method_options = { boleto: { expires_after_days: 3 } };
+    }
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.json({ url: session.url });
   } catch (e) {
