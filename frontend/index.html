@@ -2225,6 +2225,17 @@ async function openPortal() {
 
 // ============ START ============
 if (token && currentUser) initApp();
+
+// Auto-open tab from URL param (?tab=login or ?tab=register)
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  if (tab === 'register') {
+    switchAuthTab('register');
+  } else if (tab === 'login') {
+    switchAuthTab('login');
+  }
+})();
 </script>
 </body>
 </html>
