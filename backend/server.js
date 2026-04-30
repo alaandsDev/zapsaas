@@ -831,10 +831,11 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', req.user.id);
     }
 
-    const sessionParams = {
+    const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_update: { name: 'auto', address: 'auto' },
       mode: 'subscription',
+      payment_method_types: ['card'],
       locale: 'pt-BR',
       phone_number_collection: { enabled: true },
       tax_id_collection: { enabled: true },
@@ -842,12 +843,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=success&plan=${planId}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=cancelled`,
       metadata: { userId: req.user.id, planId },
-    };
-    if (process.env.STRIPE_ENABLE_BOLETO === 'true') {
-      sessionParams.payment_method_types = ['card', 'boleto'];
-      sessionParams.payment_method_options = { boleto: { expires_after_days: 3 } };
-    }
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    });
 
     res.json({ url: session.url });
   } catch (e) {
