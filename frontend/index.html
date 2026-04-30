@@ -1289,7 +1289,7 @@ function navigate(view) {
     else if (view === 'leads') loadLeads();
     else if (view === 'messages') loadMessages();
     else if (view === 'dispatch') loadDispatchView();
-    else if (view === 'contacts') { loadContacts(); loadLists(); }
+    else if (view === 'contacts') loadLists();
     else if (view === 'settings') loadSettings();
     else if (view === 'whatsapp') { try { wppInit(); } catch(e) { console.error('wppInit error:', e); } }
     else if (view === 'plans') loadPlans();
@@ -1904,45 +1904,6 @@ async function confirmImportList() {
 }
 
 
-
-function loadContacts() {
-  renderContacts(allContacts);
-}
-
-function renderContacts(contacts) {
-  document.getElementById('contacts-count').textContent = contacts.length;
-  document.getElementById('contacts-badge').textContent = contacts.length;
-  const tbody = document.getElementById('contacts-tbody');
-  const clearBtn = document.getElementById('btn-clear-contacts');
-  if (clearBtn) clearBtn.style.display = contacts.length ? 'inline-flex' : 'none';
-  if (!contacts.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Nenhum contato importado</td></tr>';
-    return;
-  }
-  tbody.innerHTML = contacts.map((c, i) => `<tr>
-    <td style="color:var(--text3)">${i+1}</td>
-    <td><b>${esc(c.nome||c.NOME||c.name||'')}</b></td>
-    <td style="color:var(--text2);font-family:monospace;font-size:12px">${esc(c.numero||c.NUMERO||c.phone||'')}</td>
-    <td style="color:var(--text3);font-size:11px">${c.importedAt ? fmtDate(c.importedAt) : '—'}</td>
-  </tr>`).join('');
-}
-
-function filterContacts(q) {
-  const f = allContacts.filter(c => {
-    const name = (c.nome||c.NOME||c.name||'').toLowerCase();
-    const num = (c.numero||c.NUMERO||c.phone||'');
-    return name.includes(q.toLowerCase()) || num.includes(q);
-  });
-  renderContacts(f);
-}
-
-function clearAllContacts() {
-  if (!confirm('Remover todos os contatos importados?')) return;
-  allContacts = [];
-  localStorage.setItem('zap_contacts', JSON.stringify(allContacts));
-  renderContacts(allContacts);
-  notify('Contatos removidos', 'success');
-}
 
 function handleContactsDrop(e) {
   e.preventDefault();

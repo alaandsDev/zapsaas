@@ -164,6 +164,7 @@ app.get('/api/leads', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('leads')
       .select('*')
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -175,12 +176,21 @@ app.get('/api/leads', requireAuth, async (req, res) => {
 
 app.post('/api/leads', async (req, res) => {
   try {
-    const { name, phone, interest, source } = req.body;
+    const { name, phone, interest, source, user_id: bodyUserId } = req.body;
     if (!name || !phone) return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
+
+    // Try to get user from auth header if present
+    let userId = bodyUserId || null;
+    const authHeader = req.headers['authorization'];
+    if (!userId && authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: session } = await supabase.from('sessions').select('user_id').eq('token', token).single();
+      if (session) userId = session.user_id;
+    }
 
     const { data, error } = await supabase
       .from('leads')
-      .insert({ name, phone, interest: interest || '', source: source || 'form', status: 'new' })
+      .insert({ name, phone, interest: interest || '', source: source || 'form', status: 'new', user_id: userId })
       .select()
       .single();
 
@@ -474,6 +484,7 @@ app.post('/api/chatbot/message', async (req, res) => {
 
 app.get('/api/stats', requireAuth, async (req, res) => {
   try {
+    const uid = req.user.id;
     const [
       { count: totalLeads },
       { count: newLeads },
@@ -482,12 +493,12 @@ app.get('/api/stats', requireAuth, async (req, res) => {
       { data: dispatchData },
       { data: lastLeads }
     ] = await Promise.all([
-      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
-      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id).eq('status', 'new'),
-      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
-      supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', req.user.id),
-      supabase.from('dispatches').select('sent').eq('user_id', req.user.id),
-      supabase.from('leads').select('id, name, phone, status, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(5)
+      supabase.from('leads').select('*', { count: 'exact', head: true }).or(`user_id.eq.${uid},user_id.is.null`),
+      supabase.from('leads').select('*', { count: 'exact', head: true }).or(`user_id.eq.${uid},user_id.is.null`).eq('status', 'new'),
+      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+      supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+      supabase.from('dispatches').select('sent').eq('user_id', uid),
+      supabase.from('leads').select('id, name, phone, status, created_at').or(`user_id.eq.${uid},user_id.is.null`).order('created_at', { ascending: false }).limit(5)
     ]);
 
     const messagesSent = (dispatchData || []).reduce((acc, d) => acc + (d.sent || 0), 0);
