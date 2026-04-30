@@ -212,6 +212,7 @@ app.patch('/api/leads/:id', requireAuth, async (req, res) => {
       .from('leads')
       .update(updates)
       .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
       .select()
       .single();
 
@@ -225,7 +226,7 @@ app.patch('/api/leads/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/leads/:id', requireAuth, async (req, res) => {
   try {
-    const { error } = await supabase.from('leads').delete().eq('id', req.params.id);
+    const { error } = await supabase.from('leads').delete().eq('id', req.params.id).eq('user_id', req.user.id);
     if (error) throw error;
     res.json({ message: 'Lead removido' });
   } catch (e) {
@@ -242,6 +243,7 @@ app.get('/api/messages', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('messages')
       .select('*')
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -271,7 +273,7 @@ app.post('/api/messages', requireAuth, async (req, res) => {
 
 app.delete('/api/messages/:id', requireAuth, async (req, res) => {
   try {
-    const { error } = await supabase.from('messages').delete().eq('id', req.params.id);
+    const { error } = await supabase.from('messages').delete().eq('id', req.params.id).eq('user_id', req.user.id);
     if (error) throw error;
     res.json({ message: 'Mensagem removida' });
   } catch (e) {
@@ -288,6 +290,7 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('dispatches')
       .select('*')
+      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -304,10 +307,10 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
 
-    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).single();
+    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', req.user.id).single();
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
 
-    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds);
+    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', req.user.id);
     const items = (contacts || []).map(c => ({ contactId: c.id, contactName: c.name, contactPhone: c.phone, status: 'pending' }));
 
     // Se agendado, verifica se é futuro
@@ -493,12 +496,12 @@ app.get('/api/stats', requireAuth, async (req, res) => {
       { data: dispatchData },
       { data: lastLeads }
     ] = await Promise.all([
-      supabase.from('leads').select('*', { count: 'exact', head: true }).or(`user_id.eq.${uid},user_id.is.null`),
-      supabase.from('leads').select('*', { count: 'exact', head: true }).or(`user_id.eq.${uid},user_id.is.null`).eq('status', 'new'),
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'new'),
       supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', uid),
       supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', uid),
       supabase.from('dispatches').select('sent').eq('user_id', uid),
-      supabase.from('leads').select('id, name, phone, status, created_at').or(`user_id.eq.${uid},user_id.is.null`).order('created_at', { ascending: false }).limit(5)
+      supabase.from('leads').select('id, name, phone, status, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(5)
     ]);
 
     const messagesSent = (dispatchData || []).reduce((acc, d) => acc + (d.sent || 0), 0);
@@ -574,10 +577,10 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'WhatsApp não conectado. Escaneie o QR Code primeiro.' });
     }
 
-    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).single();
+    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', req.user.id).single();
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
 
-    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds);
+    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', req.user.id);
     if (!contacts?.length) return res.status(404).json({ error: 'Nenhum contato encontrado' });
 
     // Cria registro do disparo no banco
@@ -784,6 +787,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
+      customer_update: { name: 'auto', address: 'auto' },
       mode: 'subscription',
       payment_method_types: ['card', 'boleto'],
       payment_method_options: {

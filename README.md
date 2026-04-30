@@ -89,18 +89,9 @@ vercel --prod
 ## ✅ Checklist pós-deploy
 
 - [ ] `GET https://seu-backend.up.railway.app/health` retorna `{"status":"ok"}`
-- [ ] Login com `admin@demo.com` / `demo123` funciona no frontend
+- [ ] Cadastro/login funciona no frontend
 - [ ] CORS configurado: `ALLOWED_ORIGINS` aponta para o domínio Vercel
 - [ ] Leads, mensagens e disparos funcionando
-
----
-
-## 🔐 Login Demo
-
-```
-Email: admin@demo.com
-Senha: demo123
-```
 
 ---
 
