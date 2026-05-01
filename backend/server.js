@@ -867,12 +867,22 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 async function requireAdmin(req, res, next) {
-  await requireAuth(req, res, async () => {
-    if (req.user?.role !== 'admin') {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Não autorizado' });
+  try {
+    const { data: session } = await supabase
+      .from('sessions').select('*').eq('token', token).single();
+    if (!session) return res.status(401).json({ error: 'Sessão inválida' });
+    if (new Date(session.expires_at) < new Date()) return res.status(401).json({ error: 'Sessão expirada' });
+    if (session.user_data?.role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado — área restrita ao administrador' });
     }
+    req.user = session.user_data;
     next();
-  });
+  } catch(e) {
+    console.error('[requireAdmin] erro:', e.message);
+    res.status(500).json({ error: 'Erro de autenticação' });
+  }
 }
 
 // Stats gerais do sistema
