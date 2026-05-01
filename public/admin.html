@@ -367,7 +367,7 @@ select:focus{border-color:var(--red)}
 const API = (() => {
   const h = location.hostname;
   if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:3001/api';
-  return 'https://zapsaas-production.up.railway.app/api';
+  return window.ZAPSAAS_API_URL || 'https://delivery-full-production.up.railway.app/api';
 })();
 
 let token = localStorage.getItem('admin_token');
