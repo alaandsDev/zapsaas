@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-bg text-ink-100 font-sans antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,255,178,0.10), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 10%, rgba(139,92,246,0.08), transparent 60%);
+    background-attachment: fixed;
+  }
+  ::selection { background: rgba(0,255,178,0.25); color: #fff; }
+}
+
+@layer components {
+  .container-x { @apply max-w-7xl mx-auto px-6 lg:px-8; }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 font-semibold
+           bg-primary text-bg hover:bg-primary-hover transition-all duration-200
+           shadow-glow hover:scale-[1.02] active:scale-[0.99];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 font-medium
+           text-ink-100 border border-white/10 hover:border-white/20 hover:bg-white/5
+           transition-all duration-200;
+  }
+  .card {
+    @apply rounded-2xl border border-white/[0.06] bg-card/60 backdrop-blur-sm shadow-card;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03]
+           px-3 py-1 text-xs font-medium text-ink-300;
+  }
+  .gradient-text {
+    background: linear-gradient(135deg, #00FFB2 0%, #3B82F6 60%, #8B5CF6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+}

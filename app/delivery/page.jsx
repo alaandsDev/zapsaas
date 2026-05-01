@@ -1,0 +1,45 @@
+import NicheLanding from "../../components/NicheLanding";
+
+export const metadata = {
+  title: "ZapFlow para Delivery — Mais pedidos todos os dias pelo WhatsApp",
+  description:
+    "Sistema de vendas automáticas pelo WhatsApp para delivery e restaurantes. Promoções, recorrência e clientes voltando — sem depender de iFood.",
+};
+
+export default function Page() {
+  return (
+    <NicheLanding
+      eyebrow="ZapFlow para Delivery"
+      heroTitle="Aumente seus pedidos todos os dias pelo"
+      heroHighlight="WhatsApp automaticamente"
+      heroSubtitle="Pare de pagar 30% pra plataforma. Venda direto pelo seu WhatsApp, traga o cliente de volta toda semana e dobre seu ticket — sem mexer um dedo."
+      ctaLabel="Quero mais pedidos"
+      benefitsTitle="Mais pedidos. Mais margem. Cliente fiel."
+      benefits={[
+        { icon: "🍔", title: "Promoções que viram pedido", desc: "Promoção de quinta, combo do fim de semana, oferta-relâmpago. ZapFlow dispara pra base toda e os pedidos chegam." },
+        { icon: "🔁", title: "Cliente voltando todo mês", desc: "Quem pediu uma vez recebe a mensagem certa pra pedir de novo. Recorrência sem depender de plataforma cara." },
+        { icon: "💸", title: "Margem de volta no seu bolso", desc: "Venda direto pelo WhatsApp e fuja da taxa de 27% das plataformas. Cada pedido vale mais." },
+        { icon: "🎁", title: "Aniversário e datas especiais", desc: "Mensagem automática no aniversário com oferta. Cliente lembra de você no momento que conta." },
+      ]}
+      steps={[
+        { title: "Conecte o WhatsApp do delivery", desc: "Sem trocar número. Em 30 segundos seu WhatsApp vira uma máquina de pedidos." },
+        { title: "Importe sua lista de clientes", desc: "Cole os contatos da agenda, do iFood, da planilha. ZapFlow organiza e segmenta automaticamente." },
+        { title: "Dispare a promoção e relaxe", desc: "Os pedidos começam a chegar. Você só prepara, embala e entrega." },
+      ]}
+      stats={[
+        { value: "+62", label: "pedidos extras por campanha (média)" },
+        { value: "30%", label: "de margem que volta pro seu caixa" },
+        { value: "2x", label: "frequência de retorno do cliente" },
+      ]}
+      testimonials={[
+        { name: "Diego P.", role: "Hamburgueria · São Paulo", quote: "Quinta de promoção: mando o disparo às 18h, às 19h o forno não para. Faturo num dia o que faturava em 3.", color: "#00FFB2" },
+        { name: "Bruna A.", role: "Pizzaria · Salvador", quote: "Saí do iFood. Vendo direto pelo WhatsApp e meu lucro dobrou. ZapFlow paga 50 vezes a mensalidade.", color: "#3B82F6" },
+        { name: "Lucas G.", role: "Açaí e sobremesas · Fortaleza", quote: "Cliente que tinha sumido voltou em peso. A campanha de domingo virou meu melhor dia da semana.", color: "#8B5CF6" },
+      ]}
+      finalCTA={{
+        title: "Cada pedido perdido é margem indo pro concorrente",
+        subtitle: "Seus clientes estão no WhatsApp. Falta você falar com eles na hora certa. Ative o ZapFlow e veja os pedidos chegando.",
+      }}
+    />
+  );
+}
