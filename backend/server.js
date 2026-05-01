@@ -27,7 +27,126 @@ app.use(cors({
   credentials: true
 }));
 
+// ── STRIPE WEBHOOK — raw body ANTES do express.json() ─────────
+// CRÍTICO: deve vir antes de express.json() ou a assinatura falha
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
+  } catch (e) {
+    console.error('[stripe] webhook signature error:', e.message);
+    return res.status(400).send(`Webhook Error: ${e.message}`);
+  }
+
+  try {
+    // Helper: encontra user pelo stripe_customer_id
+    const getUserByCustomer = async (customerId) => {
+      const { data } = await supabase.from('users').select('id').eq('stripe_customer_id', customerId).single();
+      return data;
+    };
+
+    // Helper: extende plano
+    const extendPlan = async (userId, planId, customerId, periodEnd) => {
+      const expires = periodEnd
+        ? new Date(periodEnd * 1000).toISOString()
+        : new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase.from('users').update({
+        plan: planId,
+        plan_expires_at: expires,
+        stripe_customer_id: customerId
+      }).eq('id', userId);
+      if (error) console.error('[stripe] Erro ao atualizar plano:', error.message);
+      else console.log(`[stripe] ✅ Plano ${planId} ativo até ${expires} para user ${userId}`);
+    };
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const { userId, planId } = session.metadata || {};
+      if (userId && planId) {
+        // Busca subscription para pegar period_end real
+        let periodEnd = null;
+        if (session.subscription) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(session.subscription);
+            periodEnd = sub.current_period_end;
+          } catch {}
+        }
+        await extendPlan(userId, planId, session.customer, periodEnd);
+      }
+    }
+
+    // Renovação automática mensal — CRÍTICO para não perder acesso
+    if (event.type === 'invoice.paid') {
+      const invoice = event.data.object;
+      if (invoice.billing_reason === 'subscription_cycle' && invoice.customer) {
+        const user = await getUserByCustomer(invoice.customer);
+        if (user) {
+          let periodEnd = null;
+          if (invoice.subscription) {
+            try {
+              const sub = await stripe.subscriptions.retrieve(invoice.subscription);
+              periodEnd = sub.current_period_end;
+            } catch {}
+          }
+          await extendPlan(user.id, 'pro', invoice.customer, periodEnd);
+          console.log(`[stripe] 🔄 Renovação processada para customer ${invoice.customer}`);
+        }
+      }
+    }
+
+    if (event.type === 'customer.subscription.updated') {
+      const sub = event.data.object;
+      const user = await getUserByCustomer(sub.customer);
+      if (user) {
+        if (sub.status === 'active') {
+          await extendPlan(user.id, 'pro', sub.customer, sub.current_period_end);
+        } else if (['canceled', 'unpaid', 'past_due'].includes(sub.status)) {
+          await supabase.from('users').update({ plan: 'free', plan_expires_at: null }).eq('id', user.id);
+          console.log(`[stripe] ⚠️ Plano rebaixado para free (status: ${sub.status})`);
+        }
+      }
+    }
+
+    if (event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object;
+      const user = await getUserByCustomer(sub.customer);
+      if (user) {
+        await supabase.from('users').update({ plan: 'free', plan_expires_at: null }).eq('id', user.id);
+        console.log(`[stripe] ❌ Assinatura cancelada para customer ${sub.customer}`);
+      }
+    }
+  } catch (e) {
+    console.error('[stripe] webhook handler error:', e.message);
+    // Ainda retorna 200 para o Stripe não retentar, mas loga o erro
+  }
+
+  res.json({ received: true });
+});
+
 app.use(express.json());
+
+// ── RATE LIMITING ─────────────────────────────────────────────
+const rateLimitMap = new Map();
+function rateLimit(windowMs, max) {
+  return (req, res, next) => {
+    const key = req.ip + ':' + req.path;
+    const now = Date.now();
+    const entry = rateLimitMap.get(key) || { count: 0, resetAt: now + windowMs };
+    if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + windowMs; }
+    entry.count++;
+    rateLimitMap.set(key, entry);
+    if (entry.count > max) {
+      return res.status(429).json({ error: 'Muitas tentativas. Tente novamente em alguns minutos.' });
+    }
+    next();
+  };
+}
+// Limpa entradas expiradas a cada 10 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of rateLimitMap) { if (now > val.resetAt) rateLimitMap.delete(key); }
+}, 10 * 60 * 1000);
 
 // ── SUPABASE ──────────────────────────────────────────────────
 console.log('[startup] SUPABASE_URL:', process.env.SUPABASE_URL ? 'OK' : 'MISSING');
@@ -45,8 +164,36 @@ const supabase = createClient(
 );
 
 // ── HELPERS ───────────────────────────────────────────────────
+// SHA-256 mantido para senhas existentes; novas usam bcrypt via campo password_v2
 function hash(str) {
   return crypto.createHash('sha256').update(str).digest('hex');
+}
+
+// bcrypt lazy — usa módulo nativo se disponível, senão fallback para sha256+salt
+let bcrypt = null;
+try { bcrypt = require('bcrypt'); } catch {}
+
+async function hashPassword(password) {
+  if (bcrypt) return bcrypt.hash(password, 12);
+  // Fallback: sha256 com salt aleatório — melhor que sem salt
+  const salt = crypto.randomBytes(16).toString('hex');
+  return salt + ':' + crypto.createHash('sha256').update(salt + password).digest('hex');
+}
+
+async function verifyPassword(password, stored) {
+  if (!stored) return false;
+  // bcrypt hash começa com $2b$
+  if (stored.startsWith('$2b$') || stored.startsWith('$2a$')) {
+    if (bcrypt) return bcrypt.compare(password, stored);
+    return false;
+  }
+  // salt:hash format
+  if (stored.includes(':') && stored.split(':')[0].length === 32) {
+    const [salt, h] = stored.split(':');
+    return crypto.createHash('sha256').update(salt + password).digest('hex') === h;
+  }
+  // Legacy sha256 sem salt
+  return hash(password) === stored;
 }
 
 async function requireAuth(req, res, next) {
@@ -61,7 +208,6 @@ async function requireAuth(req, res, next) {
       .single();
 
     if (error || !session) {
-      console.log('[auth] 401 - token:', token?.substring(0,12), '| erro:', error?.code, error?.message);
       return res.status(401).json({ error: 'Sessão inválida' });
     }
     if (new Date(session.expires_at) < new Date()) {
@@ -81,10 +227,10 @@ async function requireAuth(req, res, next) {
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // ═══════════════════════════════════════════════════════════════
-// AUTH
+// AUTH — com rate limit
 // ═══════════════════════════════════════════════════════════════
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
@@ -92,11 +238,20 @@ app.post('/api/auth/login', async (req, res) => {
     const { data: user, error } = await supabase
       .from('users')
       .select('id, name, email, role, password')
-      .eq('email', email)
-      .eq('password', hash(password))
+      .eq('email', email.toLowerCase().trim())
       .single();
 
     if (error || !user) return res.status(401).json({ error: 'Email ou senha inválidos' });
+
+    // Suporta bcrypt e sha256 legacy (migração lazy)
+    const valid = await verifyPassword(password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Email ou senha inválidos' });
+
+    // Migração lazy: se senha ainda é sha256, re-hash com bcrypt
+    if (bcrypt && !user.password.startsWith('$2')) {
+      const newHash = await hashPassword(password);
+      await supabase.from('users').update({ password: newHash }).eq('id', user.id);
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     const userData = { id: user.id, name: user.name, email: user.email, role: user.role };
@@ -108,12 +263,16 @@ app.post('/api/auth/login', async (req, res) => {
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     });
 
-    if (sessionError) {
-      console.error('[login] Erro ao salvar sessão:', sessionError);
-      return res.status(500).json({ error: 'Erro ao criar sessão: ' + sessionError.message });
+    if (sessionError) return res.status(500).json({ error: 'Erro ao criar sessão' });
+
+    // Limpa sessões antigas do usuário (mantém últimas 5)
+    const { data: oldSessions } = await supabase.from('sessions')
+      .select('token').eq('user_id', user.id).order('expires_at', { ascending: true });
+    if (oldSessions && oldSessions.length > 5) {
+      const toDelete = oldSessions.slice(0, oldSessions.length - 5).map(s => s.token);
+      await supabase.from('sessions').delete().in('token', toDelete);
     }
 
-    console.log('[login] Sessão criada para:', userData.email);
     res.json({ token, user: userData });
   } catch (e) {
     console.error('Login error:', e);
@@ -121,23 +280,21 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: 'Campos obrigatórios' });
+    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
 
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single();
-
+    const normalizedEmail = email.toLowerCase().trim();
+    const { data: existing } = await supabase.from('users').select('id').eq('email', normalizedEmail).single();
     if (existing) return res.status(400).json({ error: 'Email já cadastrado' });
 
+    const hashed = await hashPassword(password);
     const { error } = await supabase.from('users').insert({
       name,
-      email,
-      password: hash(password),
+      email: normalizedEmail,
+      password: hashed,
       role: 'user'
     });
 
@@ -176,16 +333,20 @@ app.get('/api/leads', requireAuth, async (req, res) => {
 
 app.post('/api/leads', async (req, res) => {
   try {
-    const { name, phone, interest, source, user_id: bodyUserId } = req.body;
+    const { name, phone, interest, source } = req.body;
+    // SEGURANÇA: user_id NUNCA vem do body — apenas do token de auth ou null (form público)
     if (!name || !phone) return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
 
-    // Try to get user from auth header if present
-    let userId = bodyUserId || null;
+    // Tenta obter user_id do token de auth (se existir)
+    let userId = null;
     const authHeader = req.headers['authorization'];
-    if (!userId && authHeader) {
+    if (authHeader) {
       const token = authHeader.replace('Bearer ', '');
-      const { data: session } = await supabase.from('sessions').select('user_id').eq('token', token).single();
-      if (session) userId = session.user_id;
+      const { data: session } = await supabase.from('sessions')
+        .select('user_id, expires_at').eq('token', token).single();
+      if (session && new Date(session.expires_at) > new Date()) {
+        userId = session.user_id;
+      }
     }
 
     const { data, error } = await supabase
@@ -450,7 +611,7 @@ app.get('/api/chatbot/config', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/chatbot/message', async (req, res) => {
+app.post('/api/chatbot/message', rateLimit(60 * 1000, 20), async (req, res) => {
   try {
     const { message, currentMenu } = req.body;
 
@@ -867,65 +1028,34 @@ app.post('/api/stripe/portal', requireAuth, async (req, res) => {
   }
 });
 
-// Webhook Stripe — atualiza plano após pagamento
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
-  } catch (e) {
-    console.error('[stripe] webhook signature error:', e.message);
-    return res.status(400).send(`Webhook Error: ${e.message}`);
-  }
-
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const { userId, planId } = session.metadata;
-    if (userId && planId) {
-      const expires = new Date();
-      expires.setMonth(expires.getMonth() + 1);
-      await supabase.from('users').update({
-        plan: planId,
-        plan_expires_at: expires.toISOString(),
-        stripe_customer_id: session.customer
-      }).eq('id', userId);
-      console.log(`[stripe] Plano ${planId} ativado para user ${userId}`);
-    }
-  }
-
-  if (event.type === 'customer.subscription.deleted') {
-    const sub = event.data.object;
-    const { data: users } = await supabase.from('users').select('id').eq('stripe_customer_id', sub.customer);
-    if (users?.[0]) {
-      await supabase.from('users').update({ plan: 'free', plan_expires_at: null }).eq('id', users[0].id);
-      console.log(`[stripe] Assinatura cancelada para customer ${sub.customer}`);
-    }
-  }
-
-  res.json({ received: true });
-});
-
 // ═══════════════════════════════════════════════════════════════
 // CRON — DISPAROS AGENDADOS (verifica a cada minuto)
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// CRON — DISPAROS AGENDADOS com lock atômico
 // ═══════════════════════════════════════════════════════════════
 
 cron.schedule('* * * * *', async () => {
   try {
     const now = new Date().toISOString();
-    const { data: pending } = await supabase
-      .from('dispatches')
-      .select('*')
-      .eq('status', 'scheduled')
-      .lte('scheduled_at', now);
 
+    // Lock atômico: UPDATE status='processing' WHERE status='scheduled' AND scheduled_at <= now
+    // Apenas UMA instância processa cada disparo — sem duplicatas
+    const { data: pending, error } = await supabase
+      .from('dispatches')
+      .update({ status: 'sending', processing_started_at: now })
+      .eq('status', 'scheduled')
+      .lte('scheduled_at', now)
+      .select();
+
+    if (error) { console.error('[cron] Lock error:', error.message); return; }
     if (!pending?.length) return;
 
     console.log(`[cron] ${pending.length} disparos agendados para executar`);
 
     for (const dispatch of pending) {
       const wppStatus = wpp.getStatus(dispatch.user_id);
-      await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatch.id);
-
       if (wppStatus.status === 'connected') {
         console.log(`[cron] Executando disparo real ${dispatch.id}`);
         executeRealDispatch(dispatch.id, dispatch.user_id);
