@@ -2,15 +2,32 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../components/dashboard/Topbar";
-import { Button } from "../../components/ui/Field";
 import { api, getUser } from "../../lib/api";
 
 const STAT_CARDS = [
-  { key: "totalLeads", label: "Total de contatos", icon: "👥", color: "from-primary/20 to-primary/5" },
-  { key: "totalDispatches", label: "Disparos realizados", icon: "⚡", color: "from-accent-blue/20 to-accent-blue/5" },
-  { key: "messagesSent", label: "Mensagens enviadas", icon: "📨", color: "from-accent-purple/20 to-accent-purple/5" },
-  { key: "responseRate", label: "Taxa de resposta", icon: "📈", color: "from-primary/20 to-primary/5", suffix: "%" },
+  { key: "leads", label: "Total de Leads", sub: "Contatos capturados", color: "primary", icon: "👥" },
+  { key: "newLeads", label: "Novos Leads", sub: "Aguardando contato", color: "blue", icon: "✨" },
+  { key: "dispatches", label: "Disparos", sub: "Campanhas enviadas", color: "yellow", icon: "⚡" },
+  { key: "messagesSent", label: "Mensagens Enviadas", sub: "Total de envios", color: "purple", icon: "📨" },
 ];
+
+const COLORS = {
+  primary: "from-primary/20 to-primary/5 text-primary",
+  blue: "from-accent-blue/20 to-accent-blue/5 text-accent-blue",
+  yellow: "from-yellow-500/20 to-yellow-500/5 text-yellow-300",
+  purple: "from-accent-purple/20 to-accent-purple/5 text-accent-purple",
+};
+
+function timeAgo(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d)) return "—";
+  const s = Math.floor((Date.now() - d) / 1000);
+  if (s < 60) return "agora";
+  if (s < 3600) return `${Math.floor(s / 60)}min`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
 
 export default function DashboardHome() {
   const [stats, setStats] = useState({});
@@ -22,78 +39,78 @@ export default function DashboardHome() {
     api("/api/stats").then(setStats).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
+  const firstName = user?.name?.split(" ")[0] || "";
+  const recent = stats.lastLeads || [];
+
   return (
     <>
-      <Topbar title="Início" subtitle="Visão geral do seu sistema de vendas" />
+      <Topbar title="Dashboard" subtitle="Visão geral da plataforma" />
       <div className="p-6 lg:p-8 space-y-6">
         <div className="card p-6 lg:p-8 bg-gradient-to-br from-primary/[0.06] via-card to-card border-primary/20">
-          <div className="text-sm text-primary font-medium">Bem-vindo de volta{user?.name ? `, ${user.name.split(" ")[0]}` : ""} 👋</div>
-          <h2 className="text-2xl font-bold mt-2">Seu sistema de vendas está pronto pra trabalhar.</h2>
-          <p className="text-ink-300 mt-2 max-w-xl">
-            Conecte seu WhatsApp, importe seus contatos e dispare a primeira campanha em minutos.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/dashboard/disparos"><Button>Criar primeiro disparo</Button></Link>
-            <Link href="/dashboard/configuracoes"><Button variant="ghost">Conectar WhatsApp</Button></Link>
-          </div>
+          <h2 className="text-2xl font-bold">Olá, {firstName || "Admin"}! 👋</h2>
+          <p className="text-ink-300 mt-2">Aqui está o resumo da sua plataforma hoje.</p>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {STAT_CARDS.map((c) => (
-            <div key={c.key} className={`card p-5 bg-gradient-to-br ${c.color}`}>
+            <div key={c.key} className={`card p-5 bg-gradient-to-br ${COLORS[c.color]}`}>
               <div className="text-2xl">{c.icon}</div>
               <div className="text-xs text-ink-300 mt-3">{c.label}</div>
-              <div className="text-2xl font-bold mt-1">
-                {loading ? "—" : (stats[c.key] ?? 0)}{c.suffix || ""}
+              <div className={`text-3xl font-bold mt-1 ${COLORS[c.color].split(" ").pop()}`}>
+                {loading ? "—" : stats[c.key] ?? 0}
               </div>
+              <div className="text-xs text-ink-500 mt-1">{c.sub}</div>
             </div>
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-4">
-          <ActionCard
-            href="/dashboard/disparos"
-            icon="⚡"
-            title="Criar um disparo"
-            desc="Envie sua oferta para centenas de contatos de uma vez"
-          />
-          <ActionCard
-            href="/dashboard/contatos"
-            icon="👥"
-            title="Importar contatos"
-            desc="Cole sua lista e organize por tags em segundos"
-          />
-          <ActionCard
-            href="/dashboard/automacao"
-            icon="🤖"
-            title="Configurar resposta automática"
-            desc="Atenda seus clientes 24h sem precisar estar online"
-          />
-          <ActionCard
-            href="/dashboard/configuracoes"
-            icon="⚙️"
-            title="Configurações da conta"
-            desc="Conexão WhatsApp, plano e perfil"
-          />
+        <div className="grid lg:grid-cols-[2fr_1fr] gap-4">
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Leads Recentes</h3>
+              <Link href="/dashboard/leads" className="text-xs text-primary hover:underline">Ver todos →</Link>
+            </div>
+            {recent.length === 0 ? (
+              <p className="text-ink-500 text-sm text-center py-8">Nenhum lead ainda</p>
+            ) : (
+              <div className="divide-y divide-white/[0.06]">
+                {recent.map((l) => (
+                  <div key={l.id} className="flex items-center gap-3 py-2.5">
+                    <div className={`size-2 rounded-full ${l.status === "new" ? "bg-primary" : l.status === "contacted" ? "bg-accent-blue" : "bg-yellow-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{l.name}</div>
+                      <div className="text-xs text-ink-500 truncate">{l.phone}{l.interest ? ` · ${l.interest}` : ""}</div>
+                    </div>
+                    <div className="text-xs text-ink-500">{timeAgo(l.created_at || l.createdAt)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card p-5">
+            <h3 className="font-semibold mb-4">Ações Rápidas</h3>
+            <div className="space-y-2">
+              <ActionRow href="/dashboard/leads" icon="➕" label="Adicionar Lead" />
+              <ActionRow href="/dashboard/disparos" icon="🚀" label="Novo Disparo" />
+              <ActionRow href="/dashboard/conexoes" icon="📱" label="Conectar WhatsApp" />
+              <ActionRow href="/dashboard/leads" icon="📥" label="Importar Contatos" />
+            </div>
+          </div>
         </div>
       </div>
     </>
   );
 }
 
-function ActionCard({ href, icon, title, desc }) {
+function ActionRow({ href, icon, label }) {
   return (
-    <Link href={href} className="card p-5 hover:border-primary/30 hover:bg-card/80 transition-all group">
-      <div className="flex items-start gap-4">
-        <div className="size-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-xl">{icon}</div>
-        <div className="flex-1">
-          <div className="font-semibold group-hover:text-primary transition-colors">{title}</div>
-          <div className="text-sm text-ink-300 mt-1">{desc}</div>
-        </div>
-        <svg className="size-4 text-ink-500 group-hover:text-primary group-hover:translate-x-1 transition-all" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </div>
+    <Link
+      href={href}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/10 hover:border-primary/30 hover:bg-white/5 transition-all text-sm"
+    >
+      <span>{icon}</span>
+      <span className="font-medium">{label}</span>
     </Link>
   );
 }

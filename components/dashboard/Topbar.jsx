@@ -41,7 +41,7 @@ export default function Topbar({ title, subtitle, actions }) {
                 <div className="text-sm font-medium truncate">{user?.name || "Conta"}</div>
                 <div className="text-xs text-ink-500 truncate">{user?.email}</div>
               </div>
-              <a href="/dashboard/configuracoes" className="block px-3 py-2 rounded-lg text-sm text-ink-300 hover:text-ink-100 hover:bg-white/5">Configurações</a>
+              <a href="/dashboard/minha-conta" className="block px-3 py-2 rounded-lg text-sm text-ink-300 hover:text-ink-100 hover:bg-white/5">Minha Conta</a>
               <button onClick={logout} className="block w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10">Sair</button>
             </div>
           </>
