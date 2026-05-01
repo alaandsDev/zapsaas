@@ -2,9 +2,12 @@
   "version": 2,
   "builds": [
     { "src": "landing/index.html", "use": "@vercel/static" },
-    { "src": "frontend/index.html", "use": "@vercel/static" }
+    { "src": "frontend/index.html", "use": "@vercel/static" },
+    { "src": "frontend/admin.html", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/admin", "dest": "/frontend/admin.html" },
+    { "src": "/admin/(.*)", "dest": "/frontend/admin.html" },
     { "src": "/app(.*)", "dest": "/frontend/index.html" },
     { "src": "/", "dest": "/landing/index.html" },
     { "src": "/(.*)", "dest": "/landing/index.html" }

@@ -863,6 +863,154 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// ADMIN — Painel Administrativo
+// ═══════════════════════════════════════════════════════════════
+
+async function requireAdmin(req, res, next) {
+  await requireAuth(req, res, async () => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Acesso negado — área restrita ao administrador' });
+    }
+    next();
+  });
+}
+
+// Stats gerais do sistema
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+  try {
+    const [
+      { count: totalUsers },
+      { count: totalLeads },
+      { count: totalDispatches },
+      { data: proUsers },
+      { data: recentUsers }
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('leads').select('*', { count: 'exact', head: true }),
+      supabase.from('dispatches').select('*', { count: 'exact', head: true }),
+      supabase.from('users').select('id').eq('plan', 'pro'),
+      supabase.from('users').select('id, name, email, role, plan, created_at').order('created_at', { ascending: false }).limit(5)
+    ]);
+
+    const { data: sentData } = await supabase.from('dispatches').select('sent');
+    const totalSent = (sentData || []).reduce((a, d) => a + (d.sent || 0), 0);
+
+    res.json({
+      totalUsers: totalUsers || 0,
+      totalLeads: totalLeads || 0,
+      totalDispatches: totalDispatches || 0,
+      totalSent,
+      proUsers: proUsers?.length || 0,
+      recentUsers: recentUsers || []
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Lista todos os usuários com stats
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, plan, plan_expires_at, stripe_customer_id, created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    // Busca stats por usuário
+    const enriched = await Promise.all(users.map(async (u) => {
+      const [
+        { count: leads },
+        { count: dispatches },
+        { count: lists },
+        { data: dispData }
+      ] = await Promise.all([
+        supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
+        supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
+        supabase.from('contact_lists').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
+        supabase.from('dispatches').select('sent').eq('user_id', u.id)
+      ]);
+      const totalSent = (dispData || []).reduce((a, d) => a + (d.sent || 0), 0);
+      return { ...u, stats: { leads: leads || 0, dispatches: dispatches || 0, lists: lists || 0, totalSent } };
+    }));
+
+    res.json(enriched);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Busca usuário específico com histórico completo
+app.get('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const { data: user } = await supabase.from('users')
+      .select('id, name, email, role, plan, plan_expires_at, stripe_customer_id, created_at')
+      .eq('id', req.params.id).single();
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    const [{ data: dispatches }, { data: leads }, { data: lists }] = await Promise.all([
+      supabase.from('dispatches').select('id, message_title, total, sent, failed, status, created_at')
+        .eq('user_id', req.params.id).order('created_at', { ascending: false }).limit(20),
+      supabase.from('leads').select('id, name, phone, status, created_at')
+        .eq('user_id', req.params.id).order('created_at', { ascending: false }).limit(20),
+      supabase.from('contact_lists').select('id, name, total, created_at')
+        .eq('user_id', req.params.id).order('created_at', { ascending: false })
+    ]);
+
+    res.json({ user, dispatches: dispatches || [], leads: leads || [], lists: lists || [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Atualiza cargo/plano do usuário
+app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const { role, plan, plan_expires_at } = req.body;
+    // Impede admin de alterar o próprio cargo
+    if (req.params.id === req.user.id && role && role !== 'admin') {
+      return res.status(400).json({ error: 'Você não pode remover o próprio cargo de admin' });
+    }
+    const updates = {};
+    if (role) updates.role = role;
+    if (plan) updates.plan = plan;
+    if (plan_expires_at !== undefined) updates.plan_expires_at = plan_expires_at;
+
+    const { data, error } = await supabase.from('users').update(updates).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Deleta usuário e todos os dados
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Você não pode deletar sua própria conta de admin' });
+    await supabase.from('users').delete().eq('id', req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Reset de senha pelo admin
+app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+    const hashed = await hashPassword(newPassword);
+    await supabase.from('users').update({ password: hashed }).eq('id', req.params.id);
+    // Invalida todas as sessões do usuário
+    await supabase.from('sessions').delete().eq('user_id', req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
 // LISTAS DE CONTATOS
 // ═══════════════════════════════════════════════════════════════
 
