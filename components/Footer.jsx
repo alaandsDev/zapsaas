@@ -25,8 +25,8 @@ export default function Footer() {
           <div>
             <div className="text-sm font-semibold mb-4">ZapFlow</div>
             <ul className="space-y-2 text-sm text-ink-300">
-              <li><a href="/app?tab=register" className="hover:text-ink-100">Começar grátis</a></li>
-              <li><a href="/app?tab=login" className="hover:text-ink-100">Entrar</a></li>
+              <li><a href="/register" className="hover:text-ink-100">Começar grátis</a></li>
+              <li><a href="/login" className="hover:text-ink-100">Entrar</a></li>
               <li><Link href="/#planos" className="hover:text-ink-100">Planos</Link></li>
             </ul>
           </div>

@@ -1,7 +1,7 @@
 export default function CTASection({
   title = "Seu WhatsApp pode estar te fazendo perder dinheiro todos os dias",
   subtitle = "Cada cliente que não responde rápido vira venda do concorrente. Ative o ZapFlow e transforme cada conversa em faturamento — no automático.",
-  cta = { label: "Ativar agora — começar grátis", href: "/app?tab=register" },
+  cta = { label: "Ativar agora — começar grátis", href: "/register" },
 }) {
   return (
     <section className="py-24 border-t border-white/[0.06]">

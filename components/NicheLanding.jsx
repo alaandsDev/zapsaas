@@ -28,7 +28,7 @@ export default function NicheLanding({
         title={heroTitle}
         highlight={heroHighlight}
         subtitle={heroSubtitle}
-        primaryCTA={{ label: ctaLabel, href: "/app?tab=register" }}
+        primaryCTA={{ label: ctaLabel, href: "/register" }}
         secondaryCTA={{ label: "Ver como funciona", href: "#como-funciona" }}
       />
       <Benefits title={benefitsTitle} items={benefits} />
@@ -38,7 +38,7 @@ export default function NicheLanding({
       <CTASection
         title={finalCTA.title}
         subtitle={finalCTA.subtitle}
-        cta={{ label: ctaLabel, href: "/app?tab=register" }}
+        cta={{ label: ctaLabel, href: "/register" }}
       />
       <Footer />
     </>

@@ -26,12 +26,12 @@ export default function Navbar() {
         </nav>
         <div className="flex items-center gap-2">
           <a
-            href="/app?tab=login"
+            href="/login"
             className="hidden sm:inline-flex text-sm text-ink-300 hover:text-ink-100 px-4 py-2 rounded-xl border border-white/10 hover:border-white/20 transition-all"
           >
             Entrar
           </a>
-          <a href="/app?tab=register" className="btn-primary !py-2.5 !px-5 text-sm">
+          <a href="/register" className="btn-primary !py-2.5 !px-5 text-sm">
             Começar grátis →
           </a>
         </div>

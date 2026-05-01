@@ -4,7 +4,8 @@
   "rewrites": [
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/admin/:path*", "destination": "/admin.html" },
-    { "source": "/app", "destination": "/app.html" }
+    { "source": "/app", "destination": "/login" },
+    { "source": "/app/:path*", "destination": "/login" }
   ],
   "headers": [
     {

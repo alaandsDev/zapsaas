@@ -3,7 +3,7 @@ export default function Hero({
   title,
   highlight,
   subtitle,
-  primaryCTA = { label: "Começar agora", href: "/app?tab=register" },
+  primaryCTA = { label: "Começar agora", href: "/register" },
   secondaryCTA = { label: "Ver como funciona", href: "#como-funciona" },
   metrics,
 }) {

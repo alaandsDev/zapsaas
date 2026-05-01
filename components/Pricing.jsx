@@ -12,7 +12,7 @@ const plans = [
       "Painel completo de controle",
       "Suporte por e-mail",
     ],
-    href: "/app?tab=register",
+    href: "/register",
     highlighted: false,
   },
   {
@@ -29,7 +29,7 @@ const plans = [
       "Histórico completo e relatórios",
       "Suporte prioritário no WhatsApp",
     ],
-    href: "/app?tab=register",
+    href: "/register",
     highlighted: true,
     badge: "Mais escolhido",
   },
