@@ -1,13 +1,43 @@
 import NicheLanding from "../../components/NicheLanding";
+import JsonLd from "../../components/JsonLd";
+
+const URL = "https://zapflow.vercel.app/delivery";
 
 export const metadata = {
-  title: "ZapFlow para Delivery — Mais pedidos todos os dias pelo WhatsApp",
+  title: "ZapFlow para Delivery — Mais pedidos pelo WhatsApp",
   description:
-    "Sistema de vendas automáticas pelo WhatsApp para delivery e restaurantes. Promoções, recorrência e clientes voltando — sem depender de iFood.",
+    "Sistema de vendas automáticas pelo WhatsApp para delivery e restaurantes. Promoções, recorrência e clientes voltando — sem pagar 30% para plataforma.",
+  keywords: [
+    "whatsapp para delivery",
+    "marketing para delivery",
+    "promoção whatsapp restaurante",
+    "vendas direto whatsapp delivery",
+    "fugir do ifood",
+    "recorrência clientes restaurante",
+    "crm para restaurantes",
+  ],
+  alternates: { canonical: "/delivery" },
+  openGraph: {
+    url: URL,
+    title: "ZapFlow para Delivery — Mais pedidos no automático",
+    description:
+      "Promoções, recorrência e clientes fiéis pelo WhatsApp. Sem pagar 30% para plataforma.",
+  },
+};
+
+const BREADCRUMB = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 2, name: "Delivery", item: URL },
+  ],
 };
 
 export default function Page() {
   return (
+    <>
+    <JsonLd data={BREADCRUMB} />
     <NicheLanding
       eyebrow="ZapFlow para Delivery"
       heroTitle="Aumente seus pedidos todos os dias pelo"
@@ -41,5 +71,6 @@ export default function Page() {
         subtitle: "Seus clientes estão no WhatsApp. Falta você falar com eles na hora certa. Ative o ZapFlow e veja os pedidos chegando.",
       }}
     />
+    </>
   );
 }

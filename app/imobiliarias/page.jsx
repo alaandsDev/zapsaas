@@ -1,13 +1,42 @@
 import NicheLanding from "../../components/NicheLanding";
+import JsonLd from "../../components/JsonLd";
+
+const URL = "https://zapflow.vercel.app/imobiliarias";
 
 export const metadata = {
-  title: "ZapFlow para Imobiliárias — Converta leads em visitas e vendas",
+  title: "ZapFlow para Imobiliárias — Leads em visitas e vendas",
   description:
     "Sistema de vendas automáticas pelo WhatsApp para imobiliárias e corretores. Follow-up automático, nutrição de leads e mais visitas agendadas.",
+  keywords: [
+    "whatsapp para imobiliárias",
+    "crm imobiliário whatsapp",
+    "follow-up corretor",
+    "nutrição de leads imobiliária",
+    "agendamento de visitas imóveis",
+    "marketing imobiliário whatsapp",
+  ],
+  alternates: { canonical: "/imobiliarias" },
+  openGraph: {
+    url: URL,
+    title: "ZapFlow para Imobiliárias — Leads viram vendas",
+    description:
+      "Follow-up automático, nutrição de leads e visitas agendadas pelo WhatsApp.",
+  },
+};
+
+const BREADCRUMB = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 2, name: "Imobiliárias", item: URL },
+  ],
 };
 
 export default function Page() {
   return (
+    <>
+    <JsonLd data={BREADCRUMB} />
     <NicheLanding
       eyebrow="ZapFlow para Imobiliárias"
       heroTitle="Converta leads em visitas e vendas"
@@ -41,5 +70,6 @@ export default function Page() {
         subtitle: "Seus leads estão prontos pra comprar — falta você manter o contato vivo. Ative o ZapFlow e transforme sua carteira em vendas previsíveis.",
       }}
     />
+    </>
   );
 }

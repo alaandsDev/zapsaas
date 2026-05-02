@@ -1,13 +1,43 @@
 import NicheLanding from "../../components/NicheLanding";
+import JsonLd from "../../components/JsonLd";
+
+const URL = "https://zapflow.vercel.app/clinicas";
 
 export const metadata = {
-  title: "ZapFlow para Clínicas — Encha sua agenda automaticamente todos os dias",
+  title: "ZapFlow para Clínicas — Encha sua agenda automaticamente",
   description:
-    "Sistema de vendas automáticas pelo WhatsApp para clínicas. Agendamento automático, redução de faltas e agenda lotada — sem secretária correndo atrás.",
+    "Sistema de vendas automáticas pelo WhatsApp para clínicas. Agendamento automático, confirmação de consulta, redução de faltas e reativação de pacientes.",
+  keywords: [
+    "whatsapp para clínicas",
+    "agendamento automático whatsapp",
+    "confirmação de consulta whatsapp",
+    "reativação de pacientes",
+    "redução de faltas clínica",
+    "marketing para clínicas",
+    "crm para clínicas",
+  ],
+  alternates: { canonical: "/clinicas" },
+  openGraph: {
+    url: URL,
+    title: "ZapFlow para Clínicas — Agenda cheia no automático",
+    description:
+      "Agendamento, confirmação e reativação de pacientes pelo WhatsApp. Faltas até 70% menores.",
+  },
+};
+
+const BREADCRUMB = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 2, name: "Clínicas", item: URL },
+  ],
 };
 
 export default function Page() {
   return (
+    <>
+    <JsonLd data={BREADCRUMB} />
     <NicheLanding
       eyebrow="ZapFlow para Clínicas"
       heroTitle="Encha sua agenda automaticamente com"
@@ -41,5 +71,6 @@ export default function Page() {
         subtitle: "Sua agenda pode estar lotada todos os dias — sem ligação, sem stress. Ative o ZapFlow e veja a diferença em 7 dias.",
       }}
     />
+    </>
   );
 }

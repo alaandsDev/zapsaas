@@ -1,13 +1,42 @@
 import NicheLanding from "../../components/NicheLanding";
+import JsonLd from "../../components/JsonLd";
+
+const URL = "https://zapflow.vercel.app/oticas";
 
 export const metadata = {
-  title: "ZapFlow para Óticas — Transforme pacientes em clientes na sua ótica",
+  title: "ZapFlow para Óticas — Reative pacientes e venda mais",
   description:
-    "Sistema de vendas automáticas pelo WhatsApp para óticas. Reative pacientes, aumente vendas de óculos e lentes — todos os dias no automático.",
+    "Sistema de vendas automáticas pelo WhatsApp para óticas. Reative pacientes, aumente vendas de óculos, lentes e segundo par no automático.",
+  keywords: [
+    "whatsapp para óticas",
+    "marketing para óticas",
+    "reativação de pacientes ótica",
+    "vendas óculos whatsapp",
+    "campanha segundo par",
+    "crm para óticas",
+  ],
+  alternates: { canonical: "/oticas" },
+  openGraph: {
+    url: URL,
+    title: "ZapFlow para Óticas — Reative pacientes no automático",
+    description:
+      "Reative pacientes, venda segundo par e lentes pelo WhatsApp.",
+  },
+};
+
+const BREADCRUMB = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 2, name: "Óticas", item: URL },
+  ],
 };
 
 export default function Page() {
   return (
+    <>
+    <JsonLd data={BREADCRUMB} />
     <NicheLanding
       eyebrow="ZapFlow para Óticas"
       heroTitle="Transforme pacientes da clínica em"
@@ -41,5 +70,6 @@ export default function Page() {
         subtitle: "Cada paciente esquecido é uma venda indo pro concorrente. Ative o ZapFlow e transforme sua agenda em faturamento previsível.",
       }}
     />
+    </>
   );
 }

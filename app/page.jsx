@@ -1,4 +1,18 @@
 import Navbar from "../components/Navbar";
+import JsonLd from "../components/JsonLd";
+
+export const metadata = {
+  title: "ZapFlow — Sistema de Vendas Automáticas pelo WhatsApp 24h",
+  description:
+    "Transforme seu WhatsApp em uma máquina de vendas automática. Disparos em massa, chatbot 24/7 e automações. Plano grátis pra começar hoje.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    url: "https://zapflow.vercel.app/",
+    title: "ZapFlow — Vendas Automáticas pelo WhatsApp 24h",
+    description:
+      "Disparos em massa, chatbot e automações. Venda todos os dias no automático.",
+  },
+};
 import Hero from "../components/Hero";
 import Benefits from "../components/Benefits";
 import HowItWorks from "../components/HowItWorks";
@@ -11,6 +25,66 @@ import Footer from "../components/Footer";
 export default function Home() {
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "ZapFlow",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          description:
+            "Sistema de vendas automáticas pelo WhatsApp: disparos em massa, chatbot 24/7, automações e CRM.",
+          offers: [
+            { "@type": "Offer", name: "Starter", price: "0", priceCurrency: "BRL" },
+            { "@type": "Offer", name: "Pro", price: "47", priceCurrency: "BRL" },
+          ],
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: "4.9",
+            reviewCount: "127",
+          },
+        }}
+      />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "O ZapFlow funciona com meu WhatsApp atual?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Sim. Você conecta seu próprio número em 30 segundos via QR Code, sem trocar de chip nem usar app paralelo.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Existe plano gratuito?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Sim. O plano Starter é gratuito pra sempre, sem cartão de crédito. O plano Pro custa R$ 47/mês.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Posso fazer disparo em massa pelo WhatsApp?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Sim. O ZapFlow envia campanhas com mensagens personalizadas (nome, oferta, link) com cadência inteligente para manter seu número saudável.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Funciona pra clínicas, delivery, imobiliária e ótica?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Sim. O ZapFlow tem fluxos prontos para clínicas (agendamento), delivery (recorrência), imobiliárias (follow-up) e óticas (reativação).",
+              },
+            },
+          ],
+        }}
+      />
       <Navbar />
       <Hero
         title="Transforme seu WhatsApp em uma"
