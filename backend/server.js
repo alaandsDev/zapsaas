@@ -282,11 +282,12 @@ app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
 
 app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: 'Campos obrigatórios' });
     if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
 
     const normalizedEmail = email.toLowerCase().trim();
+    const cleanedPhone = phone ? phone.replace(/\D/g, '') : null;
     const { data: existing } = await supabase.from('users').select('id').eq('email', normalizedEmail).single();
     if (existing) return res.status(400).json({ error: 'Email já cadastrado' });
 
@@ -295,7 +296,8 @@ app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) =>
       name,
       email: normalizedEmail,
       password: hashed,
-      role: 'user'
+      role: 'user',
+      phone: cleanedPhone || null
     });
 
     if (error) throw error;
@@ -684,6 +686,172 @@ app.get('/api/stats', requireAuth, async (req, res) => {
     console.error('Stats error:', e);
     res.status(500).json({ error: 'Erro ao buscar estatísticas' });
   }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — MARKETING (campanhas para usuários da plataforma)
+// ═══════════════════════════════════════════════════════════════
+
+const ADMIN_WPP_SESSION = 'admin_marketing';
+
+// Constrói query Supabase a partir dos filtros do segmento
+function buildSegmentQuery(filters = {}) {
+  let q = supabase.from('users').select('id, name, email, phone, plan, plan_expires_at, role, created_at');
+  q = q.not('phone', 'is', null);
+  if (filters.plan && ['free', 'pro'].includes(filters.plan)) q = q.eq('plan', filters.plan);
+  if (filters.role && ['user', 'admin'].includes(filters.role)) q = q.eq('role', filters.role);
+  if (filters.includeAdmins === false) q = q.neq('role', 'admin');
+  if (filters.expiringInDays && Number(filters.expiringInDays) > 0) {
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + Number(filters.expiringInDays) * 86400000).toISOString();
+    q = q.gte('plan_expires_at', now).lte('plan_expires_at', future);
+  }
+  if (filters.overdue === true) {
+    q = q.lt('plan_expires_at', new Date().toISOString()).eq('plan', 'pro');
+  }
+  if (filters.inactiveDays && Number(filters.inactiveDays) > 0) {
+    const cutoff = new Date(Date.now() - Number(filters.inactiveDays) * 86400000).toISOString();
+    q = q.lt('created_at', cutoff);
+  }
+  return q;
+}
+
+// GET /api/admin/marketing/segment — preview de quem entra
+app.post('/api/admin/marketing/segment', requireAdmin, async (req, res) => {
+  try {
+    const filters = req.body?.filters || {};
+    const { data, error } = await buildSegmentQuery(filters).order('created_at', { ascending: false }).limit(500);
+    if (error) throw error;
+    res.json({
+      total: (data || []).length,
+      sample: (data || []).slice(0, 10),
+      users: data || []
+    });
+  } catch (e) {
+    console.error('[admin/marketing/segment]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// WPP admin — connect/status/disconnect
+app.post('/api/admin/marketing/wpp/connect', requireAdmin, async (req, res) => {
+  try {
+    const r = await wpp.createSession(ADMIN_WPP_SESSION);
+    res.json(r);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/admin/marketing/wpp/status', requireAdmin, (req, res) => {
+  res.json(wpp.getStatus(ADMIN_WPP_SESSION));
+});
+app.post('/api/admin/marketing/wpp/disconnect', requireAdmin, async (req, res) => {
+  try {
+    await wpp.disconnectSession(ADMIN_WPP_SESSION);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Teste — envia 1 mensagem
+app.post('/api/admin/marketing/wpp/test', requireAdmin, async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+    if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem obrigatórios' });
+    const r = await wpp.sendMessage(ADMIN_WPP_SESSION, phone, message);
+    res.json(r);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/admin/marketing/campaign — dispara campanha
+app.post('/api/admin/marketing/campaign', requireAdmin, async (req, res) => {
+  try {
+    const { name, message, filters, delaySeconds } = req.body;
+    if (!message) return res.status(400).json({ error: 'Mensagem obrigatória' });
+
+    const status = wpp.getStatus(ADMIN_WPP_SESSION);
+    if (status.status !== 'connected') {
+      return res.status(400).json({ error: 'WhatsApp do admin não conectado. Conecte na aba Marketing.' });
+    }
+
+    const { data: targets, error } = await buildSegmentQuery(filters || {}).limit(5000);
+    if (error) throw error;
+    if (!targets?.length) return res.status(400).json({ error: 'Nenhum usuário no segmento' });
+
+    const items = targets.map(u => ({
+      userId: u.id, name: u.name, email: u.email, phone: u.phone, status: 'pending'
+    }));
+
+    const { data: campaign, error: cErr } = await supabase.from('admin_campaigns').insert({
+      name: name || `Campanha ${new Date().toLocaleString('pt-BR')}`,
+      message,
+      segment: filters || {},
+      total: targets.length,
+      status: 'sending',
+      items,
+      created_by: req.user.id,
+      started_at: new Date().toISOString()
+    }).select().single();
+    if (cErr) throw cErr;
+
+    res.json({ campaignId: campaign.id, total: targets.length, message: 'Campanha iniciada!' });
+
+    // Background dispatch
+    (async () => {
+      const delayMs = Math.max(1500, (Number(delaySeconds) || 3) * 1000);
+      const updated = [...items];
+      let sent = 0, failed = 0;
+      for (let i = 0; i < targets.length; i++) {
+        const u = targets[i];
+        try {
+          const personalized = message
+            .replace(/\{nome\}/gi, u.name || '')
+            .replace(/\{name\}/gi, u.name || '')
+            .replace(/\{email\}/gi, u.email || '')
+            .replace(/\{plano\}/gi, u.plan || 'free')
+            .replace(/\{vencimento\}/gi, u.plan_expires_at ? new Date(u.plan_expires_at).toLocaleDateString('pt-BR') : '');
+          await wpp.sendMessage(ADMIN_WPP_SESSION, u.phone, personalized);
+          updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString() };
+          sent++;
+        } catch (e) {
+          updated[i] = { ...updated[i], status: 'failed', error: e.message };
+          failed++;
+        }
+        if (i % 10 === 0) {
+          await supabase.from('admin_campaigns').update({ sent, failed, items: updated }).eq('id', campaign.id);
+        }
+        await new Promise(r => setTimeout(r, delayMs + Math.random() * 1500));
+      }
+      await supabase.from('admin_campaigns').update({
+        sent, failed,
+        status: 'completed',
+        items: updated,
+        finished_at: new Date().toISOString()
+      }).eq('id', campaign.id);
+      console.log(`[admin marketing] campanha ${campaign.id} concluída: ${sent}/${targets.length}`);
+    })();
+  } catch (e) {
+    console.error('[admin/marketing/campaign]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/admin/marketing/campaigns — histórico
+app.get('/api/admin/marketing/campaigns', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('admin_campaigns')
+      .select('id, name, total, sent, failed, status, segment, started_at, finished_at, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/marketing/campaigns/:id', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('admin_campaigns').select('*').eq('id', req.params.id).single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ═══════════════════════════════════════════════════════════════

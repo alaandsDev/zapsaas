@@ -10,6 +10,7 @@ export default function Register() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,7 @@ export default function Register() {
       const r = await api("/api/auth/register", {
         method: "POST",
         auth: false,
-        body: { name, email, password },
+        body: { name, email, phone, password },
       });
       setAuth(r.token, r.user);
       router.push("/dashboard");
@@ -53,6 +54,9 @@ export default function Register() {
         </Field>
         <Field label="E-mail">
           <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
+        </Field>
+        <Field label="WhatsApp" hint="Com DDD — ex: 11987654321">
+          <Input type="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="11987654321" />
         </Field>
         <Field label="Senha" hint="Mínimo 6 caracteres">
           <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />

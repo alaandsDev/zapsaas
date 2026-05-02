@@ -47,6 +47,10 @@ h1,h2,h3,h4{font-family:'Syne',sans-serif}
 .nav-item.active{background:rgba(255,77,106,.1);color:var(--red);font-weight:600;border:1px solid rgba(255,77,106,.15)}
 .nav-item.active svg{opacity:1;stroke:var(--red)}
 .sidebar-footer{padding:12px 8px;border-top:1px solid var(--border)}
+.mk-tab.active{background:rgba(255,77,106,.12);color:var(--red);border-color:rgba(255,77,106,.25)}
+#view-marketing select,#view-marketing input[type=number],#view-marketing input[type=text]{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
+#view-marketing select:focus,#view-marketing input:focus{border-color:var(--red)}
+#view-marketing code{background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:11px;color:var(--yellow)}
 
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;min-height:100vh;overflow:hidden}
@@ -184,6 +188,10 @@ select:focus{border-color:var(--red)}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           Disparos
         </div>
+        <div class="nav-item" data-view="marketing" onclick="navigate('marketing')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>
+          Marketing
+        </div>
       </div>
       <div class="sidebar-footer">
         <div class="nav-item" onclick="doLogout()">
@@ -281,6 +289,107 @@ select:focus{border-color:var(--red)}
                   <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- MARKETING -->
+        <div class="view" id="view-marketing">
+          <!-- Sub-tabs -->
+          <div style="display:flex;gap:8px;margin-bottom:18px">
+            <button class="btn btn-ghost btn-sm mk-tab active" data-mk="connection" onclick="mkTab('connection')">📱 Conexão</button>
+            <button class="btn btn-ghost btn-sm mk-tab" data-mk="campaign" onclick="mkTab('campaign')">🚀 Nova Campanha</button>
+            <button class="btn btn-ghost btn-sm mk-tab" data-mk="history" onclick="mkTab('history')">📜 Histórico</button>
+          </div>
+
+          <!-- CONEXÃO -->
+          <div class="mk-pane" id="mk-connection">
+            <div class="section-card">
+              <div class="section-header"><div class="section-title">WhatsApp do Admin (sessão própria)</div></div>
+              <div id="mk-wpp-status" style="padding:18px;font-size:14px;color:var(--text2)">Carregando...</div>
+              <div id="mk-wpp-qr" style="display:none;text-align:center;padding:18px"></div>
+              <div style="display:flex;gap:10px;padding:0 18px 18px">
+                <button class="btn btn-primary" onclick="mkWppConnect()">🔌 Conectar / Gerar QR</button>
+                <button class="btn btn-danger" onclick="mkWppDisconnect()">🔚 Desconectar</button>
+                <button class="btn btn-ghost" onclick="mkWppStatus()">🔄 Atualizar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- NOVA CAMPANHA -->
+          <div class="mk-pane" id="mk-campaign" style="display:none">
+            <div class="section-card">
+              <div class="section-header"><div class="section-title">1. Selecione o segmento</div></div>
+              <div style="padding:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase">Plano</label>
+                  <select id="mk-f-plan" style="width:100%;margin-top:6px">
+                    <option value="">Todos</option>
+                    <option value="free">🆓 Free</option>
+                    <option value="pro">⚡ Pro</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase">Vence em até (dias)</label>
+                  <input type="number" id="mk-f-expiring" placeholder="Ex: 7" min="0" style="width:100%;margin-top:6px"/>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase">Status</label>
+                  <select id="mk-f-status" style="width:100%;margin-top:6px">
+                    <option value="">Todos</option>
+                    <option value="overdue">💸 Devedores (vencidos)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.5px;text-transform:uppercase">Inativos há (dias)</label>
+                  <input type="number" id="mk-f-inactive" placeholder="Ex: 30" min="0" style="width:100%;margin-top:6px"/>
+                </div>
+                <div style="display:flex;align-items:flex-end">
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+                    <input type="checkbox" id="mk-f-noadmin" checked/> Excluir admins
+                  </label>
+                </div>
+              </div>
+              <div style="padding:0 18px 18px;display:flex;gap:10px;align-items:center">
+                <button class="btn btn-ghost" onclick="mkPreview()">👁️ Visualizar segmento</button>
+                <span id="mk-segment-count" style="color:var(--text2);font-size:13px"></span>
+              </div>
+              <div id="mk-segment-sample" style="padding:0 18px 18px;font-size:12px;color:var(--text3)"></div>
+            </div>
+
+            <div class="section-card" style="margin-top:18px">
+              <div class="section-header"><div class="section-title">2. Mensagem</div></div>
+              <div style="padding:18px">
+                <input type="text" id="mk-name" placeholder="Nome da campanha (interno)" style="width:100%;margin-bottom:12px"/>
+                <textarea id="mk-msg" rows="6" placeholder="Olá {nome}, ..." style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-family:inherit;font-size:14px;resize:vertical"></textarea>
+                <div style="font-size:11px;color:var(--text3);margin-top:8px">
+                  Variáveis: <code>{nome}</code> <code>{email}</code> <code>{plano}</code> <code>{vencimento}</code>
+                </div>
+                <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+                  <label style="font-size:12px;color:var(--text2)">Intervalo entre envios (s):</label>
+                  <input type="number" id="mk-delay" value="3" min="2" style="width:80px"/>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:18px;display:flex;gap:10px">
+              <button class="btn btn-primary" onclick="mkLaunch()">🚀 Disparar campanha</button>
+            </div>
+          </div>
+
+          <!-- HISTÓRICO -->
+          <div class="mk-pane" id="mk-history" style="display:none">
+            <div class="section-card">
+              <div class="section-header">
+                <div class="section-title">Campanhas anteriores</div>
+                <button class="btn btn-ghost btn-sm" onclick="mkLoadHistory()">🔄</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Nome</th><th>Total</th><th>Enviados</th><th>Falhas</th><th>Status</th><th>Quando</th></tr></thead>
+                  <tbody id="mk-history-tbody"><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text3)">—</td></tr></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -437,6 +546,7 @@ const pages = {
   dashboard: ['Dashboard', 'Visão geral do sistema'],
   users: ['Usuários', 'Gerenciar todos os usuários da plataforma'],
   dispatches: ['Disparos', 'Histórico de todos os disparos'],
+  marketing: ['Marketing', 'Campanhas em massa para usuários da plataforma'],
 };
 
 function navigate(view) {
@@ -450,6 +560,137 @@ function navigate(view) {
   if (view === 'dashboard') loadDashboard();
   else if (view === 'users') loadUsers();
   else if (view === 'dispatches') loadAllDispatches();
+  else if (view === 'marketing') { mkTab('connection'); mkWppStatus(); }
+}
+
+// ── MARKETING ─────────────────────────────────────────────────
+function mkTab(tab) {
+  document.querySelectorAll('.mk-tab').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-mk="${tab}"]`)?.classList.add('active');
+  document.querySelectorAll('.mk-pane').forEach(p => p.style.display = 'none');
+  document.getElementById('mk-' + tab).style.display = 'block';
+  if (tab === 'connection') mkWppStatus();
+  if (tab === 'history') mkLoadHistory();
+}
+
+let mkStatusTimer = null;
+async function mkWppStatus() {
+  try {
+    const res = await authFetch(`${API}/admin/marketing/wpp/status`);
+    const s = await res.json();
+    const box = document.getElementById('mk-wpp-status');
+    const qrBox = document.getElementById('mk-wpp-qr');
+    if (s.status === 'connected') {
+      box.innerHTML = `✅ Conectado · número <b>${s.phone || '-'}</b>`;
+      qrBox.style.display = 'none';
+      if (mkStatusTimer) { clearInterval(mkStatusTimer); mkStatusTimer = null; }
+    } else if (s.status === 'qr_ready' && s.qr) {
+      box.innerHTML = `📱 Escaneie o QR Code com o WhatsApp do admin:`;
+      qrBox.style.display = 'block';
+      qrBox.innerHTML = `<img src="${s.qr}" style="width:280px;height:280px;border-radius:12px;background:#fff;padding:8px"/>`;
+    } else if (s.status === 'connecting') {
+      box.innerHTML = `⏳ Conectando...`;
+    } else {
+      box.innerHTML = `⚪ Desconectado — clique em "Conectar" para gerar o QR`;
+      qrBox.style.display = 'none';
+    }
+  } catch (e) { document.getElementById('mk-wpp-status').textContent = 'Erro ao consultar status'; }
+}
+
+async function mkWppConnect() {
+  try {
+    await authFetch(`${API}/admin/marketing/wpp/connect`, { method: 'POST' });
+    notify('Conectando — aguardando QR...', 'success');
+    if (mkStatusTimer) clearInterval(mkStatusTimer);
+    mkStatusTimer = setInterval(mkWppStatus, 2500);
+  } catch (e) { notify('Erro ao conectar', 'error'); }
+}
+
+async function mkWppDisconnect() {
+  if (!confirm('Desconectar WhatsApp do admin?')) return;
+  try {
+    await authFetch(`${API}/admin/marketing/wpp/disconnect`, { method: 'POST' });
+    notify('Desconectado', 'success');
+    mkWppStatus();
+  } catch (e) { notify('Erro', 'error'); }
+}
+
+function mkBuildFilters() {
+  const plan = document.getElementById('mk-f-plan').value;
+  const expiringInDays = parseInt(document.getElementById('mk-f-expiring').value) || 0;
+  const status = document.getElementById('mk-f-status').value;
+  const inactiveDays = parseInt(document.getElementById('mk-f-inactive').value) || 0;
+  const includeAdmins = !document.getElementById('mk-f-noadmin').checked;
+  const filters = { includeAdmins };
+  if (plan) filters.plan = plan;
+  if (expiringInDays) filters.expiringInDays = expiringInDays;
+  if (status === 'overdue') filters.overdue = true;
+  if (inactiveDays) filters.inactiveDays = inactiveDays;
+  return filters;
+}
+
+async function mkPreview() {
+  try {
+    const filters = mkBuildFilters();
+    const res = await authFetch(`${API}/admin/marketing/segment`, {
+      method: 'POST', body: JSON.stringify({ filters })
+    });
+    const data = await res.json();
+    document.getElementById('mk-segment-count').textContent = `→ ${data.total} usuário(s) no segmento`;
+    const sample = (data.sample || []).map(u => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">${esc(u.name)} · ${esc(u.email)} · ${esc(u.phone||'sem telefone')} · <span style="color:var(--text2)">${u.plan||'free'}</span></div>`).join('');
+    document.getElementById('mk-segment-sample').innerHTML = sample ? `<div style="margin-top:8px"><b>Amostra:</b>${sample}</div>` : '';
+  } catch (e) { notify('Erro ao buscar segmento', 'error'); }
+}
+
+async function mkLaunch() {
+  const message = document.getElementById('mk-msg').value.trim();
+  if (!message) return notify('Escreva a mensagem', 'error');
+  const filters = mkBuildFilters();
+  const name = document.getElementById('mk-name').value.trim();
+  const delaySeconds = parseInt(document.getElementById('mk-delay').value) || 3;
+
+  // confirma com total
+  try {
+    const r = await authFetch(`${API}/admin/marketing/segment`, {
+      method: 'POST', body: JSON.stringify({ filters })
+    });
+    const seg = await r.json();
+    if (!seg.total) return notify('Nenhum usuário no segmento', 'error');
+    if (!confirm(`Disparar para ${seg.total} usuário(s)?`)) return;
+  } catch (e) { return notify('Erro ao validar segmento', 'error'); }
+
+  try {
+    const res = await authFetch(`${API}/admin/marketing/campaign`, {
+      method: 'POST',
+      body: JSON.stringify({ name, message, filters, delaySeconds })
+    });
+    const data = await res.json();
+    if (!res.ok) return notify(data.error || 'Erro', 'error');
+    notify(`🚀 Campanha iniciada (${data.total} alvos)`, 'success');
+    mkTab('history');
+  } catch (e) { notify('Erro ao disparar', 'error'); }
+}
+
+async function mkLoadHistory() {
+  const tbody = document.getElementById('mk-history-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text3)">⏳ Carregando...</td></tr>';
+  try {
+    const res = await authFetch(`${API}/admin/marketing/campaigns`);
+    const list = await res.json();
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text3)">Nenhuma campanha ainda</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map(c => `
+      <tr>
+        <td><b>${esc(c.name)}</b></td>
+        <td style="text-align:center">${c.total}</td>
+        <td style="text-align:center;color:var(--green)">${c.sent}</td>
+        <td style="text-align:center;color:var(--red)">${c.failed}</td>
+        <td><span class="badge-plan ${c.status==='completed'?'pro':'free'}">${c.status}</span></td>
+        <td style="font-size:12px;color:var(--text3)">${fmtDate(c.created_at)}</td>
+      </tr>`).join('');
+  } catch (e) { notify('Erro ao carregar histórico', 'error'); }
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
