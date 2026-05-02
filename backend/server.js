@@ -291,15 +291,27 @@ app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) =>
     if (existing) return res.status(400).json({ error: 'Email já cadastrado' });
 
     const hashed = await hashPassword(password);
-    const { error } = await supabase.from('users').insert({
+    const { data: newUser, error } = await supabase.from('users').insert({
       name,
       email: normalizedEmail,
       password: hashed,
       role: 'user'
-    });
+    }).select('id, name, email, role').single();
 
     if (error) throw error;
-    res.json({ message: 'Usuário criado com sucesso' });
+
+    // Cria sessão automaticamente — sem precisar logar de novo
+    const token = crypto.randomBytes(32).toString('hex');
+    const userData = { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role };
+    await supabase.from('sessions').insert({
+      token,
+      user_id: newUser.id,
+      user_data: userData,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    console.log('[register] Novo usuário:', normalizedEmail);
+    res.json({ token, user: userData, message: 'Conta criada com sucesso' });
   } catch (e) {
     console.error('Register error:', e);
     res.status(500).json({ error: 'Erro ao criar usuário' });
