@@ -3,10 +3,10 @@ import Logo from "../Logo";
 
 export default function AuthShell({ title, subtitle, children, footer }) {
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen flex overflow-hidden">
 
       {/* ── LEFT: formulário ── */}
-      <div className="flex flex-col justify-between w-full lg:w-1/2 px-8 py-10 bg-white">
+      <div className="flex flex-col justify-between w-full lg:w-1/2 px-8 py-10 bg-white min-h-screen">
         <div className="flex justify-center lg:justify-start">
           <Link href="/" aria-label="ZapFlow">
             <div className="flex items-center gap-2.5">
@@ -73,7 +73,7 @@ export default function AuthShell({ title, subtitle, children, footer }) {
       </div>
 
       {/* ── RIGHT: marketing ── */}
-      <div className="hidden lg:flex flex-col justify-center items-start w-1/2 px-16 relative overflow-hidden"
+      <div className="hidden lg:flex flex-col justify-center items-start w-1/2 px-16 relative overflow-hidden min-h-screen"
         style={{ background: "linear-gradient(145deg, #0B0F14 0%, #0d1f18 50%, #0a1a1a 100%)" }}>
 
         {/* glow */}
