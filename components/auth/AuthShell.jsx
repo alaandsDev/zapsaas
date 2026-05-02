@@ -82,22 +82,6 @@ export default function AuthShell({ title, subtitle, children, footer }) {
         <div className="absolute bottom-1/4 left-0 w-64 h-64 rounded-full pointer-events-none"
           style={{ background: "radial-gradient(circle, rgba(0,255,178,0.06) 0%, transparent 70%)" }} />
 
-        {/* feature icons */}
-        <div className="flex gap-3 mb-10 relative z-10">
-          {[
-            { icon: "💬", active: false },
-            { icon: "🤖", active: true },
-            { icon: "📊", active: false },
-          ].map((f, i) => (
-            <div key={i} className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl"
-              style={{
-                background: f.active ? "#00DFA2" : "rgba(255,255,255,0.07)",
-                border: f.active ? "none" : "1px solid rgba(255,255,255,0.1)",
-              }}>
-              {f.icon}
-            </div>
-          ))}
-        </div>
 
         <div className="relative z-10 max-w-md">
           <h2 className="text-4xl font-bold text-white leading-tight mb-4">
