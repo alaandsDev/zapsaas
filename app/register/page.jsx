@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthShell from "../../components/auth/AuthShell";
-import { Field, Input, Button } from "../../components/ui/Field";
 import { api, setAuth } from "../../lib/api";
 
 export default function Register() {
@@ -20,11 +19,7 @@ export default function Register() {
     if (password.length < 6) return setErr("Senha precisa ter no mínimo 6 caracteres");
     setLoading(true);
     try {
-      const r = await api("/api/auth/register", {
-        method: "POST",
-        auth: false,
-        body: { name, email, password },
-      });
+      const r = await api("/api/auth/register", { method: "POST", auth: false, body: { name, email, password } });
       setAuth(r.token, r.user);
       router.push("/dashboard");
     } catch (e) {
@@ -41,26 +36,49 @@ export default function Register() {
       footer={
         <>
           Já tem conta?{" "}
-          <Link href="/login" className="text-primary hover:underline font-medium">
+          <Link href="/login" className="font-semibold hover:underline" style={{ color: "#00DFA2" }}>
             Entrar
           </Link>
         </>
       }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
-        <Field label="Nome">
-          <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
-        </Field>
-        <Field label="E-mail">
-          <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
-        </Field>
-        <Field label="Senha" hint="Mínimo 6 caracteres">
-          <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-        </Field>
-        {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-        <Button type="submit" loading={loading} className="w-full">Criar conta grátis →</Button>
-        <p className="text-xs text-ink-500 text-center">
-          Ao continuar você concorda com nossos termos.
+      <form onSubmit={onSubmit}>
+        {err && <div className="auth-err">{err}</div>}
+
+        <div className="auth-field" style={{ marginBottom: 16 }}>
+          <label>Nome *</label>
+          <div className="input-wrap">
+            <span className="input-icon">👤</span>
+            <input type="text" required placeholder="Seu nome completo"
+              value={name} onChange={e => setName(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="auth-field" style={{ marginBottom: 16 }}>
+          <label>E-mail *</label>
+          <div className="input-wrap">
+            <span className="input-icon">✉️</span>
+            <input type="email" required autoComplete="email" placeholder="seu@email.com"
+              value={email} onChange={e => setEmail(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="auth-field" style={{ marginBottom: 20 }}>
+          <label>Senha *</label>
+          <div className="input-wrap">
+            <span className="input-icon">🔒</span>
+            <input type="password" required autoComplete="new-password" placeholder="Mínimo 6 caracteres"
+              value={password} onChange={e => setPassword(e.target.value)} />
+          </div>
+        </div>
+
+        <button type="submit" className="auth-btn" disabled={loading}>
+          {loading && <span style={{ width: 16, height: 16, border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.6s linear infinite" }} />}
+          {loading ? "Criando conta..." : "🚀 Criar conta grátis"}
+        </button>
+
+        <p style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 12 }}>
+          Ao continuar você concorda com nossos termos de uso.
         </p>
       </form>
     </AuthShell>

@@ -47,3 +47,5 @@
     mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
   }
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
