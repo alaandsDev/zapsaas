@@ -787,18 +787,32 @@ app.post('/api/sms/purchase', requireAuth, async (req, res) => {
   }
 });
 
+// Calcula segmentos SMS — GSM-7 = 160/segmento; se tiver caractere fora do GSM-7
+// (acentos como á/ã/ç, emoji, etc.), Zenvia usa UCS-2 = 70/segmento.
+const GSM7_RE = /^[A-Za-z0-9 \r\n@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[\]~|€]*$/;
+function smsSegments(text) {
+  const t = String(text || '');
+  if (!t) return 1;
+  const isGsm = GSM7_RE.test(t);
+  const perSeg = isGsm ? 160 : 70;
+  return Math.max(1, Math.ceil(t.length / perSeg));
+}
+
 // Disparo único (teste)
 app.post('/api/sms/send', requireAuth, async (req, res) => {
   try {
     const { phone, message } = req.body;
     if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem obrigatórios' });
 
+    const cost = smsSegments(message);
     const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
-    if ((u?.sms_credits || 0) < 1) return res.status(402).json({ error: 'Sem créditos de SMS', code: 'NO_SMS_CREDITS' });
+    if ((u?.sms_credits || 0) < cost) {
+      return res.status(402).json({ error: `Saldo insuficiente: precisa ${cost} crédito(s)`, code: 'NO_SMS_CREDITS', needed: cost, balance: u?.sms_credits || 0 });
+    }
 
     const r = await zenvia.sendSms(phone, message);
-    await supabase.from('users').update({ sms_credits: u.sms_credits - 1 }).eq('id', req.user.id);
-    res.json({ ...r, remainingCredits: u.sms_credits - 1 });
+    await supabase.from('users').update({ sms_credits: u.sms_credits - cost }).eq('id', req.user.id);
+    res.json({ ...r, segmentsCharged: cost, remainingCredits: u.sms_credits - cost });
   } catch (e) {
     console.error('[sms/send]', e);
     res.status(500).json({ error: e.message });
@@ -815,10 +829,13 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
 
     const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
     const balance = u?.sms_credits || 0;
-    if (balance < phones.length) {
+    // Estimativa de custo: usa o template puro (variáveis costumam ser curtas)
+    const baseSegments = smsSegments(message);
+    const estimatedCost = baseSegments * phones.length;
+    if (balance < estimatedCost) {
       return res.status(402).json({
-        error: `Saldo insuficiente: ${balance} crédito(s), precisa de ${phones.length}`,
-        code: 'NO_SMS_CREDITS', balance, needed: phones.length
+        error: `Saldo insuficiente: ${balance} crédito(s), estimativa ${estimatedCost} (${baseSegments} segmento(s) × ${phones.length} contatos)`,
+        code: 'NO_SMS_CREDITS', balance, needed: estimatedCost
       });
     }
 
@@ -853,11 +870,12 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
             .replace(/\{name\}/gi, name)
             .replace(/\{numero\}/gi, phoneStr);
           await zenvia.sendSms(phoneStr, personalized);
-          updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString() };
+          const charged = smsSegments(personalized);
+          updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString(), segments: charged };
           sent++;
-          // Debita 1 crédito por envio bem-sucedido (atômico via select+update)
+          // Debita por segmento real da mensagem personalizada
           const { data: cur } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
-          await supabase.from('users').update({ sms_credits: Math.max(0, (cur?.sms_credits || 0) - 1) }).eq('id', req.user.id);
+          await supabase.from('users').update({ sms_credits: Math.max(0, (cur?.sms_credits || 0) - charged) }).eq('id', req.user.id);
         } catch (e) {
           updated[i] = { ...updated[i], status: 'failed', error: e.message };
           failed++;

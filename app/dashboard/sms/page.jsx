@@ -50,8 +50,9 @@ export default function SmsPage() {
     const list = parsePhones();
     if (!list.length) return setErr("Adicione pelo menos um número");
     if (!message.trim()) return setErr("Escreva a mensagem");
-    if (list.length > balance) return setErr(`Saldo insuficiente: ${balance} créditos, precisa ${list.length}`);
-    if (!confirm(`Enviar ${list.length} SMS? Custo: ${list.length} crédito(s).`)) return;
+    const cost = segments * list.length;
+    if (cost > balance) return setErr(`Saldo insuficiente: ${balance} créditos, precisa ${cost} (${segments} seg × ${list.length} contatos)`);
+    if (!confirm(`Enviar para ${list.length} contato(s)? Custo: ${cost} crédito(s) (${segments} segmento(s) × ${list.length}).`)) return;
 
     setLoading(true);
     try {
@@ -70,7 +71,11 @@ export default function SmsPage() {
   }
 
   const charCount = message.length;
-  const segments = Math.max(1, Math.ceil(charCount / 160));
+  const GSM7_RE = /^[A-Za-z0-9 \r\n@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[\]~|€]*$/;
+  const isUnicode = message && !GSM7_RE.test(message);
+  const perSeg = isUnicode ? 70 : 160;
+  const segments = Math.max(1, Math.ceil(charCount / perSeg));
+  const totalCost = segments * parsePhones().length;
 
   return (
     <div className="p-6 lg:p-10 max-w-6xl mx-auto">
@@ -131,15 +136,15 @@ export default function SmsPage() {
               className="mt-1 w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-primary"
               placeholder="Olá {nome}, ..." />
             <div className="text-xs text-ink-400 mt-1">
-              {charCount} caracteres · {segments} segmento(s) SMS · variáveis: <code>{"{nome}"}</code> <code>{"{numero}"}</code>
-              {segments > 1 && <span className="text-yellow-400"> · cada segmento debita 1 crédito</span>}
+              {charCount} chars · {segments} segmento(s){isUnicode && <span className="text-yellow-400"> (acento/emoji = 70/seg)</span>} · variáveis: <code>{"{nome}"}</code> <code>{"{numero}"}</code>
+              {parsePhones().length > 0 && <span className="text-primary"> · custo total: {totalCost} crédito(s)</span>}
             </div>
           </div>
           {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
           {ok && <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-xl px-4 py-3">{ok}</div>}
           <button onClick={dispatch} disabled={loading || !parsePhones().length || !message.trim()}
             className="px-6 py-3 rounded-xl bg-primary text-bg font-semibold hover:opacity-90 disabled:opacity-50">
-            {loading ? "Enviando..." : `🚀 Disparar (${parsePhones().length} SMS)`}
+            {loading ? "Enviando..." : `🚀 Disparar (${totalCost} crédito${totalCost !== 1 ? "s" : ""})`}
           </button>
         </div>
       </section>
