@@ -13,6 +13,7 @@ const nav = [
   { href: "/dashboard/sms", label: "SMS", icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
   { href: "/dashboard/automacao", label: "Automação", icon: "M9 19c-5 0-8-3-8-8s3-8 8-8h6c5 0 8 3 8 8M7 11h2m6 0h2M5 7h2m6 0h2M5 15h2m6 0h2" },
   { href: "/dashboard/conexoes", label: "Conexões", icon: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" },
+  { href: "/dashboard/wpp-oficial", label: "WhatsApp Oficial", icon: "M22 11.5a8.5 8.5 0 0 1-8.5 8.5h-.5l-5 3v-3.5A8.5 8.5 0 1 1 22 11.5zM9 11h6m-3-3v6" },
   { href: "/dashboard/suporte", label: "Suporte", icon: "M12 2a10 10 0 100 20 10 10 0 000-20zM9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01" },
   { href: "/dashboard/minha-conta", label: "Minha Conta", icon: "M12 15a3 3 0 100-6 3 3 0 000 6zm7.4-3a7.4 7.4 0 00-.1-1.2l2-1.6-2-3.4-2.4.9a7.5 7.5 0 00-2-1.2L14.5 3h-5l-.4 2.5a7.5 7.5 0 00-2 1.2l-2.4-.9-2 3.4 2 1.6a7.4 7.4 0 000 2.4l-2 1.6 2 3.4 2.4-.9a7.5 7.5 0 002 1.2l.4 2.5h5l.4-2.5a7.5 7.5 0 002-1.2l2.4.9 2-3.4-2-1.6c.07-.4.1-.8.1-1.2z" },
 ];

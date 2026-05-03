@@ -4,6 +4,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const wpp = require('./whatsapp');
+const wppCloud = require('./whatsapp_cloud');
 const zenvia = require('./zenvia');
 const Stripe = require('stripe');
 const cron = require('node-cron');
@@ -146,6 +147,86 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   }
 
   res.json({ received: true });
+});
+
+// ── Webhook WhatsApp Cloud API (Meta) ─────────────────────────
+// GET para verificação inicial, POST para eventos. Usa raw body para HMAC.
+app.get('/api/wpp-cloud/webhook', async (req, res) => {
+  try {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    if (mode !== 'subscribe' || !token) return res.sendStatus(400);
+    // Aceita verify se algum user tiver esse token configurado
+    const { data } = await supabase.from('whatsapp_cloud_configs')
+      .select('id').eq('webhook_verify_token', token).limit(1);
+    if (data?.length) return res.status(200).send(challenge);
+    return res.sendStatus(403);
+  } catch (e) { res.sendStatus(500); }
+});
+
+app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const payload = JSON.parse(req.body.toString('utf8'));
+    const phoneNumberId = payload?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+    if (!phoneNumberId) return res.sendStatus(200);
+
+    const { data: config } = await supabase.from('whatsapp_cloud_configs')
+      .select('*').eq('phone_number_id', phoneNumberId).single();
+    if (!config) return res.sendStatus(200);
+
+    // Verifica assinatura HMAC se houver app_secret configurado
+    if (config.app_secret) {
+      const sig = req.headers['x-hub-signature-256'];
+      if (!wppCloud.verifyWebhookSignature(req.body, sig, config.app_secret)) {
+        console.warn('[wpp-cloud] HMAC inválido');
+        return res.sendStatus(401);
+      }
+    }
+
+    const change = payload.entry[0].changes[0].value;
+
+    // Status updates (sent/delivered/read/failed)
+    if (change.statuses) {
+      for (const st of change.statuses) {
+        const wamid = st.id;
+        const status = st.status;
+        await supabase.from('cloud_message_status').upsert({
+          wamid, user_id: config.user_id, phone: st.recipient_id,
+          status, error: st.errors?.[0]?.message || null,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'wamid' });
+
+        // Atualiza contadores no dispatch (read-modify-write best-effort)
+        const { data: row } = await supabase.from('cloud_message_status')
+          .select('dispatch_id').eq('wamid', wamid).single();
+        if (row?.dispatch_id) {
+          const field = status === 'delivered' ? 'delivered'
+            : status === 'read' ? 'read'
+            : status === 'failed' ? 'failed' : null;
+          if (field) {
+            const { data: d } = await supabase.from('cloud_dispatches')
+              .select(field).eq('id', row.dispatch_id).single();
+            await supabase.from('cloud_dispatches')
+              .update({ [field]: ((d?.[field]) || 0) + 1 })
+              .eq('id', row.dispatch_id);
+          }
+        }
+      }
+    }
+
+    // Mensagens recebidas (responses) — só loga; engine de automação plug aqui depois
+    if (change.messages) {
+      for (const msg of change.messages) {
+        console.log(`[wpp-cloud] msg de ${msg.from}: ${msg.text?.body || msg.type}`);
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (e) {
+    console.error('[wpp-cloud webhook]', e);
+    res.sendStatus(200); // sempre 200 pro Meta não retentar agressivo
+  }
 });
 
 app.use(express.json());
@@ -710,6 +791,101 @@ app.get('/api/stats', requireAuth, async (req, res) => {
     console.error('Stats error:', e);
     res.status(500).json({ error: 'Erro ao buscar estatísticas' });
   }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// WHATSAPP CLOUD API (Meta direto)
+// ═══════════════════════════════════════════════════════════════
+
+async function getCloudConfig(userId) {
+  const { data } = await supabase.from('whatsapp_cloud_configs').select('*').eq('user_id', userId).single();
+  return data;
+}
+
+// Lê config (sem expor token completo)
+app.get('/api/wpp-cloud/config', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    if (!c) return res.json(null);
+    res.json({
+      id: c.id,
+      phone_number_id: c.phone_number_id,
+      business_account_id: c.business_account_id,
+      webhook_verify_token: c.webhook_verify_token,
+      display_phone: c.display_phone,
+      verified_name: c.verified_name,
+      enabled: c.enabled,
+      has_token: !!c.access_token,
+      has_app_secret: !!c.app_secret,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Cria/atualiza credenciais
+app.post('/api/wpp-cloud/config', requireAuth, async (req, res) => {
+  try {
+    const { phone_number_id, business_account_id, access_token, webhook_verify_token, app_secret } = req.body;
+    if (!phone_number_id || !access_token || !webhook_verify_token) {
+      return res.status(400).json({ error: 'phone_number_id, access_token e webhook_verify_token são obrigatórios' });
+    }
+    // Valida com Meta antes de salvar
+    let info = null;
+    try {
+      info = await wppCloud.verify({ token: access_token, phoneNumberId: phone_number_id });
+    } catch (e) {
+      return res.status(400).json({ error: `Validação Meta falhou: ${e.message}` });
+    }
+
+    const payload = {
+      user_id: req.user.id,
+      phone_number_id,
+      business_account_id: business_account_id || null,
+      access_token,
+      webhook_verify_token,
+      app_secret: app_secret || null,
+      display_phone: info.display_phone_number || null,
+      verified_name: info.verified_name || null,
+      enabled: true,
+      updated_at: new Date().toISOString()
+    };
+
+    const existing = await getCloudConfig(req.user.id);
+    if (existing) {
+      await supabase.from('whatsapp_cloud_configs').update(payload).eq('user_id', req.user.id);
+    } else {
+      await supabase.from('whatsapp_cloud_configs').insert(payload);
+    }
+    res.json({ ok: true, info });
+  } catch (e) {
+    console.error('[wpp-cloud config]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Teste — envia template pra um número
+app.post('/api/wpp-cloud/test', requireAuth, async (req, res) => {
+  try {
+    const { to, template, language, variables } = req.body;
+    if (!to || !template) return res.status(400).json({ error: 'to e template obrigatórios' });
+    const c = await getCloudConfig(req.user.id);
+    if (!c) return res.status(400).json({ error: 'Configure as credenciais Meta primeiro' });
+    const r = await wppCloud.sendTemplate(
+      { token: c.access_token, phoneNumberId: c.phone_number_id },
+      to, template, language || 'pt_BR', variables || []
+    );
+    res.json(r);
+  } catch (e) { res.status(500).json({ error: e.message, details: e.details }); }
+});
+
+// Lista templates da WABA
+app.get('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    if (!c) return res.status(400).json({ error: 'Configure as credenciais Meta primeiro' });
+    if (!c.business_account_id) return res.status(400).json({ error: 'business_account_id não configurado' });
+    const r = await wppCloud.listTemplates({ token: c.access_token, businessAccountId: c.business_account_id });
+    res.json(r.data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ═══════════════════════════════════════════════════════════════
