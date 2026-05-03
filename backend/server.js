@@ -231,6 +231,28 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
 
 app.use(express.json());
 
+// ── MULTER (upload de mídia em memória) ───────────────────────
+const multer = require('multer');
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 64 * 1024 * 1024 }, // 64 MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      'image/jpeg','image/png','image/gif','image/webp',
+      'video/mp4','video/3gpp','video/quicktime','video/avi',
+      'audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/aac','audio/webm',
+      'application/pdf','application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/zip','application/x-rar-compressed',
+      'text/plain','text/csv',
+    ];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error(`Tipo de arquivo não suportado: ${file.mimetype}`));
+  },
+});
+
 // ── RATE LIMITING ─────────────────────────────────────────────
 const rateLimitMap = new Map();
 function rateLimit(windowMs, max) {
@@ -1349,6 +1371,86 @@ app.get('/api/admin/marketing/campaigns/:id', requireAdmin, async (req, res) => 
 // WHATSAPP
 // ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// MÍDIA — Upload e envio de anexos via WhatsApp
+// ═══════════════════════════════════════════════════════════════
+
+// Upload de arquivo → salva no Supabase Storage e retorna URL + metadados
+app.post('/api/media/upload', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    const { originalname, mimetype, buffer, size } = req.file;
+    const ext = originalname.split('.').pop();
+    const filename = `${req.user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from('media')
+      .upload(filename, buffer, { contentType: mimetype, upsert: false });
+
+    if (upErr) throw new Error('Erro no upload: ' + upErr.message);
+
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(filename);
+
+    // Determina tipo para o frontend
+    let type = 'document';
+    if (mimetype.startsWith('image/')) type = 'image';
+    else if (mimetype.startsWith('video/')) type = 'video';
+    else if (mimetype.startsWith('audio/')) type = 'audio';
+
+    res.json({
+      filename,
+      originalname,
+      mimetype,
+      size,
+      type,
+      url: urlData.publicUrl,
+    });
+  } catch (e) {
+    console.error('[media] upload error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Deletar mídia do Storage
+app.delete('/api/media/:filename(*)', requireAuth, async (req, res) => {
+  try {
+    const filename = req.params.filename;
+    if (!filename.startsWith(req.user.id + '/')) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    await supabase.storage.from('media').remove([filename]);
+    res.json({ message: 'Arquivo removido' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Envio de teste com mídia
+app.post('/api/whatsapp/send-media', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    const { phone, message, mediaUrl, mediaMimetype, mediaFilename } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Telefone obrigatório' });
+
+    const connected = getConnectedSessions(req.user.id);
+    if (!connected.length) return res.status(400).json({ error: 'Nenhum WhatsApp conectado.' });
+
+    let media = null;
+    if (req.file) {
+      media = { buffer: req.file.buffer, mimetype: req.file.mimetype, filename: req.file.originalname, caption: message || '' };
+    } else if (mediaUrl) {
+      // Baixa da URL (Supabase Storage)
+      const response = await fetch(mediaUrl);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      media = { buffer, mimetype: mediaMimetype || 'application/octet-stream', filename: mediaFilename || 'arquivo', caption: message || '' };
+    }
+
+    const result = await wpp.sendMessage(connected[0].key, phone, message || '', media);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const MAX_SESSIONS_PER_USER = 2;
 
 function sessionKey(userId, slot) {
@@ -1526,7 +1628,7 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 // Disparo em massa por lista de números diretos (contatos importados)
 app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
   try {
-    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip } = req.body;
+    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip, mediaUrl, mediaMimetype, mediaFilename } = req.body;
     if (!message || !phones?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
@@ -1568,6 +1670,19 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
         let sent = 0, failed = 0;
         let sessionIdx = 0;
 
+        // Baixa mídia uma vez antes do loop
+        let media = null;
+        if (mediaUrl) {
+          try {
+            const resp = await fetch(mediaUrl);
+            const buffer = Buffer.from(await resp.arrayBuffer());
+            media = { buffer, mimetype: mediaMimetype || 'application/octet-stream', filename: mediaFilename || 'arquivo', caption: message || '' };
+            console.log(`[bulk] Mídia carregada: ${mediaFilename} (${buffer.length} bytes)`);
+          } catch (e) {
+            console.error('[bulk] Erro ao baixar mídia:', e.message);
+          }
+        }
+
         for (let i = 0; i < phones.length; i++) {
           const p = phones[i];
           // Round-robin: alterna sessão se dualChip ativo
@@ -1578,7 +1693,7 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
 
           try {
             const msgText = p.text || message.replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '').replace(/\{numero\}/gi, p.phone || '');
-            await wpp.sendMessage(session.key, p.phone, msgText);
+            await wpp.sendMessage(session.key, p.phone, msgText, media);
             updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${session.slot}` };
             sent++;
             if (dualChip) console.log(`[bulk] ✅ ${p.phone} via slot ${session.slot}`);

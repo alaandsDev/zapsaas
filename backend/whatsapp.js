@@ -214,7 +214,7 @@ class WhatsAppManager extends EventEmitter {
     return { status: 'connecting', qr: null };
   }
 
-  async sendMessage(sessionId, phone, message) {
+  async sendMessage(sessionId, phone, message, media = null) {
     const session = this.sessions.get(sessionId);
     if (!session || session.status !== 'connected') {
       throw new Error('WhatsApp não conectado. Escaneie o QR Code primeiro.');
@@ -225,14 +225,44 @@ class WhatsAppManager extends EventEmitter {
     const jid = `${withCountry}@s.whatsapp.net`;
 
     try {
-      await session.sock.sendMessage(jid, { text: message });
+      if (media) {
+        const { buffer, mimetype, filename, caption } = media;
+        let msgContent;
+
+        if (mimetype.startsWith('image/')) {
+          msgContent = { image: buffer, caption: caption || message || '', mimetype };
+        } else if (mimetype.startsWith('video/')) {
+          msgContent = { video: buffer, caption: caption || message || '', mimetype, fileName: filename };
+        } else if (mimetype.startsWith('audio/')) {
+          msgContent = { audio: buffer, mimetype, ptt: mimetype.includes('ogg') };
+        } else {
+          // documento genérico (pdf, xlsx, docx, zip, etc.)
+          msgContent = {
+            document: buffer,
+            mimetype,
+            fileName: filename || 'arquivo',
+            caption: caption || message || '',
+          };
+        }
+
+        await session.sock.sendMessage(jid, msgContent);
+
+        // Envia texto separado se tiver legenda E o tipo não suporta caption inline
+        if (message && mimetype.startsWith('audio/')) {
+          await new Promise(r => setTimeout(r, 800));
+          await session.sock.sendMessage(jid, { text: message });
+        }
+      } else {
+        await session.sock.sendMessage(jid, { text: message });
+      }
+
       return { success: true, to: jid };
     } catch (e) {
       throw new Error(`Falha ao enviar para ${phone}: ${e.message}`);
     }
   }
 
-  async sendBulk(sessionId, contacts, message, delayMs = 2000) {
+  async sendBulk(sessionId, contacts, message, delayMs = 2000, media = null) {
     const results = [];
     for (const contact of contacts) {
       try {
@@ -240,7 +270,7 @@ class WhatsAppManager extends EventEmitter {
           .replace(/\{nome\}/gi, contact.name || '')
           .replace(/\{name\}/gi, contact.name || '')
           .replace(/\{numero\}/gi, contact.phone || '');
-        await this.sendMessage(sessionId, contact.phone, personalizedMsg);
+        await this.sendMessage(sessionId, contact.phone, personalizedMsg, media);
         results.push({ ...contact, status: 'sent' });
         console.log(`[WPP] ✅ Enviado para ${contact.phone}`);
       } catch (e) {
@@ -252,8 +282,7 @@ class WhatsAppManager extends EventEmitter {
     return results;
   }
 
-  // Round-robin entre múltiplas sessões — 1 msg por sessão alternando
-  async sendBulkRoundRobin(userId, sessions, contacts, message, delayMs = 2500) {
+  async sendBulkRoundRobin(userId, sessions, contacts, message, delayMs = 2500, media = null) {
     if (!sessions?.length) throw new Error('Nenhuma sessão conectada');
     const results = [];
     let sessionIdx = 0;
@@ -268,7 +297,7 @@ class WhatsAppManager extends EventEmitter {
           .replace(/\{nome\}/gi, contact.name || '')
           .replace(/\{name\}/gi, contact.name || '')
           .replace(/\{numero\}/gi, contact.phone || '');
-        await this.sendMessage(session.key, contact.phone, personalizedMsg);
+        await this.sendMessage(session.key, contact.phone, personalizedMsg, media);
         results.push({ ...contact, status: 'sent', sentVia: `slot${session.slot}` });
         console.log(`[WPP] ✅ ${contact.phone} via slot ${session.slot}`);
       } catch (e) {

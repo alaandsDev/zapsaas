@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../../components/dashboard/Topbar";
 import { Field, Input, Textarea, Select, Button } from "../../../components/ui/Field";
-import { api } from "../../../lib/api";
+import { api, API_URL, getToken } from "../../../lib/api";
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -35,6 +35,8 @@ export default function DisparosPage() {
   const [pauseDuration, setPauseDuration] = useState(5);
   const [schedule, setSchedule] = useState("");
   const [dualChip, setDualChip] = useState(false);
+  const [media, setMedia] = useState(null); // { url, mimetype, filename, type, size }
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [err, setErr] = useState("");
   const [sending, setSending] = useState(false);
   const textareaRefs = useRef({});
@@ -164,6 +166,9 @@ export default function DisparosPage() {
             message: msgs[0],
             multiMessage: true,
             dualChip,
+            mediaUrl: media?.url || undefined,
+            mediaMimetype: media?.mimetype || undefined,
+            mediaFilename: media?.originalname || media?.filename || undefined,
             delay: parseInt(delay) || 3,
             pauseEvery: parseInt(pauseEvery) || 0,
             pauseDuration: parseInt(pauseDuration) || 5,
@@ -180,6 +185,30 @@ export default function DisparosPage() {
       setSending(false);
     }
   }
+
+
+  async function uploadMedia(file) {
+    setUploadingMedia(true);
+    setErr("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${API_URL}/api/media/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMedia(data);
+    } catch (e) {
+      setErr(e.message || "Erro no upload do arquivo");
+    } finally {
+      setUploadingMedia(false);
+    }
+  }
+
+  function removeMedia() { setMedia(null); }
 
   const isPro = usage?.plan === "pro";
   const used = usage?.dispatches?.used ?? 0;
@@ -305,7 +334,55 @@ export default function DisparosPage() {
                 </div>
               ))}
             </div>
+
             <div className="text-xs text-ink-500 mt-2">💡 Nº1 vai pro contato 1, Nº2 pro contato 2... evita padrão e reduz risco de banimento</div>
+          </div>
+
+          {/* ── ANEXO DE MÍDIA ── */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-ink-100">
+                📎 Anexo <span className="text-xs text-ink-500 font-normal">(opcional — imagem, vídeo, áudio, documento)</span>
+              </label>
+              {media && (
+                <button type="button" onClick={removeMedia} className="text-xs text-red-400 hover:text-red-300">✕ Remover</button>
+              )}
+            </div>
+
+            {!media ? (
+              <label className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all cursor-pointer p-6
+                ${uploadingMedia ? "border-primary/40 bg-primary/5" : "border-white/10 hover:border-white/25 hover:bg-white/[0.02]"}`}>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.csv,.txt"
+                  onChange={(e) => e.target.files?.[0] && uploadMedia(e.target.files[0])}
+                  disabled={uploadingMedia}
+                />
+                {uploadingMedia ? (
+                  <><span className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-ink-400">Enviando...</span></>
+                ) : (
+                  <><span className="text-2xl">📎</span>
+                  <span className="text-xs text-ink-400 text-center">Clique ou arraste o arquivo aqui<br/>Máx. 64 MB</span></>
+                )}
+              </label>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/25 bg-primary/5">
+                <span className="text-2xl flex-shrink-0">
+                  {media.type === "image" ? "🖼️" : media.type === "video" ? "🎥" : media.type === "audio" ? "🎵" : "📄"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-ink-100 truncate">{media.originalname || media.filename}</div>
+                  <div className="text-xs text-ink-400 mt-0.5">
+                    {media.type} · {media.size ? (media.size / 1024 / 1024).toFixed(2) + " MB" : ""}
+                  </div>
+                </div>
+                {media.type === "image" && media.url && (
+                  <img src={media.url} alt="" className="size-12 rounded-lg object-cover flex-shrink-0" />
+                )}
+              </div>
+            )}
           </div>
 
           <Field label="Lista de Contatos">
