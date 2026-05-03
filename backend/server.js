@@ -713,6 +713,68 @@ app.get('/api/stats', requireAuth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// AUTOMAÇÃO INTELIGENTE — Flows
+// ═══════════════════════════════════════════════════════════════
+
+app.get('/api/flows', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('flows')
+      .select('id, name, description, enabled, trigger_keywords, created_at, updated_at')
+      .eq('user_id', req.user.id)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/flows/:id', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('flows').select('*')
+      .eq('id', req.params.id).eq('user_id', req.user.id).single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(404).json({ error: 'Fluxo não encontrado' }); }
+});
+
+app.post('/api/flows', requireAuth, async (req, res) => {
+  try {
+    const { name, description, graph, trigger_keywords } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
+    const { data, error } = await supabase.from('flows').insert({
+      user_id: req.user.id,
+      name,
+      description: description || null,
+      trigger_keywords: trigger_keywords || null,
+      graph: graph || { nodes: [], edges: [] }
+    }).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/flows/:id', requireAuth, async (req, res) => {
+  try {
+    const allowed = ['name', 'description', 'enabled', 'graph', 'trigger_keywords'];
+    const update = { updated_at: new Date().toISOString() };
+    for (const k of allowed) if (req.body[k] !== undefined) update[k] = req.body[k];
+    const { data, error } = await supabase.from('flows').update(update)
+      .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/flows/:id', requireAuth, async (req, res) => {
+  try {
+    const { error } = await supabase.from('flows').delete()
+      .eq('id', req.params.id).eq('user_id', req.user.id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════════
 // SMS — Zenvia (créditos pré-pagos)
 // ═══════════════════════════════════════════════════════════════
 
