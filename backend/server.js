@@ -4,6 +4,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const wpp = require('./whatsapp');
+const zenvia = require('./zenvia');
 const Stripe = require('stripe');
 const cron = require('node-cron');
 
@@ -62,7 +63,30 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const { userId, planId } = session.metadata || {};
+      const meta = session.metadata || {};
+
+      // Compra de pacote SMS (one-time)
+      if (meta.type === 'sms_package' && meta.userId && meta.credits) {
+        const credits = parseInt(meta.credits, 10);
+        // Idempotência: marca purchase como paid; só credita se ainda não creditou
+        const { data: purchase } = await supabase
+          .from('sms_purchases')
+          .select('id, status')
+          .eq('stripe_session_id', session.id)
+          .single();
+        if (purchase && purchase.status !== 'paid') {
+          await supabase.from('sms_purchases').update({
+            status: 'paid', paid_at: new Date().toISOString()
+          }).eq('id', purchase.id);
+          // Soma créditos
+          const { data: u } = await supabase.from('users').select('sms_credits').eq('id', meta.userId).single();
+          const current = u?.sms_credits || 0;
+          await supabase.from('users').update({ sms_credits: current + credits }).eq('id', meta.userId);
+          console.log(`[stripe] ✅ +${credits} SMS creditados para user ${meta.userId}`);
+        }
+      }
+
+      const { userId, planId } = meta;
       if (userId && planId) {
         // Busca subscription para pegar period_end real
         let periodEnd = null;
@@ -686,6 +710,185 @@ app.get('/api/stats', requireAuth, async (req, res) => {
     console.error('Stats error:', e);
     res.status(500).json({ error: 'Erro ao buscar estatísticas' });
   }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SMS — Zenvia (créditos pré-pagos)
+// ═══════════════════════════════════════════════════════════════
+
+const SMS_PACKAGES = {
+  sms_500:  { credits: 500,  amountCents: 5000, label: '500 SMS por R$ 50,00' },
+  sms_1000: { credits: 1000, amountCents: 7500, label: '1.000 SMS por R$ 75,00' },
+};
+
+// Saldo + lista de pacotes
+app.get('/api/sms/balance', requireAuth, async (req, res) => {
+  try {
+    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
+    res.json({
+      credits: u?.sms_credits || 0,
+      packages: Object.entries(SMS_PACKAGES).map(([id, p]) => ({ id, ...p }))
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Inicia checkout Stripe pra comprar pacote
+app.post('/api/sms/purchase', requireAuth, async (req, res) => {
+  try {
+    const { packageId } = req.body;
+    const pkg = SMS_PACKAGES[packageId];
+    if (!pkg) return res.status(400).json({ error: 'Pacote inválido' });
+
+    const { data: user } = await supabase.from('users').select('*').eq('id', req.user.id).single();
+
+    let customerId = user.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email, name: user.name, metadata: { userId: user.id } });
+      customerId = customer.id;
+      await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', user.id);
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'brl',
+          product_data: { name: `ZapFlow — ${pkg.label}`, description: 'Créditos de SMS (não expira)' },
+          unit_amount: pkg.amountCents,
+        },
+        quantity: 1
+      }],
+      metadata: {
+        type: 'sms_package',
+        userId: user.id,
+        packageId,
+        credits: String(pkg.credits)
+      },
+      success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/dashboard/sms?paid=1`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/dashboard/sms?cancelled=1`,
+    });
+
+    // Cria purchase pendente (idempotência)
+    await supabase.from('sms_purchases').insert({
+      user_id: user.id,
+      package_id: packageId,
+      amount_cents: pkg.amountCents,
+      credits: pkg.credits,
+      stripe_session_id: session.id,
+      status: 'pending'
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('[sms/purchase]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Disparo único (teste)
+app.post('/api/sms/send', requireAuth, async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+    if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem obrigatórios' });
+
+    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
+    if ((u?.sms_credits || 0) < 1) return res.status(402).json({ error: 'Sem créditos de SMS', code: 'NO_SMS_CREDITS' });
+
+    const r = await zenvia.sendSms(phone, message);
+    await supabase.from('users').update({ sms_credits: u.sms_credits - 1 }).eq('id', req.user.id);
+    res.json({ ...r, remainingCredits: u.sms_credits - 1 });
+  } catch (e) {
+    console.error('[sms/send]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Disparo em massa
+app.post('/api/sms/bulk', requireAuth, async (req, res) => {
+  try {
+    const { phones, message, title, delaySeconds } = req.body;
+    if (!message || !Array.isArray(phones) || !phones.length) {
+      return res.status(400).json({ error: 'Mensagem e contatos obrigatórios' });
+    }
+
+    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
+    const balance = u?.sms_credits || 0;
+    if (balance < phones.length) {
+      return res.status(402).json({
+        error: `Saldo insuficiente: ${balance} crédito(s), precisa de ${phones.length}`,
+        code: 'NO_SMS_CREDITS', balance, needed: phones.length
+      });
+    }
+
+    const items = phones.map(p => ({
+      name: p.name || null, phone: p.phone || p, status: 'pending'
+    }));
+
+    const { data: dispatch, error } = await supabase.from('sms_dispatches').insert({
+      user_id: req.user.id,
+      title: title || `SMS ${new Date().toLocaleDateString('pt-BR')}`,
+      message,
+      total: phones.length,
+      status: 'sending',
+      items
+    }).select().single();
+    if (error) throw error;
+
+    res.json({ dispatchId: dispatch.id, total: phones.length, message: 'Disparo iniciado!' });
+
+    // Background
+    (async () => {
+      const delayMs = Math.max(800, (Number(delaySeconds) || 1) * 1000);
+      const updated = [...items];
+      let sent = 0, failed = 0;
+      for (let i = 0; i < phones.length; i++) {
+        const p = phones[i];
+        const phoneStr = p.phone || p;
+        const name = p.name || '';
+        try {
+          const personalized = String(message)
+            .replace(/\{nome\}/gi, name)
+            .replace(/\{name\}/gi, name)
+            .replace(/\{numero\}/gi, phoneStr);
+          await zenvia.sendSms(phoneStr, personalized);
+          updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString() };
+          sent++;
+          // Debita 1 crédito por envio bem-sucedido (atômico via select+update)
+          const { data: cur } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
+          await supabase.from('users').update({ sms_credits: Math.max(0, (cur?.sms_credits || 0) - 1) }).eq('id', req.user.id);
+        } catch (e) {
+          updated[i] = { ...updated[i], status: 'failed', error: e.message };
+          failed++;
+        }
+        if (i % 5 === 0) {
+          await supabase.from('sms_dispatches').update({ sent, failed, items: updated }).eq('id', dispatch.id);
+        }
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+      await supabase.from('sms_dispatches').update({
+        sent, failed, status: 'completed', items: updated, finished_at: new Date().toISOString()
+      }).eq('id', dispatch.id);
+    })();
+  } catch (e) {
+    console.error('[sms/bulk]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Histórico
+app.get('/api/sms/dispatches', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('sms_dispatches')
+      .select('id, title, total, sent, failed, status, created_at, finished_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ═══════════════════════════════════════════════════════════════
