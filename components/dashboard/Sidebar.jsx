@@ -35,7 +35,7 @@ export default function Sidebar() {
       <div className="px-6 h-16 flex items-center border-b border-white/[0.06]">
         <Link href="/dashboard"><Logo /></Link>
       </div>
-      <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
         {nav.map((item) => {
           const active = item.href === "/dashboard"
             ? pathname === "/dashboard"
@@ -44,7 +44,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
                 active
                   ? "bg-primary/10 text-primary border border-primary/20"
                   : "text-ink-300 hover:text-ink-100 hover:bg-white/5 border border-transparent"
@@ -58,29 +58,25 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div className="p-4 border-t border-white/[0.06]">
-        <div className="card p-4">
-          <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-xs">⚡</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate">{isPro ? "Plano Pro" : "Plano Gratuito"}</div>
-            </div>
+      <div className="shrink-0 p-3 border-t border-white/[0.06]">
+        {isPro ? (
+          <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-primary/10 border border-primary/20">
+            <div className="size-6 rounded-md bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-[10px]">⚡</div>
+            <div className="text-xs font-semibold text-primary">Plano Pro</div>
           </div>
-          {!isPro && (
-            <>
-              <div className="mt-3 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+        ) : (
+          <Link href="/dashboard/minha-conta" className="block px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-primary truncate">Plano Gratuito</div>
+                <div className="text-[10px] text-ink-400 mt-0.5">{used}/{limit} disparos · upgrade ⚡</div>
               </div>
-              <div className="text-xs text-ink-500 mt-2">{used}/{limit} disparos este mês</div>
-              <Link
-                href="/dashboard/minha-conta"
-                className="mt-3 flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
-              >
-                Fazer upgrade ⚡
-              </Link>
-            </>
-          )}
-        </div>
+            </div>
+            <div className="mt-1.5 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+            </div>
+          </Link>
+        )}
       </div>
     </aside>
   );
