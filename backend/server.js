@@ -637,23 +637,52 @@ async function executeRealDispatch(dispatchId, userId) {
 
   await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatchId);
 
-  const results = await wpp.sendBulk(userId, dispatch.items.map(i => ({
-    id: i.contactId, name: i.contactName, phone: i.contactPhone
-  })), dispatch.message_content, 2500);
+  // Pega todas as sessões conectadas para round-robin
+  const sessions = getConnectedSessions(userId);
+  if (!sessions.length) {
+    await supabase.from('dispatches').update({ status: 'failed' }).eq('id', dispatchId);
+    console.error(`[dispatch] Nenhuma sessão conectada para user ${userId}`);
+    return;
+  }
 
-  const sent = results.filter(r => r.status === 'sent').length;
-  const failed = results.filter(r => r.status === 'failed').length;
-  const updatedItems = dispatch.items.map((item, idx) => ({
-    ...item, status: results[idx]?.status || 'failed', sentAt: new Date().toISOString()
-  }));
+  const contacts = dispatch.items.map(i => ({ id: i.contactId, name: i.contactName, phone: i.contactPhone }));
+  console.log(`[dispatch] ${dispatchId} — ${contacts.length} contatos, ${sessions.length} sessão(ões): ${sessions.map(s => s.key).join(', ')}`);
+
+  // Round-robin: envia 1 msg por sessão alternando
+  const results = [];
+  let sent = 0, failed = 0;
+  let sessionIdx = 0;
+
+  for (let i = 0; i < contacts.length; i++) {
+    const contact = contacts[i];
+    const session = sessions[sessionIdx % sessions.length];
+    sessionIdx++;
+
+    try {
+      const personalizedMsg = dispatch.message_content.replace(/\{nome\}/gi, contact.name || '');
+      await wpp.sendMessage(session.key, contact.phone, personalizedMsg);
+      results.push({ ...dispatch.items[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: session.slot });
+      sent++;
+      console.log(`[dispatch] ✓ ${contact.phone} via slot ${session.slot}`);
+    } catch (e) {
+      results.push({ ...dispatch.items[i], status: 'failed', error: e.message, sentVia: session.slot });
+      failed++;
+      console.error(`[dispatch] ✗ ${contact.phone}: ${e.message}`);
+    }
+
+    // Delay anti-ban entre envios (2.5s + variação aleatória)
+    if (i < contacts.length - 1) {
+      await new Promise(r => setTimeout(r, 2500 + Math.random() * 1000));
+    }
+  }
 
   await supabase.from('dispatches').update({
     sent, failed, status: 'completed',
-    items: updatedItems,
+    items: results,
     completed_at: new Date().toISOString()
   }).eq('id', dispatchId);
 
-  console.log(`[dispatch] Real dispatch ${dispatchId}: ${sent} enviados, ${failed} falhas`);
+  console.log(`[dispatch] ${dispatchId} concluído: ${sent} enviados, ${failed} falhas (${sessions.length} sessão(ões) usada(s))`);
 }
 
 async function simulateSending(dispatchId) {
@@ -1317,10 +1346,96 @@ app.get('/api/admin/marketing/campaigns/:id', requireAdmin, async (req, res) => 
 // WHATSAPP
 // ═══════════════════════════════════════════════════════════════
 
-// Iniciar / conectar sessão (gera QR)
+const MAX_SESSIONS_PER_USER = 2;
+
+function sessionKey(userId, slot) {
+  return `${userId}_slot${slot}`;
+}
+
+// Retorna todas as sessões ativas do usuário
+function getUserSessions(userId) {
+  const sessions = [];
+  for (let s = 1; s <= MAX_SESSIONS_PER_USER; s++) {
+    const key = sessionKey(userId, s);
+    const status = wpp.getStatus(key);
+    sessions.push({ slot: s, key, ...status });
+  }
+  return sessions;
+}
+
+// Retorna sessões conectadas (para round-robin)
+function getConnectedSessions(userId) {
+  return getUserSessions(userId).filter(s => s.status === 'connected');
+}
+
+// Listar todas as sessões do usuário
+app.get('/api/whatsapp/sessions', requireAuth, async (req, res) => {
+  res.json(getUserSessions(req.user.id));
+});
+
+// Conectar uma sessão específica (slot 1 ou 2)
+app.post('/api/whatsapp/sessions/:slot/connect', requireAuth, async (req, res) => {
+  try {
+    const slot = parseInt(req.params.slot);
+    if (slot < 1 || slot > MAX_SESSIONS_PER_USER) {
+      return res.status(400).json({ error: `Slot inválido. Use 1 ou 2.` });
+    }
+    const key = sessionKey(req.user.id, slot);
+    const result = await wpp.createSession(key);
+    res.json({ slot, ...result });
+  } catch (e) {
+    console.error('[WPP] connect error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Status de uma sessão específica
+app.get('/api/whatsapp/sessions/:slot/status', requireAuth, async (req, res) => {
+  const slot = parseInt(req.params.slot);
+  const key = sessionKey(req.user.id, slot);
+  res.json({ slot, ...wpp.getStatus(key) });
+});
+
+// Desconectar uma sessão específica
+app.post('/api/whatsapp/sessions/:slot/disconnect', requireAuth, async (req, res) => {
+  try {
+    const slot = parseInt(req.params.slot);
+    const key = sessionKey(req.user.id, slot);
+    await wpp.disconnectSession(key);
+    res.json({ message: `Slot ${slot} desconectado` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Manter rotas antigas funcionando (slot 1 = padrão)
 app.post('/api/whatsapp/connect', requireAuth, async (req, res) => {
   try {
-    const sessionId = req.user.id; // cada usuário tem sua sessão
+    const key = sessionKey(req.user.id, 1);
+    const result = await wpp.createSession(key);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/whatsapp/status', requireAuth, async (req, res) => {
+  res.json(wpp.getStatus(sessionKey(req.user.id, 1)));
+});
+
+app.post('/api/whatsapp/disconnect', requireAuth, async (req, res) => {
+  try {
+    await wpp.disconnectSession(sessionKey(req.user.id, 1));
+    res.json({ message: 'Desconectado com sucesso' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Iniciar / conectar sessão (gera QR)
+app.post('/api/whatsapp/connect_legacy', requireAuth, async (req, res) => {
+  try {
+    const sessionId = req.user.id;
     const result = await wpp.createSession(sessionId);
     res.json(result);
   } catch (e) {
@@ -1329,28 +1444,14 @@ app.post('/api/whatsapp/connect', requireAuth, async (req, res) => {
   }
 });
 
-// Status da sessão + QR Code atual
-app.get('/api/whatsapp/status', requireAuth, async (req, res) => {
-  const sessionId = req.user.id;
-  res.json(wpp.getStatus(sessionId));
-});
-
-// Desconectar / logout
-app.post('/api/whatsapp/disconnect', requireAuth, async (req, res) => {
-  try {
-    await wpp.disconnectSession(req.user.id);
-    res.json({ message: 'Desconectado com sucesso' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Enviar mensagem única (teste)
+// Enviar mensagem única (teste) — usa primeira sessão conectada
 app.post('/api/whatsapp/send', requireAuth, async (req, res) => {
   try {
     const { phone, message } = req.body;
     if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem são obrigatórios' });
-    const result = await wpp.sendMessage(req.user.id, phone, message);
+    const connected = getConnectedSessions(req.user.id);
+    if (!connected.length) return res.status(400).json({ error: 'Nenhum WhatsApp conectado.' });
+    const result = await wpp.sendMessage(connected[0].key, phone, message);
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1370,9 +1471,9 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
       return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
     }
 
-    const status = wpp.getStatus(req.user.id);
-    if (status.status !== 'connected') {
-      return res.status(400).json({ error: 'WhatsApp não conectado. Escaneie o QR Code primeiro.' });
+    const connected1 = getConnectedSessions(req.user.id);
+    if (!connected1.length) {
+      return res.status(400).json({ error: 'Nenhum WhatsApp conectado. Conecte pelo menos 1 número em Conexões.' });
     }
 
     const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', req.user.id).single();
@@ -1398,7 +1499,7 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 
     // Executa envio real em background
     (async () => {
-      const results = await wpp.sendBulk(req.user.id, contacts, message.content, 2500);
+      const results = await wpp.sendBulkRoundRobin(req.user.id, getConnectedSessions(req.user.id), contacts, message.content, 2500);
       const sent = results.filter(r => r.status === 'sent').length;
       const failed = results.filter(r => r.status === 'failed').length;
       const updatedItems = results.map(r => ({
@@ -1432,9 +1533,9 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
       return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
     }
 
-    const status = wpp.getStatus(req.user.id);
-    if (status.status !== 'connected') {
-      return res.status(400).json({ error: 'WhatsApp não conectado. Escaneie o QR Code primeiro.' });
+    const connected2 = getConnectedSessions(req.user.id);
+    if (!connected2.length) {
+      return res.status(400).json({ error: 'Nenhum WhatsApp conectado. Conecte pelo menos 1 número em Conexões.' });
     }
     const items = phones.map(p => ({ contactName: p.name || p.phone, contactPhone: p.phone, status: 'pending' }));
     const { data: dispatch, error } = await supabase.from('dispatches').insert({

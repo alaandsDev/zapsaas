@@ -214,6 +214,37 @@ class WhatsAppManager extends EventEmitter {
     return results;
   }
 
+  // Round-robin entre múltiplas sessões — 1 msg por sessão alternando
+  async sendBulkRoundRobin(userId, sessions, contacts, message, delayMs = 2500) {
+    if (!sessions?.length) throw new Error('Nenhuma sessão conectada');
+    const results = [];
+    let sessionIdx = 0;
+
+    for (let i = 0; i < contacts.length; i++) {
+      const contact = contacts[i];
+      const session = sessions[sessionIdx % sessions.length];
+      sessionIdx++;
+
+      try {
+        const personalizedMsg = (contact.text || message)
+          .replace(/\{nome\}/gi, contact.name || '')
+          .replace(/\{name\}/gi, contact.name || '')
+          .replace(/\{numero\}/gi, contact.phone || '');
+        await this.sendMessage(session.key, contact.phone, personalizedMsg);
+        results.push({ ...contact, status: 'sent', sentVia: `slot${session.slot}` });
+        console.log(`[WPP] ✅ ${contact.phone} via slot ${session.slot}`);
+      } catch (e) {
+        results.push({ ...contact, status: 'failed', error: e.message, sentVia: `slot${session.slot}` });
+        console.error(`[WPP] ❌ ${contact.phone} slot ${session.slot}: ${e.message}`);
+      }
+
+      if (delayMs > 0 && i < contacts.length - 1) {
+        await new Promise(r => setTimeout(r, delayMs + Math.random() * 1000));
+      }
+    }
+    return results;
+  }
+
   async disconnectSession(sessionId) {
     this._stopKeepAlive(sessionId);
     const session = this.sessions.get(sessionId);
