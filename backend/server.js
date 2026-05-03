@@ -1462,15 +1462,23 @@ function getUserSessions(userId) {
   const sessions = [];
   for (let s = 1; s <= MAX_SESSIONS_PER_USER; s++) {
     const key = sessionKey(userId, s);
-    const status = wpp.getStatus(key);
-    sessions.push({ slot: s, key, ...status });
+    const st = wpp.getStatus(key);
+    sessions.push({ slot: s, key, ...st });
   }
   return sessions;
 }
 
-// Retorna sessões conectadas (para round-robin)
+// Retorna sessões conectadas — inclui sessão legada (userId sem slot)
 function getConnectedSessions(userId) {
-  return getUserSessions(userId).filter(s => s.status === 'connected');
+  const slotSessions = getUserSessions(userId).filter(s => s.status === 'connected');
+  if (slotSessions.length) return slotSessions;
+
+  // Fallback: sessão legada criada antes do sistema multi-slot
+  const legacyStatus = wpp.getStatus(userId);
+  if (legacyStatus?.status === 'connected') {
+    return [{ slot: 1, key: userId, ...legacyStatus }];
+  }
+  return [];
 }
 
 // Listar todas as sessões do usuário
@@ -1685,26 +1693,34 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
 
         for (let i = 0; i < phones.length; i++) {
           const p = phones[i];
-          // Round-robin: alterna sessão se dualChip ativo
           const session = dualChip
             ? connectedSessions[sessionIdx % connectedSessions.length]
             : connectedSessions[0];
           if (dualChip) sessionIdx++;
 
           try {
-            const msgText = p.text || message.replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '').replace(/\{numero\}/gi, p.phone || '');
+            const msgText = (p.text || message)
+              .replace(/\{nome\}/gi, p.name || '')
+              .replace(/\{name\}/gi, p.name || '')
+              .replace(/\{numero\}/gi, p.phone || '');
             await wpp.sendMessage(session.key, p.phone, msgText, media);
             updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${session.slot}` };
             sent++;
-            if (dualChip) console.log(`[bulk] ✅ ${p.phone} via slot ${session.slot}`);
+            console.log(`[bulk] ✅ ${i+1}/${phones.length} → ${p.phone} via ${session.key}`);
           } catch (e) {
-            updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message, sentVia: `slot${session.slot}` };
+            updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message };
             failed++;
+            console.error(`[bulk] ❌ ${i+1}/${phones.length} → ${p.phone}: ${e.message}`);
           }
-          await supabase.from('dispatches').update({ sent, failed, items: updatedItems }).eq('id', dispatch.id);
+          // Atualiza progresso no banco
+          await supabase.from('dispatches')
+            .update({ sent, failed, items: updatedItems })
+            .eq('id', dispatch.id);
+          // Delay entre envios (exceto no último)
           if (i < phones.length - 1) {
             await new Promise(r => setTimeout(r, delayMs));
             if (pause > 0 && (i + 1) % pause === 0) {
+              console.log(`[bulk] ⏸️ Pausa de ${pauseDuration}min após ${i+1} envios`);
               await new Promise(r => setTimeout(r, pauseMs));
             }
           }
