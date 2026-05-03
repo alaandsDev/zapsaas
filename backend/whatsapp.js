@@ -73,8 +73,13 @@ class WhatsAppManager extends EventEmitter {
     if (existing && existing.status === 'connected') {
       return { status: 'connected', phone: existing.phone };
     }
-    if (existing && existing.status === 'connecting') {
-      return { status: 'connecting', qr: existing.qr };
+    if (existing && (existing.status === 'connecting' || existing.status === 'qr_ready')) {
+      return { status: existing.status, qr: existing.qr };
+    }
+
+    // Fecha socket antigo se existir
+    if (existing?.sock) {
+      try { existing.sock.end(undefined); } catch {}
     }
 
     const authDir = path.join(this.AUTH_DIR, sessionId);
@@ -86,16 +91,20 @@ class WhatsAppManager extends EventEmitter {
     const sock = makeWASocket({
       version,
       auth: state,
-      browser: Browsers.ubuntu('Chrome'),
+      // Usar MacOS Chrome — mais estável e menos detectado
+      browser: ['ZapFlow', 'Chrome', '120.0.0'],
       printQRInTerminal: false,
       logger: require('pino')({ level: 'silent' }),
       generateHighQualityLinkPreview: false,
       syncFullHistory: false,
-      keepAliveIntervalMs: 30000,      // Ping interno a cada 30s
-      connectTimeoutMs: 60000,          // Timeout de conexão 60s
-      retryRequestDelayMs: 2000,        // Delay entre retries internos
-      maxMsgRetryCount: 3,              // Retries de envio
+      markOnlineOnConnect: false,   // Não marcar online ao conectar — menos suspeito
+      keepAliveIntervalMs: 25000,
+      connectTimeoutMs: 60000,
+      retryRequestDelayMs: 2500,
+      maxMsgRetryCount: 2,
       emitOwnEvents: false,
+      fireInitQueries: true,
+      getMessage: async () => ({ conversation: '' }),
     });
 
     const sessionData = {
@@ -103,17 +112,13 @@ class WhatsAppManager extends EventEmitter {
       status: 'connecting',
       qr: null,
       phone: null,
-      sessionId
+      sessionId,
+      isNew: !fs.existsSync(path.join(authDir, 'creds.json')),
     };
     this.sessions.set(sessionId, sessionData);
 
-    // Remove any previous listeners to prevent memory leak on reconnect
-    sock.ev.removeAllListeners('connection.update');
-    sock.ev.removeAllListeners('creds.update');
-    sock.ev.removeAllListeners('messages.upsert');
-
     sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr, isNewLogin } = update;
+      const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
         try {
@@ -128,50 +133,63 @@ class WhatsAppManager extends EventEmitter {
       }
 
       if (connection === 'open') {
+        // Aguarda 1s para garantir que creds foram salvas antes de marcar conectado
+        await new Promise(r => setTimeout(r, 1000));
         sessionData.status = 'connected';
         sessionData.qr = null;
         sessionData.phone = sock.user?.id?.split(':')[0] || null;
-        this.reconnectAttempts.set(sessionId, 0); // Reset backoff on success
+        this.reconnectAttempts.set(sessionId, 0);
         this._startKeepAlive(sessionId);
         this.emit('connected', { sessionId, phone: sessionData.phone });
-        console.log(`[WPP] ✅ Conectado! Sessão: ${sessionId} | Número: ${sessionData.phone}`);
+        console.log(`[WPP] ✅ Conectado! Sessão: ${sessionId} | Número: +${sessionData.phone}`);
       }
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
-        const isBanned = statusCode === 401 || statusCode === 403;
+        const reason = lastDisconnect?.error?.message || '';
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
+        const isConflict = statusCode === DisconnectReason.connectionReplaced;
+        const isBanned = statusCode === 403;
 
         this._stopKeepAlive(sessionId);
-        sessionData.status = 'disconnected';
         this.emit('disconnected', { sessionId, code: statusCode });
 
-        console.log(`[WPP] ❌ Conexão fechada. Código: ${statusCode} | LoggedOut: ${isLoggedOut}`);
+        console.log(`[WPP] ❌ Conexão fechada. Código: ${statusCode} | Razão: ${reason}`);
 
         if (isLoggedOut || isBanned) {
-          // Logout real — limpa tudo, não reconecta
-          console.log(`[WPP] Sessão ${sessionId} deslogada. Limpando credenciais.`);
+          // Logout real — limpa credenciais e não reconecta
+          console.log(`[WPP] 🔴 Sessão ${sessionId} deslogada/banida. Limpando.`);
+          sessionData.status = 'disconnected';
           this.sessions.delete(sessionId);
           this.reconnectAttempts.delete(sessionId);
           fs.rmSync(path.join(this.AUTH_DIR, sessionId), { recursive: true, force: true });
+        } else if (isConflict) {
+          // Outra instância conectou — não reconectar
+          console.log(`[WPP] ⚠️ Sessão ${sessionId} substituída por outra instância.`);
+          sessionData.status = 'disconnected';
         } else {
-          // Erro temporário — reconecta com backoff
+          // Desconexão temporária — reconecta com backoff exponencial
+          sessionData.status = 'disconnected';
           const attempts = (this.reconnectAttempts.get(sessionId) || 0) + 1;
           this.reconnectAttempts.set(sessionId, attempts);
           const delay = this._getReconnectDelay(sessionId);
-          console.log(`[WPP] Reconectando sessão ${sessionId} em ${delay/1000}s (tentativa ${attempts})...`);
-          setTimeout(() => this.createSession(sessionId), delay);
+          console.log(`[WPP] 🔄 Reconectando ${sessionId} em ${delay/1000}s (tentativa ${attempts})...`);
+          setTimeout(async () => {
+            // Só reconecta se a sessão ainda existe e não foi explicitamente removida
+            if (this.sessions.has(sessionId) || fs.existsSync(path.join(this.AUTH_DIR, sessionId, 'creds.json'))) {
+              await this.createSession(sessionId);
+            }
+          }, delay);
         }
       }
     });
 
-    // Save credentials on every update
-    sock.ev.on('creds.update', saveCreds);
-
-    // Handle messages to keep session active (optional processing)
-    sock.ev.on('messages.upsert', () => {
-      // Just receiving messages keeps the connection alive
+    // Salva credenciais imediatamente em cada update
+    sock.ev.on('creds.update', async () => {
+      await saveCreds();
     });
+
+    sock.ev.on('messages.upsert', () => {});
 
     return { status: 'connecting', qr: null };
   }
