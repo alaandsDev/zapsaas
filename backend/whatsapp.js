@@ -9,10 +9,15 @@ try {
 } catch(e) {
   console.error('[WPP] Erro ao carregar Baileys:', e.message);
 }
+const { useSupabaseAuthState } = require('./supabase_auth_state');
 const qrcode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 const { EventEmitter } = require('events');
+
+// Supabase client compartilhado (injetado pelo server.js)
+let _supabase = null;
+function setSupabase(client) { _supabase = client; }
 
 class WhatsAppManager extends EventEmitter {
   constructor() {
@@ -85,7 +90,21 @@ class WhatsAppManager extends EventEmitter {
     const authDir = path.join(this.AUTH_DIR, sessionId);
     if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
 
-    const { state, saveCreds } = await useMultiFileAuthState(authDir);
+    // Usa Supabase se disponível, senão fallback para filesystem
+    let state, saveCreds, deleteState;
+    if (_supabase) {
+      const result = await useSupabaseAuthState(_supabase, sessionId);
+      state = result.state;
+      saveCreds = result.saveCreds;
+      deleteState = result.deleteState;
+      console.log(`[WPP] Auth state: Supabase (sessão: ${sessionId})`);
+    } else {
+      const result = await useMultiFileAuthState(authDir);
+      state = result.state;
+      saveCreds = result.saveCreds;
+      deleteState = async () => fs.rmSync(authDir, { recursive: true, force: true });
+      console.log(`[WPP] Auth state: filesystem (sessão: ${sessionId})`);
+    }
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -162,6 +181,7 @@ class WhatsAppManager extends EventEmitter {
           sessionData.status = 'disconnected';
           this.sessions.delete(sessionId);
           this.reconnectAttempts.delete(sessionId);
+          try { await deleteState(); } catch {}
           fs.rmSync(path.join(this.AUTH_DIR, sessionId), { recursive: true, force: true });
         } else if (isConflict) {
           // Outra instância conectou — não reconectar
@@ -271,12 +291,42 @@ class WhatsAppManager extends EventEmitter {
     }
     this.sessions.delete(sessionId);
     this.reconnectAttempts.delete(sessionId);
+    // Limpa do Supabase
+    if (_supabase) {
+      try { await _supabase.from('wpp_sessions').delete().eq('session_id', sessionId); } catch {}
+    }
+    // Limpa do filesystem (fallback)
     const authDir = path.join(this.AUTH_DIR, sessionId);
     fs.rmSync(authDir, { recursive: true, force: true });
     console.log(`[WPP] Sessão ${sessionId} desconectada e limpa`);
   }
 
   async restoreSessions() {
+    // 1. Restaura do Supabase (principal)
+    if (_supabase) {
+      try {
+        const { data } = await _supabase
+          .from('wpp_sessions')
+          .select('session_id, updated_at')
+          .order('updated_at', { ascending: false });
+
+        if (data?.length) {
+          console.log(`[WPP] Restaurando ${data.length} sessão(ões) do Supabase...`);
+          for (const row of data) {
+            try {
+              await this.createSession(row.session_id);
+            } catch(e) {
+              console.error(`[WPP] Erro ao restaurar ${row.session_id}:`, e.message);
+            }
+          }
+          return;
+        }
+      } catch(e) {
+        console.error('[WPP] Erro ao buscar sessões do Supabase:', e.message);
+      }
+    }
+
+    // 2. Fallback: restaura do filesystem
     if (!fs.existsSync(this.AUTH_DIR)) return;
     const dirs = fs.readdirSync(this.AUTH_DIR);
     for (const sessionId of dirs) {
@@ -284,7 +334,7 @@ class WhatsAppManager extends EventEmitter {
       if (fs.statSync(authDir).isDirectory()) {
         const credsFile = path.join(authDir, 'creds.json');
         if (fs.existsSync(credsFile)) {
-          console.log(`[WPP] Restaurando sessão: ${sessionId}`);
+          console.log(`[WPP] Restaurando do filesystem: ${sessionId}`);
           try {
             await this.createSession(sessionId);
           } catch(e) {
@@ -296,4 +346,7 @@ class WhatsAppManager extends EventEmitter {
   }
 }
 
-module.exports = new WhatsAppManager();
+const manager = new WhatsAppManager();
+
+module.exports = manager;
+module.exports.setSupabase = (client) => setSupabase(client);

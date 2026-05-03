@@ -268,6 +268,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Injeta supabase no manager de WhatsApp para persistência de sessões
+wpp.setSupabase(supabase);
+
 // ── HELPERS ───────────────────────────────────────────────────
 // SHA-256 mantido para senhas existentes; novas usam bcrypt via campo password_v2
 function hash(str) {
