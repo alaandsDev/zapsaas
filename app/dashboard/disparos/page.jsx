@@ -34,23 +34,28 @@ export default function DisparosPage() {
   const [pauseEvery, setPauseEvery] = useState(25);
   const [pauseDuration, setPauseDuration] = useState(5);
   const [schedule, setSchedule] = useState("");
+  const [dualChip, setDualChip] = useState(false);
   const [err, setErr] = useState("");
   const [sending, setSending] = useState(false);
   const textareaRefs = useRef({});
 
+  const [sessions, setSessions] = useState([]);
+
   async function loadAll() {
-    const [w, ls, lds, ds, u] = await Promise.all([
+    const [w, ls, lds, ds, u, sess] = await Promise.all([
       api("/api/whatsapp/status").catch(() => null),
       api("/api/lists").catch(() => []),
       api("/api/leads").catch(() => []),
       api("/api/dispatches").catch(() => []),
       api("/api/usage").catch(() => null),
+      api("/api/whatsapp/sessions").catch(() => []),
     ]);
     setWpp(w);
     setLists(Array.isArray(ls) ? ls : ls?.data || []);
     setLeads(Array.isArray(lds) ? lds : lds?.data || []);
     setDispatches(Array.isArray(ds) ? ds : ds?.data || []);
     setUsage(u);
+    setSessions(Array.isArray(sess) ? sess : []);
   }
   useEffect(() => { loadAll(); }, []);
 
@@ -111,7 +116,15 @@ export default function DisparosPage() {
     setErr("");
     const msgs = messages.map(m => m.text.trim()).filter(Boolean);
     if (!msgs.length) { setErr("Digite pelo menos uma mensagem"); return; }
-    if (!wpp || wpp.status !== "connected") { setErr("Conecte o WhatsApp em Conexões antes de disparar"); return; }
+
+    const connectedSessions = sessions.filter(s => s.status === "connected");
+    if (!connectedSessions.length) { setErr("Conecte o WhatsApp em Conexões antes de disparar"); return; }
+
+    if (dualChip && connectedSessions.length < 2) {
+      setErr("Modo 2 Chips requer 2 números conectados. Vá em Conexões e conecte o segundo número.");
+      return;
+    }
+
     const phonesArr = contacts.filter(c => selected.has(c.phone));
     if (!phonesArr.length) { setErr("Selecione pelo menos um contato"); return; }
 
@@ -139,6 +152,7 @@ export default function DisparosPage() {
             messageId: msg.id,
             contactIds,
             useWhatsapp: true,
+            dualChip,
             scheduledAt: schedule ? new Date(schedule).toISOString() : undefined,
           },
         });
@@ -149,6 +163,7 @@ export default function DisparosPage() {
             phones: phonesWithMsg,
             message: msgs[0],
             multiMessage: true,
+            dualChip,
             delay: parseInt(delay) || 3,
             pauseEvery: parseInt(pauseEvery) || 0,
             pauseDuration: parseInt(pauseDuration) || 5,
@@ -191,12 +206,70 @@ export default function DisparosPage() {
             </div>
           )}
 
-          <Field label="Conexão (número de saída)">
-            <Select value={wppConnected ? "wpp" : ""} disabled>
-              <option value="">{wppConnected ? `📱 WhatsApp Conectado${wpp.phone ? " — +" + wpp.phone : ""}` : "— Sem conexão —"}</option>
-              {wppConnected && <option value="wpp">📱 WhatsApp Conectado{wpp.phone ? ` — +${wpp.phone}` : ""}</option>}
-            </Select>
-          </Field>
+          {(() => {
+            const connectedSessions = sessions.filter(s => s.status === "connected");
+            const hasAny = connectedSessions.length > 0;
+            const hasTwo = connectedSessions.length >= 2;
+            return (
+              <div className="rounded-xl border border-white/10 bg-bg/40 p-4 space-y-3">
+                <div className="text-xs font-semibold text-ink-300 uppercase tracking-wide">📱 Conexões de saída</div>
+                {!hasAny ? (
+                  <div className="text-sm px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-300">
+                    ⚠️ Nenhum número conectado — <Link href="/dashboard/conexoes" className="underline font-semibold">conectar agora</Link>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {connectedSessions.map(s => (
+                      <div key={s.slot} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/25 text-sm">
+                        <span className="size-2 rounded-full bg-primary" />
+                        <span className="font-medium text-primary">Número {s.slot}</span>
+                        {s.phone && <span className="text-ink-400 text-xs">+{s.phone}</span>}
+                      </div>
+                    ))}
+                    {!hasTwo && (
+                      <Link href="/dashboard/conexoes" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-white/20 text-xs text-ink-500 hover:border-primary/40 hover:text-primary transition-colors">
+                        + Adicionar 2º número
+                      </Link>
+                    )}
+                  </div>
+                )}
+
+                {/* Toggle Modo 2 Chips */}
+                <div
+                  onClick={() => hasTwo && setDualChip(v => !v)}
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all cursor-pointer select-none
+                    ${!hasTwo ? "opacity-40 cursor-not-allowed border-white/10 bg-white/[0.02]" :
+                      dualChip ? "border-primary/40 bg-primary/8" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">🔄</span>
+                    <div>
+                      <div className="text-sm font-semibold flex items-center gap-2">
+                        Modo 2 Chips
+                        {!hasTwo && <span className="text-xs font-normal text-ink-500 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">Requer 2 números</span>}
+                      </div>
+                      <div className="text-xs text-ink-400 mt-0.5">
+                        Alterna entre os 2 números a cada mensagem — reduz risco de banimento
+                      </div>
+                    </div>
+                  </div>
+                  {/* Toggle switch */}
+                  <div className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0
+                    ${dualChip && hasTwo ? "bg-primary" : "bg-white/10"}`}>
+                    <div className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform
+                      ${dualChip && hasTwo ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </div>
+                </div>
+
+                {dualChip && hasTwo && (
+                  <div className="text-xs text-primary/80 bg-primary/5 border border-primary/15 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <span>✅</span>
+                    <span>Ativo — contato 1 sai pelo Número 1, contato 2 pelo Número 2, e assim por diante</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <div>
             <div className="flex items-center justify-between mb-2">

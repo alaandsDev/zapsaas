@@ -1523,7 +1523,7 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 // Disparo em massa por lista de números diretos (contatos importados)
 app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
   try {
-    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt } = req.body;
+    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip } = req.body;
     if (!message || !phones?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
@@ -1533,14 +1533,19 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
       return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
     }
 
-    const connected2 = getConnectedSessions(req.user.id);
-    if (!connected2.length) {
+    const connectedSessions = getConnectedSessions(req.user.id);
+    if (!connectedSessions.length) {
       return res.status(400).json({ error: 'Nenhum WhatsApp conectado. Conecte pelo menos 1 número em Conexões.' });
     }
+
+    if (dualChip && connectedSessions.length < 2) {
+      return res.status(400).json({ error: 'Modo 2 Chips requer 2 números conectados. Vá em Conexões e conecte o segundo número.' });
+    }
+
     const items = phones.map(p => ({ contactName: p.name || p.phone, contactPhone: p.phone, status: 'pending' }));
     const { data: dispatch, error } = await supabase.from('dispatches').insert({
       message_id: null,
-      message_title: `Disparo ${new Date().toLocaleDateString('pt-BR')}`,
+      message_title: `Disparo ${new Date().toLocaleDateString('pt-BR')}${dualChip ? ' [2 Chips]' : ''}`,
       message_content: message,
       total: phones.length,
       sent: 0, failed: 0,
@@ -1558,16 +1563,24 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
         const pauseMs = (parseInt(pauseDuration) || 5) * 60 * 1000;
         const updatedItems = [...items];
         let sent = 0, failed = 0;
+        let sessionIdx = 0;
+
         for (let i = 0; i < phones.length; i++) {
           const p = phones[i];
+          // Round-robin: alterna sessão se dualChip ativo
+          const session = dualChip
+            ? connectedSessions[sessionIdx % connectedSessions.length]
+            : connectedSessions[0];
+          if (dualChip) sessionIdx++;
+
           try {
-            // Support pre-personalized text per phone (multiMessage mode)
             const msgText = p.text || message.replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '').replace(/\{numero\}/gi, p.phone || '');
-            await wpp.sendMessage(req.user.id, p.phone, msgText);
-            updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString() };
+            await wpp.sendMessage(session.key, p.phone, msgText);
+            updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${session.slot}` };
             sent++;
+            if (dualChip) console.log(`[bulk] ✅ ${p.phone} via slot ${session.slot}`);
           } catch (e) {
-            updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message };
+            updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message, sentVia: `slot${session.slot}` };
             failed++;
           }
           await supabase.from('dispatches').update({ sent, failed, items: updatedItems }).eq('id', dispatch.id);
@@ -1582,6 +1595,7 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
           sent, failed, status: 'completed', items: updatedItems,
           completed_at: new Date().toISOString()
         }).eq('id', dispatch.id);
+        console.log(`[bulk] Concluído: ${sent} enviados, ${failed} falhas${dualChip ? ` (modo 2 chips, ${connectedSessions.length} sessões)` : ''}`);
       })();
     }
   } catch (e) {
