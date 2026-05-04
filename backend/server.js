@@ -613,8 +613,8 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
 
     // Se agendado, verifica se é futuro
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
-    const wppStatus = wpp.getStatus(req.user.id);
-    const hasWhatsapp = wppStatus.status === 'connected';
+    const connectedForDispatch = getConnectedSessions(req.user.id);
+    const hasWhatsapp = connectedForDispatch.length > 0;
 
     const { data: dispatch, error } = await supabase.from('dispatches').insert({
       message_id: messageId,
@@ -2089,9 +2089,9 @@ cron.schedule('* * * * *', async () => {
     console.log(`[cron] ${pending.length} disparos agendados para executar`);
 
     for (const dispatch of pending) {
-      const wppStatus = wpp.getStatus(dispatch.user_id);
-      if (wppStatus.status === 'connected') {
-        console.log(`[cron] Executando disparo real ${dispatch.id}`);
+      const cronSessions = getConnectedSessions(dispatch.user_id);
+      if (cronSessions.length > 0) {
+        console.log(`[cron] Executando disparo real ${dispatch.id} (${cronSessions.length} sessão(ões))`);
         executeRealDispatch(dispatch.id, dispatch.user_id);
       } else {
         console.log(`[cron] WhatsApp não conectado para user ${dispatch.user_id}, simulando`);
