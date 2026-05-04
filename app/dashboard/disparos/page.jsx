@@ -35,6 +35,8 @@ export default function DisparosPage() {
   const [pauseDuration, setPauseDuration] = useState(5);
   const [schedule, setSchedule] = useState("");
   const [dualChip, setDualChip] = useState(false);
+  const [channel, setChannel] = useState("auto"); // "auto" | "baileys" | "cloud"
+  const [cloudConfig, setCloudConfig] = useState(null);
   const [media, setMedia] = useState(null); // { url, mimetype, filename, type, size }
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [err, setErr] = useState("");
@@ -44,13 +46,14 @@ export default function DisparosPage() {
   const [sessions, setSessions] = useState([]);
 
   async function loadAll() {
-    const [w, ls, lds, ds, u, sess] = await Promise.all([
+    const [w, ls, lds, ds, u, sess, cloud] = await Promise.all([
       api("/api/whatsapp/status").catch(() => null),
       api("/api/lists").catch(() => []),
       api("/api/leads").catch(() => []),
       api("/api/dispatches").catch(() => []),
       api("/api/usage").catch(() => null),
       api("/api/whatsapp/sessions").catch(() => []),
+      api("/api/wpp-cloud/config").catch(() => null),
     ]);
     setWpp(w);
     setLists(Array.isArray(ls) ? ls : ls?.data || []);
@@ -58,6 +61,7 @@ export default function DisparosPage() {
     setDispatches(Array.isArray(ds) ? ds : ds?.data || []);
     setUsage(u);
     setSessions(Array.isArray(sess) ? sess : []);
+    setCloudConfig(cloud);
   }
   useEffect(() => { loadAll(); }, []);
 
@@ -154,6 +158,7 @@ export default function DisparosPage() {
             messageId: msg.id,
             contactIds,
             useWhatsapp: true,
+            channel,
             dualChip,
             scheduledAt: schedule ? new Date(schedule).toISOString() : undefined,
           },
@@ -166,6 +171,7 @@ export default function DisparosPage() {
             message: msgs[0],
             multiMessage: true,
             dualChip,
+            channel,
             mediaUrl: media?.url || undefined,
             mediaMimetype: media?.mimetype || undefined,
             mediaFilename: media?.originalname || media?.filename || undefined,
@@ -262,6 +268,52 @@ export default function DisparosPage() {
                     )}
                   </div>
                 )}
+
+                {/* Seletor de Canal */}
+                {(() => {
+                  const hasCloudCfg = !!(cloudConfig?.has_token && cloudConfig?.enabled);
+                  return (
+                    <div>
+                      <div className="text-xs font-semibold text-ink-400 mb-2 uppercase tracking-wide">Canal de envio</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { value: "auto",    icon: "⚡", label: "Automático",  desc: "Usa o canal disponível" },
+                          { value: "baileys", icon: "📱", label: "WhatsApp",    desc: "Seu número conectado" },
+                          { value: "cloud",   icon: "☁️", label: "API Meta",   desc: "WhatsApp Business API" },
+                        ].map(opt => {
+                          const disabled = opt.value === "cloud" && !hasCloudCfg;
+                          const active = channel === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => !disabled && setChannel(opt.value)}
+                              className={`flex flex-col items-center gap-1 px-3 py-3 rounded-xl border text-center transition-all
+                                ${disabled ? "opacity-30 cursor-not-allowed border-white/10 bg-white/[0.02]" :
+                                  active ? "border-primary/50 bg-primary/10 text-primary" :
+                                  "border-white/10 bg-white/[0.02] hover:border-white/20 text-ink-300"}`}
+                            >
+                              <span className="text-lg">{opt.icon}</span>
+                              <span className="text-xs font-semibold">{opt.label}</span>
+                              <span className="text-[10px] text-ink-500">{disabled ? "Não configurado" : opt.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {channel === "cloud" && hasCloudCfg && (
+                        <div className="mt-2 text-xs text-ink-500 bg-white/[0.02] border border-white/10 rounded-lg px-3 py-2">
+                          ☁️ Usando <b className="text-ink-300">{cloudConfig.display_phone || cloudConfig.verified_name || "API Meta"}</b> · Só templates fora da janela 24h
+                        </div>
+                      )}
+                      {channel === "auto" && !hasAny && hasCloudCfg && (
+                        <div className="mt-2 text-xs text-primary/80 bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
+                          ✅ Automático usará a API Meta (nenhum número Baileys conectado)
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Toggle Modo 2 Chips */}
                 <div

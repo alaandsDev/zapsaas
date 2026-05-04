@@ -595,7 +595,7 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
 
 app.post('/api/dispatches', requireAuth, async (req, res) => {
   try {
-    const { messageId, contactIds, scheduledAt, useWhatsapp } = req.body;
+    const { messageId, contactIds, scheduledAt, useWhatsapp, dualChip, channel } = req.body;
     if (!messageId || !contactIds?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
@@ -611,10 +611,18 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
     const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', req.user.id);
     const items = (contacts || []).map(c => ({ contactId: c.id, contactName: c.name, contactPhone: c.phone, status: 'pending' }));
 
-    // Se agendado, verifica se é futuro
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
+
+    // Detecta canal disponível
     const connectedForDispatch = getConnectedSessions(req.user.id);
-    const hasWhatsapp = connectedForDispatch.length > 0;
+    const cloudConfig = await getCloudConfig(req.user.id);
+    const hasBaileys = connectedForDispatch.length > 0;
+    const hasCloud = !!(cloudConfig?.access_token && cloudConfig?.enabled);
+
+    // canal: 'cloud' | 'baileys' | 'auto' (padrão)
+    const useCloud = channel === 'cloud' || (!hasBaileys && hasCloud);
+    const useBaileys = !useCloud && hasBaileys && useWhatsapp !== false;
+    const via = useCloud ? 'cloud_api' : useBaileys ? 'baileys' : 'simulated';
 
     const { data: dispatch, error } = await supabase.from('dispatches').insert({
       message_id: messageId,
@@ -625,22 +633,23 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       status: isScheduled ? 'scheduled' : 'pending',
       items,
       scheduled_at: scheduledAt || null,
-      user_id: req.user.id
+      user_id: req.user.id,
+      channel: via,
     }).select().single();
 
     if (error) throw error;
 
     if (!isScheduled) {
-      if (hasWhatsapp && useWhatsapp !== false) {
-        // Disparo REAL via WhatsApp
+      if (useCloud) {
+        executeCloudDispatch(dispatch.id, req.user.id);
+      } else if (useBaileys) {
         executeRealDispatch(dispatch.id, req.user.id);
       } else {
-        // Simulação
         simulateSending(dispatch.id);
       }
     }
 
-    res.json({ ...dispatch, via: hasWhatsapp ? 'whatsapp' : 'simulated', scheduled: isScheduled });
+    res.json({ ...dispatch, via, scheduled: isScheduled });
   } catch (e) {
     console.error('Dispatch error:', e);
     res.status(500).json({ error: 'Erro ao criar disparo' });
@@ -854,6 +863,81 @@ app.get('/api/stats', requireAuth, async (req, res) => {
 async function getCloudConfig(userId) {
   const { data } = await supabase.from('whatsapp_cloud_configs').select('*').eq('user_id', userId).single();
   return data;
+}
+
+// Disparo em massa via API Meta (Cloud API)
+async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
+  const dispatch = await supabase.from('dispatches').select('*').eq('id', dispatchId).single().then(r => r.data);
+  if (!dispatch) return;
+
+  const config = await getCloudConfig(userId);
+  if (!config?.access_token || !config?.phone_number_id) {
+    await supabase.from('dispatches').update({ status: 'failed' }).eq('id', dispatchId);
+    console.error(`[cloud] Config Meta não encontrada para user ${userId}`);
+    return;
+  }
+
+  await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatchId);
+
+  const creds = { token: config.access_token, phoneNumberId: config.phone_number_id, businessAccountId: config.business_account_id };
+  const contacts = dispatch.items.map(i => ({ id: i.contactId, name: i.contactName, phone: i.contactPhone }));
+  console.log(`[cloud] Dispatch ${dispatchId} — ${contacts.length} contatos via Meta API`);
+
+  const updatedItems = [...dispatch.items];
+  let sent = 0, failed = 0;
+
+  for (let i = 0; i < contacts.length; i++) {
+    const contact = contacts[i];
+    try {
+      if (useTemplate && dispatch.template_name) {
+        // Envia template aprovado pela Meta
+        const vars = [contact.name || ''].filter(Boolean);
+        await wppCloud.sendTemplate(creds, contact.phone, dispatch.template_name, 'pt_BR', vars);
+      } else {
+        // Envia texto livre (só funciona dentro da janela 24h)
+        const text = dispatch.message_content.replace(/\{nome\}/gi, contact.name || '');
+        await wppCloud.sendText(creds, contact.phone, text);
+      }
+      updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: 'cloud_api' };
+      sent++;
+      console.log(`[cloud] ✅ ${contact.phone}`);
+    } catch (e) {
+      updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message, sentVia: 'cloud_api' };
+      failed++;
+      console.error(`[cloud] ❌ ${contact.phone}: ${e.message}`);
+    }
+    await supabase.from('dispatches').update({ sent, failed, items: updatedItems }).eq('id', dispatchId);
+    // Delay respeitoso (Meta tem rate limit de ~80 msg/s)
+    if (i < contacts.length - 1) await new Promise(r => setTimeout(r, 500));
+  }
+
+  await supabase.from('dispatches').update({
+    sent, failed, status: 'completed',
+    items: updatedItems,
+    completed_at: new Date().toISOString()
+  }).eq('id', dispatchId);
+
+  console.log(`[cloud] Dispatch ${dispatchId} concluído: ${sent} enviados, ${failed} falhas`);
+}
+
+// Bulk direto via Cloud API (lista de números)
+async function sendBulkCloud(userId, phones, message, delayMs = 500) {
+  const config = await getCloudConfig(userId);
+  if (!config?.access_token) throw new Error('API Meta não configurada');
+  const creds = { token: config.access_token, phoneNumberId: config.phone_number_id };
+  const results = [];
+  for (let i = 0; i < phones.length; i++) {
+    const p = phones[i];
+    try {
+      const text = (p.text || message).replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '');
+      await wppCloud.sendText(creds, p.phone, text);
+      results.push({ ...p, status: 'sent', sentVia: 'cloud_api' });
+    } catch (e) {
+      results.push({ ...p, status: 'failed', error: e.message, sentVia: 'cloud_api' });
+    }
+    if (i < phones.length - 1) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return results;
 }
 
 // Lê config (sem expor token completo)
@@ -1636,7 +1720,7 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 // Disparo em massa por lista de números diretos (contatos importados)
 app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
   try {
-    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip, mediaUrl, mediaMimetype, mediaFilename } = req.body;
+    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip, mediaUrl, mediaMimetype, mediaFilename, channel } = req.body;
     if (!message || !phones?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
@@ -1647,30 +1731,49 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
     }
 
     const connectedSessions = getConnectedSessions(req.user.id);
-    if (!connectedSessions.length) {
-      return res.status(400).json({ error: 'Nenhum WhatsApp conectado. Conecte pelo menos 1 número em Conexões.' });
-    }
+    const cloudCfg = await getCloudConfig(req.user.id);
+    const hasBaileys = connectedSessions.length > 0;
+    const hasCloudCfg = !!(cloudCfg?.access_token && cloudCfg?.enabled);
+    const useCloud = channel === 'cloud' || (!hasBaileys && hasCloudCfg);
 
-    if (dualChip && connectedSessions.length < 2) {
-      return res.status(400).json({ error: 'Modo 2 Chips requer 2 números conectados. Vá em Conexões e conecte o segundo número.' });
+    if (!hasBaileys && !hasCloudCfg) {
+      return res.status(400).json({ error: 'Nenhum canal configurado. Conecte o WhatsApp ou configure a API Meta.' });
+    }
+    if (channel === 'cloud' && !hasCloudCfg) {
+      return res.status(400).json({ error: 'API Meta não configurada. Vá em WhatsApp Oficial e configure as credenciais.' });
+    }
+    if (dualChip && !useCloud && connectedSessions.length < 2) {
+      return res.status(400).json({ error: 'Modo 2 Chips requer 2 números conectados.' });
     }
 
     const items = phones.map(p => ({ contactName: p.name || p.phone, contactPhone: p.phone, status: 'pending' }));
+    const titleSuffix = useCloud ? ' [API Meta]' : dualChip ? ' [2 Chips]' : '';
     const { data: dispatch, error } = await supabase.from('dispatches').insert({
       message_id: null,
-      message_title: `Disparo ${new Date().toLocaleDateString('pt-BR')}${dualChip ? ' [2 Chips]' : ''}`,
+      message_title: `Disparo ${new Date().toLocaleDateString('pt-BR')}${titleSuffix}`,
       message_content: message,
       total: phones.length,
       sent: 0, failed: 0,
       status: scheduledAt ? 'scheduled' : 'sending',
       items,
       user_id: req.user.id,
-      scheduled_at: scheduledAt || null
+      scheduled_at: scheduledAt || null,
+      channel: useCloud ? 'cloud_api' : 'baileys',
     }).select().single();
     if (error) throw error;
-    res.json({ dispatchId: dispatch.id, total: phones.length, message: scheduledAt ? 'Disparo agendado!' : 'Disparo iniciado!' });
+    res.json({ dispatchId: dispatch.id, total: phones.length, message: scheduledAt ? 'Disparo agendado!' : 'Disparo iniciado!', via: useCloud ? 'cloud_api' : 'baileys' });
+
     if (!scheduledAt) {
-      (async () => {
+      if (useCloud) {
+        // Executa via Cloud API
+        (async () => {
+          const results = await sendBulkCloud(req.user.id, phones, message, 600);
+          const sent = results.filter(r => r.status === 'sent').length;
+          const failed = results.filter(r => r.status === 'failed').length;
+          const updatedItems = items.map((item, i) => ({ ...item, ...results[i] }));
+          await supabase.from('dispatches').update({ sent, failed, status: 'completed', items: updatedItems, completed_at: new Date().toISOString() }).eq('id', dispatch.id);
+        })();
+      } else {
         const delayMs = Math.max(1000, (parseInt(delay) || 3) * 1000);
         const pause = parseInt(pauseEvery) || 0;
         const pauseMs = (parseInt(pauseDuration) || 5) * 60 * 1000;
@@ -1731,6 +1834,7 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
         }).eq('id', dispatch.id);
         console.log(`[bulk] Concluído: ${sent} enviados, ${failed} falhas${dualChip ? ` (modo 2 chips, ${connectedSessions.length} sessões)` : ''}`);
       })();
+      } // end else baileys
     }
   } catch (e) {
     console.error('[bulk] error:', e);
