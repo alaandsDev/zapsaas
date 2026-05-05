@@ -1522,9 +1522,18 @@ app.post('/api/whatsapp/send-media', requireAuth, upload.single('file'), async (
     if (req.file) {
       media = { buffer: req.file.buffer, mimetype: req.file.mimetype, filename: req.file.originalname, caption: message || '' };
     } else if (mediaUrl) {
-      // Baixa da URL (Supabase Storage)
-      const response = await fetch(mediaUrl);
-      const buffer = Buffer.from(await response.arrayBuffer());
+      // Baixa do Supabase Storage diretamente (evita problema de bucket privado)
+      let buffer;
+      if (mediaUrl.includes('/storage/v1/object/public/media/')) {
+        const filePath = mediaUrl.split('/storage/v1/object/public/media/')[1];
+        const { data: fileData, error: dlErr } = await supabase.storage.from('media').download(filePath);
+        if (dlErr) throw new Error('Erro ao baixar mídia: ' + dlErr.message);
+        buffer = Buffer.from(await fileData.arrayBuffer());
+      } else {
+        const response = await fetch(mediaUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status} ao baixar mídia`);
+        buffer = Buffer.from(await response.arrayBuffer());
+      }
       media = { buffer, mimetype: mediaMimetype || 'application/octet-stream', filename: mediaFilename || 'arquivo', caption: message || '' };
     }
 
@@ -1785,12 +1794,39 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
         let media = null;
         if (mediaUrl) {
           try {
-            const resp = await fetch(mediaUrl);
-            const buffer = Buffer.from(await resp.arrayBuffer());
-            media = { buffer, mimetype: mediaMimetype || 'application/octet-stream', filename: mediaFilename || 'arquivo', caption: message || '' };
-            console.log(`[bulk] Mídia carregada: ${mediaFilename} (${buffer.length} bytes)`);
+            // Tenta extrair o path do arquivo a partir da URL pública do Supabase
+            // URL format: https://<project>.supabase.co/storage/v1/object/public/media/<path>
+            const supabaseStorageBase = `${process.env.SUPABASE_URL}/storage/v1/object/public/media/`;
+            let filePath = null;
+            if (mediaUrl.includes('/storage/v1/object/public/media/')) {
+              filePath = mediaUrl.split('/storage/v1/object/public/media/')[1];
+            }
+
+            let buffer;
+            if (filePath) {
+              // Baixa diretamente do Storage com service key (sem problemas de permissão)
+              const { data: fileData, error: dlErr } = await supabase.storage
+                .from('media')
+                .download(filePath);
+              if (dlErr) throw new Error('Storage download error: ' + dlErr.message);
+              buffer = Buffer.from(await fileData.arrayBuffer());
+            } else {
+              // Fallback: fetch normal da URL
+              const resp = await fetch(mediaUrl);
+              if (!resp.ok) throw new Error(`HTTP ${resp.status} ao baixar mídia`);
+              buffer = Buffer.from(await resp.arrayBuffer());
+            }
+
+            media = {
+              buffer,
+              mimetype: mediaMimetype || 'application/octet-stream',
+              filename: mediaFilename || 'arquivo',
+              caption: message || ''
+            };
+            console.log(`[bulk] ✅ Mídia carregada: ${mediaFilename} (${buffer.length} bytes)`);
           } catch (e) {
-            console.error('[bulk] Erro ao baixar mídia:', e.message);
+            console.error('[bulk] ❌ Erro ao baixar mídia:', e.message);
+            // Não bloqueia o disparo — envia só o texto
           }
         }
 
