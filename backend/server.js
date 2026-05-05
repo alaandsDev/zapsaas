@@ -595,7 +595,7 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
 
 app.post('/api/dispatches', requireAuth, async (req, res) => {
   try {
-    const { messageId, contactIds, scheduledAt, useWhatsapp, dualChip, channel, mediaUrl, mediaMimetype, mediaFilename } = req.body;
+    const { messageId, contactIds, scheduledAt, useWhatsapp, dualChip, channel, mediaUrl, mediaMimetype, mediaFilename, sourceSessionSlot } = req.body;
     if (!messageId || !contactIds?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
@@ -609,7 +609,13 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
 
     const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', req.user.id);
-    const items = (contacts || []).map(c => ({ contactId: c.id, contactName: c.name, contactPhone: c.phone, status: 'pending' }));
+    const items = (contacts || []).map(c => ({
+      contactId: c.id,
+      contactName: c.name,
+      contactPhone: c.phone,
+      status: 'pending',
+      sourceSessionSlot: sourceSessionSlot ? parseInt(sourceSessionSlot) : null,
+    }));
 
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
 
@@ -621,6 +627,9 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
     const useCloud = channel === 'cloud' || (!hasBaileys && hasCloud);
     const useBaileys = !useCloud && hasBaileys && useWhatsapp !== false;
     const via = useCloud ? 'cloud_api' : useBaileys ? 'baileys' : 'simulated';
+    if (useBaileys && sourceSessionSlot && !connectedForDispatch.some(s => s.slot === parseInt(sourceSessionSlot))) {
+      return res.status(400).json({ error: `Número ${sourceSessionSlot} não está conectado.` });
+    }
 
     const { data: dispatch, error } = await supabase.from('dispatches').insert({
       message_id: messageId,
@@ -672,7 +681,15 @@ async function executeRealDispatch(dispatchId, userId) {
 
   await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatchId);
 
-  const sessions = getConnectedSessions(userId);
+  const sourceSessionSlot = dispatch.items?.find(item => item?.sourceSessionSlot)?.sourceSessionSlot;
+  let sessions;
+  try {
+    sessions = pickDispatchSessions(getConnectedSessions(userId), sourceSessionSlot);
+  } catch (e) {
+    await supabase.from('dispatches').update({ status: 'failed' }).eq('id', dispatchId);
+    console.error(`[dispatch] ${e.message}`);
+    return;
+  }
   if (!sessions.length) {
     await supabase.from('dispatches').update({ status: 'failed' }).eq('id', dispatchId);
     console.error(`[dispatch] Nenhuma sessão conectada para user ${userId}`);
@@ -1605,6 +1622,14 @@ function getConnectedSessions(userId) {
   return [];
 }
 
+function pickDispatchSessions(connectedSessions, sourceSessionSlot) {
+  const slot = sourceSessionSlot ? parseInt(sourceSessionSlot) : null;
+  if (!slot) return connectedSessions;
+  const selected = connectedSessions.find(s => s.slot === slot);
+  if (!selected) throw new Error(`Número ${slot} não está conectado.`);
+  return [selected];
+}
+
 // Listar todas as sessões do usuário
 app.get('/api/whatsapp/sessions', requireAuth, async (req, res) => {
   res.json(getUserSessions(req.user.id));
@@ -1760,7 +1785,7 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 // Disparo em massa por lista de números diretos (contatos importados)
 app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
   try {
-    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip, mediaUrl, mediaMimetype, mediaFilename, channel } = req.body;
+    const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip, mediaUrl, mediaMimetype, mediaFilename, channel, sourceSessionSlot } = req.body;
     if (!message || !phones?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
@@ -1775,6 +1800,9 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
     const hasBaileys = connectedSessions.length > 0;
     const hasCloudCfg = !!(cloudCfg?.access_token && cloudCfg?.enabled);
     const useCloud = channel === 'cloud' || (!hasBaileys && hasCloudCfg);
+    if (!useCloud && sourceSessionSlot && !connectedSessions.some(s => s.slot === parseInt(sourceSessionSlot))) {
+      return res.status(400).json({ error: `Número ${sourceSessionSlot} não está conectado.` });
+    }
 
     if (!hasBaileys && !hasCloudCfg) {
       return res.status(400).json({ error: 'Nenhum canal configurado. Conecte o WhatsApp ou configure a API Meta.' });
@@ -1782,12 +1810,19 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
     if (channel === 'cloud' && !hasCloudCfg) {
       return res.status(400).json({ error: 'API Meta não configurada. Vá em WhatsApp Oficial e configure as credenciais.' });
     }
-    if (dualChip && !useCloud && connectedSessions.length < 2) {
+    const selectedSessions = useCloud ? connectedSessions : pickDispatchSessions(connectedSessions, sourceSessionSlot);
+    const effectiveDualChip = !sourceSessionSlot && dualChip;
+    if (effectiveDualChip && !useCloud && selectedSessions.length < 2) {
       return res.status(400).json({ error: 'Modo 2 Chips requer 2 números conectados.' });
     }
 
-    const items = phones.map(p => ({ contactName: p.name || p.phone, contactPhone: p.phone, status: 'pending' }));
-    const titleSuffix = useCloud ? ' [API Meta]' : dualChip ? ' [2 Chips]' : '';
+    const items = phones.map(p => ({
+      contactName: p.name || p.phone,
+      contactPhone: p.phone,
+      status: 'pending',
+      sourceSessionSlot: sourceSessionSlot ? parseInt(sourceSessionSlot) : null,
+    }));
+    const titleSuffix = useCloud ? ' [API Meta]' : effectiveDualChip ? ' [2 Chips]' : sourceSessionSlot ? ` [Número ${sourceSessionSlot}]` : '';
     const { data: dispatch, error } = await supabase.from('dispatches').insert({
       message_id: null,
       message_title: `Disparo ${new Date().toLocaleDateString('pt-BR')}${titleSuffix}`,
@@ -1801,7 +1836,7 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
       channel: useCloud ? 'cloud_api' : 'baileys',
     }).select().single();
     if (error) throw error;
-    res.json({ dispatchId: dispatch.id, total: phones.length, message: scheduledAt ? 'Disparo agendado!' : 'Disparo iniciado!', via: useCloud ? 'cloud_api' : 'baileys' });
+    res.json({ dispatchId: dispatch.id, total: phones.length, message: scheduledAt ? 'Disparo agendado!' : 'Disparo iniciado!', via: useCloud ? 'cloud_api' : 'baileys', sourceSessionSlot: sourceSessionSlot ? parseInt(sourceSessionSlot) : null });
 
     if (!scheduledAt) {
       if (useCloud) {
@@ -1862,10 +1897,10 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
 
         for (let i = 0; i < phones.length; i++) {
           const p = phones[i];
-          const session = dualChip
-            ? connectedSessions[sessionIdx % connectedSessions.length]
-            : connectedSessions[0];
-          if (dualChip) sessionIdx++;
+          const session = effectiveDualChip
+            ? selectedSessions[sessionIdx % selectedSessions.length]
+            : selectedSessions[0];
+          if (effectiveDualChip) sessionIdx++;
 
           try {
             const msgText = (p.text || message)

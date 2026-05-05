@@ -35,11 +35,13 @@ export default function DisparosPage() {
   const [pauseDuration, setPauseDuration] = useState(5);
   const [schedule, setSchedule] = useState("");
   const [dualChip, setDualChip] = useState(false);
+  const [sourceSessionSlot, setSourceSessionSlot] = useState("");
   const [channel, setChannel] = useState("auto"); // "auto" | "baileys" | "cloud"
   const [cloudConfig, setCloudConfig] = useState(null);
   const [media, setMedia] = useState(null); // { url, mimetype, filename, type, size }
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
   const [sending, setSending] = useState(false);
   const textareaRefs = useRef({});
 
@@ -120,10 +122,16 @@ export default function DisparosPage() {
 
   async function sendDispatch() {
     setErr("");
+    setOk("");
     const msgs = messages.map(m => m.text.trim()).filter(Boolean);
     if (!msgs.length) { setErr("Digite pelo menos uma mensagem"); return; }
 
     const connectedSessions = sessions.filter(s => s.status === "connected");
+    const selectedSourceSlot = sourceSessionSlot ? parseInt(sourceSessionSlot) : null;
+    if (selectedSourceSlot && !connectedSessions.some(s => s.slot === selectedSourceSlot)) {
+      setErr("Selecione um número conectado para disparar");
+      return;
+    }
     if (!connectedSessions.length) { setErr("Conecte o WhatsApp em Conexões antes de disparar"); return; }
 
     if (dualChip && connectedSessions.length < 2) {
@@ -160,11 +168,12 @@ export default function DisparosPage() {
             useWhatsapp: true,
             channel,
             dualChip,
+            sourceSessionSlot: selectedSourceSlot || undefined,
             scheduledAt: schedule ? new Date(schedule).toISOString() : undefined,
           },
         });
       } else {
-        await api("/api/whatsapp/bulk", {
+        const result = await api("/api/whatsapp/bulk", {
           method: "POST",
           body: {
             phones: phonesWithMsg,
@@ -172,6 +181,7 @@ export default function DisparosPage() {
             multiMessage: true,
             dualChip,
             channel,
+            sourceSessionSlot: selectedSourceSlot || undefined,
             mediaUrl: media?.url || undefined,
             mediaMimetype: media?.mimetype || undefined,
             mediaFilename: media?.originalname || media?.filename || undefined,
@@ -181,6 +191,12 @@ export default function DisparosPage() {
             scheduledAt: schedule ? new Date(schedule).toISOString() : undefined,
           },
         });
+        const origin = selectedSourceSlot ? ` pelo Número ${selectedSourceSlot}` : dualChip ? " em modo 2 chips" : "";
+        setOk(`${result.message || "Disparo iniciado!"} ${result.total || phonesWithMsg.length} contato(s)${origin}.`);
+      }
+      if (isLeads && msgs.length === 1) {
+        const origin = selectedSourceSlot ? ` pelo Número ${selectedSourceSlot}` : dualChip ? " em modo 2 chips" : "";
+        setOk(`${schedule ? "Disparo agendado!" : "Disparo iniciado!"} ${phonesWithMsg.length} contato(s)${origin}.`);
       }
       setSchedule("");
       setMessages([{ id: Date.now(), text: "" }]);
@@ -219,7 +235,7 @@ export default function DisparosPage() {
   const isPro = usage?.plan === "pro";
   const used = usage?.dispatches?.used ?? 0;
   const limit = usage?.dispatches?.limit ?? 3;
-  const wppConnected = wpp?.status === "connected";
+  const wppConnected = wpp?.status === "connected" || sessions.some(s => s.status === "connected");
 
   return (
     <>
@@ -245,6 +261,7 @@ export default function DisparosPage() {
             const connectedSessions = sessions.filter(s => s.status === "connected");
             const hasAny = connectedSessions.length > 0;
             const hasTwo = connectedSessions.length >= 2;
+            const selectedSource = sourceSessionSlot ? connectedSessions.find(s => String(s.slot) === sourceSessionSlot) : null;
             return (
               <div className="rounded-xl border border-white/10 bg-bg/40 p-4 space-y-3">
                 <div className="text-xs font-semibold text-ink-300 uppercase tracking-wide">📱 Conexões de saída</div>
@@ -269,6 +286,29 @@ export default function DisparosPage() {
                   </div>
                 )}
 
+                {hasAny && (
+                  <Field
+                    label="Número de disparo"
+                    hint={selectedSource ? `As mensagens sairão pelo Número ${selectedSource.slot}${selectedSource.phone ? ` (+${selectedSource.phone})` : ""}.` : "Automático usa o primeiro número conectado; ative 2 Chips para alternar entre os dois."}
+                  >
+                    <Select
+                      value={sourceSessionSlot}
+                      onChange={(e) => {
+                        setSourceSessionSlot(e.target.value);
+                        if (e.target.value) setDualChip(false);
+                      }}
+                      disabled={channel === "cloud"}
+                    >
+                      <option value="">Automático</option>
+                      {connectedSessions.map(s => (
+                        <option key={s.slot} value={s.slot}>
+                          Número {s.slot}{s.phone ? ` (+${s.phone})` : ""}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
+
                 {/* Seletor de Canal */}
                 {(() => {
                   const hasCloudCfg = !!(cloudConfig?.has_token && cloudConfig?.enabled);
@@ -288,7 +328,14 @@ export default function DisparosPage() {
                               key={opt.value}
                               type="button"
                               disabled={disabled}
-                              onClick={() => !disabled && setChannel(opt.value)}
+                              onClick={() => {
+                                if (disabled) return;
+                                setChannel(opt.value);
+                                if (opt.value === "cloud") {
+                                  setSourceSessionSlot("");
+                                  setDualChip(false);
+                                }
+                              }}
                               className={`flex flex-col items-center gap-1 px-3 py-3 rounded-xl border text-center transition-all
                                 ${disabled ? "opacity-30 cursor-not-allowed border-white/10 bg-white/[0.02]" :
                                   active ? "border-primary/50 bg-primary/10 text-primary" :
@@ -317,7 +364,14 @@ export default function DisparosPage() {
 
                 {/* Toggle Modo 2 Chips */}
                 <div
-                  onClick={() => hasTwo && setDualChip(v => !v)}
+                  onClick={() => {
+                    if (!hasTwo) return;
+                    setDualChip(v => {
+                      const next = !v;
+                      if (next) setSourceSessionSlot("");
+                      return next;
+                    });
+                  }}
                   className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all cursor-pointer select-none
                     ${!hasTwo ? "opacity-40 cursor-not-allowed border-white/10 bg-white/[0.02]" :
                       dualChip ? "border-primary/40 bg-primary/8" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}
@@ -494,9 +548,10 @@ export default function DisparosPage() {
           </Field>
 
           {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
+          {ok && <div className="text-sm text-primary bg-primary/10 border border-primary/25 rounded-xl px-4 py-3">{ok}</div>}
 
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => { setMessages([{ id: Date.now(), text: "" }]); setListSel(""); setSchedule(""); setErr(""); }}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => { setMessages([{ id: Date.now(), text: "" }]); setListSel(""); setSchedule(""); setErr(""); setOk(""); }}>Cancelar</Button>
             <Button onClick={sendDispatch} loading={sending} className="flex-1">🚀 Disparar Mensagens</Button>
           </div>
         </div>
