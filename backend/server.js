@@ -9,7 +9,7 @@ const zenvia = require('./zenvia');
 const Stripe = require('stripe');
 const cron = require('node-cron');
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 const app = express();
 
@@ -1833,7 +1833,6 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
           completed_at: new Date().toISOString()
         }).eq('id', dispatch.id);
         console.log(`[bulk] Concluído: ${sent} enviados, ${failed} falhas${dualChip ? ` (modo 2 chips, ${connectedSessions.length} sessões)` : ''}`);
-      })();
       } // end else baileys
     }
   } catch (e) {
