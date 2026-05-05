@@ -55,77 +55,105 @@ export default function Sidebar() {
   const pct = isPro ? 100 : Math.min(100, (used / Math.max(limit, 1)) * 100);
 
   return (
-    <aside
-      ref={ref}
-      className={`shrink-0 border-r border-white/[0.06] bg-bg/50 backdrop-blur-sm h-screen sticky top-0 flex flex-col transition-[width] duration-300 ease-out ${expanded ? "w-64" : "w-16"}`}
-    >
-      <div className={`h-16 flex items-center border-b border-white/[0.06] gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
-        {expanded && <Link href="/dashboard"><Logo /></Link>}
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="size-9 flex items-center justify-center rounded-lg hover:bg-white/5 text-ink-300 hover:text-ink-100 transition-colors"
-          aria-label={expanded ? "Recolher menu" : "Expandir menu"}
-          title={expanded ? "Recolher menu" : "Expandir menu"}
-        >
-          <svg className={`size-5 transition-transform duration-300 ${expanded ? "" : "rotate-180"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </button>
-      </div>
+    <>
+      <aside
+        ref={ref}
+        className={`hidden md:flex shrink-0 border-r border-white/[0.06] bg-bg/50 backdrop-blur-sm h-screen sticky top-0 flex-col transition-[width] duration-300 ease-out ${expanded ? "w-64" : "w-16"}`}
+      >
+        <div className={`h-16 flex items-center border-b border-white/[0.06] gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
+          {expanded && <Link href="/dashboard"><Logo /></Link>}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="size-9 flex items-center justify-center rounded-lg hover:bg-white/5 text-ink-300 hover:text-ink-100 transition-colors"
+            aria-label={expanded ? "Recolher menu" : "Expandir menu"}
+            title={expanded ? "Recolher menu" : "Expandir menu"}
+          >
+            <svg className={`size-5 transition-transform duration-300 ${expanded ? "" : "rotate-180"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        </div>
 
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
-        {nav.map((item) => {
-          const active = item.href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(item.href);
-          return (
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
+          {nav.map((item) => {
+            const active = item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={!expanded ? item.label : undefined}
+                className={`flex items-center gap-3 rounded-lg text-sm transition-all ${expanded ? "px-3 py-2" : "px-0 py-2 justify-center"} ${
+                  active
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "text-ink-300 hover:text-ink-100 hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                <svg className="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={item.icon} />
+                </svg>
+                {expanded && <span className="font-medium whitespace-nowrap overflow-hidden">{item.label}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="shrink-0 p-2 border-t border-white/[0.06]">
+          {isPro ? (
             <Link
-              key={item.href}
-              href={item.href}
-              title={!expanded ? item.label : undefined}
-              className={`flex items-center gap-3 rounded-lg text-sm transition-all ${expanded ? "px-3 py-2" : "px-0 py-2 justify-center"} ${
-                active
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-ink-300 hover:text-ink-100 hover:bg-white/5 border border-transparent"
-              }`}
+              href="/dashboard/minha-conta"
+              title={!expanded ? "Plano Pro" : undefined}
+              className={`flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors ${expanded ? "px-2 py-2" : "p-2 justify-center"}`}
             >
-              <svg className="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d={item.icon} />
-              </svg>
-              {expanded && <span className="font-medium whitespace-nowrap overflow-hidden">{item.label}</span>}
+              <div className="size-6 shrink-0 rounded-md bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-[10px]">⚡</div>
+              {expanded && <div className="text-xs font-semibold text-primary">Plano Pro</div>}
             </Link>
-          );
-        })}
-      </nav>
+          ) : expanded ? (
+            <Link href="/dashboard/minha-conta" className="block px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors">
+              <div className="text-xs font-semibold text-primary truncate">Plano Gratuito</div>
+              <div className="text-[10px] text-ink-400 mt-0.5">{used}/{limit} disparos · upgrade ⚡</div>
+              <div className="mt-1.5 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+              </div>
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/minha-conta"
+              title={`Plano Gratuito · ${used}/${limit}`}
+              className="flex items-center justify-center p-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
+            >
+              <span className="text-base">⚡</span>
+            </Link>
+          )}
+        </div>
+      </aside>
 
-      <div className="shrink-0 p-2 border-t border-white/[0.06]">
-        {isPro ? (
-          <Link
-            href="/dashboard/minha-conta"
-            title={!expanded ? "Plano Pro" : undefined}
-            className={`flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors ${expanded ? "px-2 py-2" : "p-2 justify-center"}`}
-          >
-            <div className="size-6 shrink-0 rounded-md bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-[10px]">⚡</div>
-            {expanded && <div className="text-xs font-semibold text-primary">Plano Pro</div>}
-          </Link>
-        ) : expanded ? (
-          <Link href="/dashboard/minha-conta" className="block px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors">
-            <div className="text-xs font-semibold text-primary truncate">Plano Gratuito</div>
-            <div className="text-[10px] text-ink-400 mt-0.5">{used}/{limit} disparos · upgrade ⚡</div>
-            <div className="mt-1.5 h-1 rounded-full bg-white/[0.06] overflow-hidden">
-              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
-            </div>
-          </Link>
-        ) : (
-          <Link
-            href="/dashboard/minha-conta"
-            title={`Plano Gratuito · ${used}/${limit}`}
-            className="flex items-center justify-center p-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
-          >
-            <span className="text-base">⚡</span>
-          </Link>
-        )}
-      </div>
-    </aside>
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-bg/95 backdrop-blur-xl">
+        <div className="flex gap-1 overflow-x-auto px-2 py-2">
+          {nav.map((item) => {
+            const active = item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`min-w-[70px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] transition-colors ${
+                  active
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "text-ink-300 border border-transparent"
+                }`}
+              >
+                <svg className="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={item.icon} />
+                </svg>
+                <span className="max-w-[62px] truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

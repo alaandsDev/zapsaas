@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
+import ComingSoonOverlay from "../../../components/dashboard/ComingSoonOverlay";
 
 export default function SmsPage() {
   const [balance, setBalance] = useState(0);
@@ -78,7 +79,8 @@ export default function SmsPage() {
   const totalCost = segments * parsePhones().length;
 
   return (
-    <div className="p-6 lg:p-10 max-w-6xl mx-auto">
+    <ComingSoonOverlay title="SMS em breve">
+      <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto">
       <header className="mb-8 flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">SMS em Massa</h1>
@@ -183,6 +185,7 @@ export default function SmsPage() {
           )}
         </div>
       </section>
-    </div>
+      </div>
+    </ComingSoonOverlay>
   );
 }

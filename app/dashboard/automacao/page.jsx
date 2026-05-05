@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../lib/api";
 import Modal from "../../../components/dashboard/Modal";
+import ComingSoonOverlay from "../../../components/dashboard/ComingSoonOverlay";
 
 export default function AutomacaoPage() {
   const router = useRouter();
@@ -71,8 +72,9 @@ export default function AutomacaoPage() {
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-6xl mx-auto">
-      <header className="mb-8 flex items-end justify-between">
+    <ComingSoonOverlay title="Automação em breve">
+      <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto">
+      <header className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Automação Inteligente</h1>
           <p className="text-ink-300 mt-1">Crie fluxos visuais que respondem, conversam e vendem sozinhos no WhatsApp.</p>
@@ -190,6 +192,7 @@ export default function AutomacaoPage() {
           Essa ação não pode ser desfeita. O histórico de execuções desse fluxo também será removido.
         </p>
       </Modal>
-    </div>
+      </div>
+    </ComingSoonOverlay>
   );
 }

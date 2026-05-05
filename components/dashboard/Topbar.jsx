@@ -20,12 +20,12 @@ export default function Topbar({ title, subtitle, actions }) {
   const initial = (user?.name || user?.email || "?")[0]?.toUpperCase();
 
   return (
-    <header className="h-16 border-b border-white/[0.06] bg-bg/70 backdrop-blur-md sticky top-0 z-30 flex items-center px-6 gap-4">
+    <header className="min-h-16 border-b border-white/[0.06] bg-bg/70 backdrop-blur-md sticky top-0 z-30 flex items-center px-4 py-3 gap-3 sm:px-6">
       <div className="flex-1 min-w-0">
-        <h1 className="text-lg font-semibold truncate">{title}</h1>
+        <h1 className="text-base font-semibold truncate sm:text-lg">{title}</h1>
         {subtitle && <p className="text-xs text-ink-500 truncate">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex max-w-[48vw] items-center justify-end gap-2 overflow-x-auto sm:max-w-none">{actions}</div>}
       <div className="relative">
         <button
           onClick={() => setOpen((v) => !v)}
