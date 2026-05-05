@@ -1794,26 +1794,26 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
         let media = null;
         if (mediaUrl) {
           try {
-            // Tenta extrair o path do arquivo a partir da URL pública do Supabase
-            // URL format: https://<project>.supabase.co/storage/v1/object/public/media/<path>
-            const supabaseStorageBase = `${process.env.SUPABASE_URL}/storage/v1/object/public/media/`;
+            console.log(`[bulk] Baixando mídia: ${mediaUrl}`);
+            console.log(`[bulk] mimetype=${mediaMimetype} filename=${mediaFilename}`);
+
             let filePath = null;
             if (mediaUrl.includes('/storage/v1/object/public/media/')) {
-              filePath = mediaUrl.split('/storage/v1/object/public/media/')[1];
+              filePath = decodeURIComponent(mediaUrl.split('/storage/v1/object/public/media/')[1]);
             }
 
             let buffer;
             if (filePath) {
-              // Baixa diretamente do Storage com service key (sem problemas de permissão)
+              console.log(`[bulk] Via Supabase Storage: ${filePath}`);
               const { data: fileData, error: dlErr } = await supabase.storage
                 .from('media')
                 .download(filePath);
-              if (dlErr) throw new Error('Storage download error: ' + dlErr.message);
+              if (dlErr) throw new Error('Storage: ' + dlErr.message);
               buffer = Buffer.from(await fileData.arrayBuffer());
             } else {
-              // Fallback: fetch normal da URL
+              console.log(`[bulk] Via fetch: ${mediaUrl}`);
               const resp = await fetch(mediaUrl);
-              if (!resp.ok) throw new Error(`HTTP ${resp.status} ao baixar mídia`);
+              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
               buffer = Buffer.from(await resp.arrayBuffer());
             }
 
@@ -1823,10 +1823,9 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
               filename: mediaFilename || 'arquivo',
               caption: message || ''
             };
-            console.log(`[bulk] ✅ Mídia carregada: ${mediaFilename} (${buffer.length} bytes)`);
+            console.log(`[bulk] ✅ Mídia pronta: ${media.filename} | ${media.mimetype} | ${buffer.length} bytes`);
           } catch (e) {
             console.error('[bulk] ❌ Erro ao baixar mídia:', e.message);
-            // Não bloqueia o disparo — envia só o texto
           }
         }
 

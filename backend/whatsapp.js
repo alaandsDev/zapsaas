@@ -227,18 +227,46 @@ class WhatsAppManager extends EventEmitter {
     try {
       if (media) {
         const { buffer, mimetype, filename, caption } = media;
+
+        // Garante que o buffer está no formato correto para o Baileys
+        const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+
+        console.log(`[wpp] Enviando mídia para ${phone}: tipo=${mimetype} tamanho=${buf.length} bytes filename=${filename}`);
+
         let msgContent;
 
         if (mimetype.startsWith('image/')) {
-          msgContent = { image: buffer, caption: caption || message || '', mimetype };
-        } else if (mimetype.startsWith('video/')) {
-          msgContent = { video: buffer, caption: caption || message || '', mimetype, fileName: filename };
-        } else if (mimetype.startsWith('audio/')) {
-          msgContent = { audio: buffer, mimetype, ptt: mimetype.includes('ogg') };
-        } else {
-          // documento genérico (pdf, xlsx, docx, zip, etc.)
           msgContent = {
-            document: buffer,
+            image: buf,
+            caption: caption || message || '',
+            mimetype,
+            jpegThumbnail: undefined,
+          };
+        } else if (mimetype.startsWith('video/')) {
+          msgContent = {
+            video: buf,
+            caption: caption || message || '',
+            mimetype,
+            fileName: filename,
+          };
+        } else if (mimetype.startsWith('audio/')) {
+          // MP3 e outros áudios como arquivo (não PTT)
+          const isPtt = mimetype.includes('ogg') || mimetype.includes('opus');
+          if (isPtt) {
+            msgContent = { audio: buf, mimetype, ptt: true };
+          } else {
+            // MP3, AAC, etc — envia como documento de áudio
+            msgContent = {
+              audio: buf,
+              mimetype,
+              ptt: false,
+              fileName: filename || 'audio.mp3',
+            };
+          }
+        } else {
+          // PDF, XLSX, DOCX, ZIP, etc.
+          msgContent = {
+            document: buf,
             mimetype,
             fileName: filename || 'arquivo',
             caption: caption || message || '',
@@ -246,10 +274,11 @@ class WhatsAppManager extends EventEmitter {
         }
 
         await session.sock.sendMessage(jid, msgContent);
+        console.log(`[wpp] ✅ Mídia enviada para ${phone}`);
 
-        // Envia texto separado se tiver legenda E o tipo não suporta caption inline
-        if (message && mimetype.startsWith('audio/')) {
-          await new Promise(r => setTimeout(r, 800));
+        // Envia texto separado após áudio (não suporta caption)
+        if (message && (mimetype.startsWith('audio/'))) {
+          await new Promise(r => setTimeout(r, 1000));
           await session.sock.sendMessage(jid, { text: message });
         }
       } else {
@@ -258,6 +287,7 @@ class WhatsAppManager extends EventEmitter {
 
       return { success: true, to: jid };
     } catch (e) {
+      console.error(`[wpp] ❌ Erro ao enviar para ${phone}:`, e.message);
       throw new Error(`Falha ao enviar para ${phone}: ${e.message}`);
     }
   }
