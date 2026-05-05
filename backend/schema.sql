@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'user',
+  plan TEXT DEFAULT 'free',
+  plan_expires_at TIMESTAMPTZ,
+  stripe_customer_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

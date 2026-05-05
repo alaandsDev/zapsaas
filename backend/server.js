@@ -1965,35 +1965,91 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+const ADMIN_USER_BASE_FIELDS = 'id, name, email, role, created_at';
+const ADMIN_USER_FULL_FIELDS = `${ADMIN_USER_BASE_FIELDS}, plan, plan_expires_at, stripe_customer_id`;
+
+function normalizeAdminUser(user) {
+  return {
+    ...user,
+    plan: user.plan || 'free',
+    plan_expires_at: user.plan_expires_at || null,
+    stripe_customer_id: user.stripe_customer_id || null,
+  };
+}
+
+function isMissingOptionalUserColumn(error) {
+  return Boolean(error?.message && /plan|plan_expires_at|stripe_customer_id/i.test(error.message));
+}
+
+async function adminUsersQuery({ limit, userId } = {}) {
+  let query = supabase.from('users').select(ADMIN_USER_FULL_FIELDS);
+  if (userId) query = query.eq('id', userId).single();
+  else {
+    query = query.order('created_at', { ascending: false });
+    if (limit) query = query.limit(limit);
+  }
+
+  let { data, error } = await query;
+  if (error && isMissingOptionalUserColumn(error)) {
+    let fallback = supabase.from('users').select(ADMIN_USER_BASE_FIELDS);
+    if (userId) fallback = fallback.eq('id', userId).single();
+    else {
+      fallback = fallback.order('created_at', { ascending: false });
+      if (limit) fallback = fallback.limit(limit);
+    }
+    ({ data, error } = await fallback);
+  }
+  if (error?.code === 'PGRST116') return null;
+  if (error) throw error;
+
+  return Array.isArray(data)
+    ? data.map(normalizeAdminUser)
+    : normalizeAdminUser(data);
+}
+
+async function adminCount(table, applyFilter) {
+  let query = supabase.from(table).select('id', { count: 'exact', head: true });
+  if (applyFilter) query = applyFilter(query);
+  const { count, error } = await query;
+  if (error) {
+    console.warn(`[admin] count ${table}:`, error.message);
+    return 0;
+  }
+  return count || 0;
+}
+
+async function adminSum(table, column, applyFilter) {
+  let query = supabase.from(table).select(column);
+  if (applyFilter) query = applyFilter(query);
+  const { data, error } = await query;
+  if (error) {
+    console.warn(`[admin] sum ${table}.${column}:`, error.message);
+    return 0;
+  }
+  return (data || []).reduce((total, row) => total + (Number(row[column]) || 0), 0);
+}
+
 // Stats gerais do sistema
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
-    const [
-      { count: totalUsers },
-      { count: totalLeads },
-      { count: totalDispatches },
-      { data: proUsers },
-      { data: recentUsers }
-    ] = await Promise.all([
-      supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('leads').select('*', { count: 'exact', head: true }),
-      supabase.from('dispatches').select('*', { count: 'exact', head: true }),
-      supabase.from('users').select('id').eq('plan', 'pro'),
-      supabase.from('users').select('id, name, email, role, plan, created_at').order('created_at', { ascending: false }).limit(5)
+    const [totalUsers, totalLeads, totalDispatches, users, totalSent] = await Promise.all([
+      adminCount('users'),
+      adminCount('leads'),
+      adminCount('dispatches'),
+      adminUsersQuery({ limit: 5 }),
+      adminSum('dispatches', 'sent'),
     ]);
 
-    const { data: sentData } = await supabase.from('dispatches').select('sent');
-    const totalSent = (sentData || []).reduce((a, d) => a + (d.sent || 0), 0);
-
     res.json({
-      totalUsers: totalUsers || 0,
-      totalLeads: totalLeads || 0,
-      totalDispatches: totalDispatches || 0,
+      totalUsers,
+      totalLeads,
+      totalDispatches,
       totalSent,
-      proUsers: proUsers?.length || 0,
-      recentUsers: recentUsers || []
+      proUsers: users.filter(u => u.plan === 'pro').length,
+      recentUsers: users
     });
   } catch (e) {
+    console.error('[admin/stats]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -2001,31 +2057,22 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 // Lista todos os usuários com stats
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
   try {
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id, name, email, role, plan, plan_expires_at, stripe_customer_id, created_at')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    const users = await adminUsersQuery();
 
     // Busca stats por usuário
     const enriched = await Promise.all(users.map(async (u) => {
-      const [
-        { count: leads },
-        { count: dispatches },
-        { count: lists },
-        { data: dispData }
-      ] = await Promise.all([
-        supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
-        supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
-        supabase.from('contact_lists').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
-        supabase.from('dispatches').select('sent').eq('user_id', u.id)
+      const [leads, dispatches, lists, totalSent] = await Promise.all([
+        adminCount('leads', q => q.eq('user_id', u.id)),
+        adminCount('dispatches', q => q.eq('user_id', u.id)),
+        adminCount('contact_lists', q => q.eq('user_id', u.id)),
+        adminSum('dispatches', 'sent', q => q.eq('user_id', u.id))
       ]);
-      const totalSent = (dispData || []).reduce((a, d) => a + (d.sent || 0), 0);
-      return { ...u, stats: { leads: leads || 0, dispatches: dispatches || 0, lists: lists || 0, totalSent } };
+      return { ...u, stats: { leads, dispatches, lists, totalSent } };
     }));
 
     res.json(enriched);
   } catch (e) {
+    console.error('[admin/users]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -2033,9 +2080,7 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
 // Busca usuário específico com histórico completo
 app.get('/api/admin/users/:id', requireAdmin, async (req, res) => {
   try {
-    const { data: user } = await supabase.from('users')
-      .select('id, name, email, role, plan, plan_expires_at, stripe_customer_id, created_at')
-      .eq('id', req.params.id).single();
+    const user = await adminUsersQuery({ userId: req.params.id });
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
 
     const [{ data: dispatches }, { data: leads }, { data: lists }] = await Promise.all([

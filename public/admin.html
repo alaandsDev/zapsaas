@@ -474,9 +474,13 @@ select:focus{border-color:var(--red)}
 
 <script>
 const API = (() => {
+  const withApiPath = (url) => {
+    const base = String(url || '').trim().replace(/\/+$/, '');
+    return base.endsWith('/api') ? base : `${base}/api`;
+  };
   const h = location.hostname;
   if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:3001/api';
-  return window.ZAPSAAS_API_URL || 'https://delivery-full-production.up.railway.app/api';
+  return withApiPath(window.ZAPSAAS_API_URL || 'https://delivery-full-production.up.railway.app/api');
 })();
 
 let token = localStorage.getItem('admin_token');
@@ -528,10 +532,31 @@ function doLogout() {
 }
 
 async function authFetch(url, opts = {}) {
-  return fetch(url, {
+  const res = await fetch(url, {
     ...opts,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) }
   });
+  if (res.status === 401 || res.status === 403) {
+    doLogout();
+    throw new Error('Sessao expirada ou sem permissao de administrador');
+  }
+  return res;
+}
+
+async function readJson(res) {
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`);
+  return data;
+}
+
+function showTableError(tbody, colspan, msg) {
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;padding:34px;color:var(--red)">${esc(msg)}</td></tr>`;
+}
+
+function asNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 // ── APP ───────────────────────────────────────────────────────
@@ -695,16 +720,16 @@ async function mkLoadHistory() {
 
 // ── DASHBOARD ─────────────────────────────────────────────────
 async function loadDashboard() {
+  const tbody = document.getElementById('recent-users-tbody');
   try {
     const res = await authFetch(`${API}/admin/stats`);
-    const data = await res.json();
-    document.getElementById('stat-users').textContent = data.totalUsers;
-    document.getElementById('stat-pro-users').textContent = `${data.proUsers} no plano Pro`;
-    document.getElementById('stat-leads').textContent = data.totalLeads;
-    document.getElementById('stat-dispatches').textContent = data.totalDispatches;
-    document.getElementById('stat-sent').textContent = data.totalSent;
+    const data = await readJson(res);
+    document.getElementById('stat-users').textContent = asNumber(data.totalUsers);
+    document.getElementById('stat-pro-users').textContent = `${asNumber(data.proUsers)} no plano Pro`;
+    document.getElementById('stat-leads').textContent = asNumber(data.totalLeads);
+    document.getElementById('stat-dispatches').textContent = asNumber(data.totalDispatches);
+    document.getElementById('stat-sent').textContent = asNumber(data.totalSent);
 
-    const tbody = document.getElementById('recent-users-tbody');
     if (!data.recentUsers?.length) {
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text3)">Nenhum usuário</td></tr>';
       return;
@@ -718,7 +743,13 @@ async function loadDashboard() {
         <td style="color:var(--text3);font-size:12px">${fmtDate(u.created_at)}</td>
       </tr>`).join('');
   } catch(e) {
-    notify('Erro ao carregar dashboard', 'error');
+    document.getElementById('stat-users').textContent = '0';
+    document.getElementById('stat-pro-users').textContent = '0 no plano Pro';
+    document.getElementById('stat-leads').textContent = '0';
+    document.getElementById('stat-dispatches').textContent = '0';
+    document.getElementById('stat-sent').textContent = '0';
+    showTableError(tbody, 5, e.message || 'Erro ao carregar dashboard');
+    notify(e.message || 'Erro ao carregar dashboard', 'error');
   }
 }
 
@@ -728,11 +759,15 @@ async function loadUsers() {
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">⏳ Carregando...</td></tr>';
   try {
     const res = await authFetch(`${API}/admin/users`);
-    allUsers = await res.json();
+    const data = await readJson(res);
+    allUsers = Array.isArray(data) ? data : [];
     document.getElementById('users-count').textContent = allUsers.length;
     renderUsers(allUsers);
   } catch(e) {
-    notify('Erro ao carregar usuários', 'error');
+    allUsers = [];
+    document.getElementById('users-count').textContent = '0';
+    showTableError(tbody, 8, e.message || 'Erro ao carregar usuarios');
+    notify(e.message || 'Erro ao carregar usuarios', 'error');
   }
 }
 
