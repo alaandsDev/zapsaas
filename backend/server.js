@@ -743,8 +743,8 @@ async function executeRealDispatch(dispatchId, userId) {
       const personalizedMsg = dispatch.message_content.replace(/\{nome\}/gi, contact.name || '');
       // Personaliza caption da mídia também
       if (media) media.caption = personalizedMsg;
-      await wpp.sendMessage(session.key, contact.phone, personalizedMsg, media);
-      results.push({ ...dispatch.items[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: session.slot });
+      const sendResult = await wpp.sendMessage(session.key, contact.phone, personalizedMsg, media);
+      results.push({ ...dispatch.items[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: session.slot, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || session.phone || null });
       sent++;
       console.log(`[dispatch] ✓ ${contact.phone} via slot ${session.slot}`);
     } catch (e) {
@@ -1907,8 +1907,8 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
               .replace(/\{nome\}/gi, p.name || '')
               .replace(/\{name\}/gi, p.name || '')
               .replace(/\{numero\}/gi, p.phone || '');
-            await wpp.sendMessage(session.key, p.phone, msgText, media);
-            updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${session.slot}` };
+            const sendResult = await wpp.sendMessage(session.key, p.phone, msgText, media);
+            updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${session.slot}`, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || session.phone || null };
             sent++;
             console.log(`[bulk] ✅ ${i+1}/${phones.length} → ${p.phone} via ${session.key}`);
           } catch (e) {

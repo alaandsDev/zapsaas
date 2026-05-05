@@ -214,6 +214,58 @@ class WhatsAppManager extends EventEmitter {
     return { status: 'connecting', qr: null };
   }
 
+  _offEvent(ev, eventName, handler) {
+    if (typeof ev.off === 'function') ev.off(eventName, handler);
+    else if (typeof ev.removeListener === 'function') ev.removeListener(eventName, handler);
+  }
+
+  _waitForMessageAck(session, key, timeoutMs = 15000) {
+    if (!key?.id) throw new Error('WhatsApp não retornou ID da mensagem.');
+
+    return new Promise((resolve, reject) => {
+      let done = false;
+      const sameMessage = (candidateKey = {}) =>
+        candidateKey.id === key.id && (!candidateKey.remoteJid || candidateKey.remoteJid === key.remoteJid);
+
+      const finish = (error = null) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        this._offEvent(session.sock.ev, 'messages.update', onMessagesUpdate);
+        this._offEvent(session.sock.ev, 'message-receipt.update', onReceiptUpdate);
+        error ? reject(error) : resolve();
+      };
+
+      const onMessagesUpdate = (updates = []) => {
+        for (const item of updates) {
+          if (!sameMessage(item.key)) continue;
+          const status = item.update?.status ?? item.status;
+          if (status === 0) return finish(new Error('WhatsApp rejeitou a mensagem antes do envio.'));
+          if (status == null || status >= 2) return finish();
+        }
+      };
+
+      const onReceiptUpdate = (updates = []) => {
+        for (const item of updates) {
+          if (sameMessage(item.key)) return finish();
+        }
+      };
+
+      const timer = setTimeout(() => {
+        finish(new Error(`WhatsApp não confirmou o envio da mensagem ${key.id} em ${Math.round(timeoutMs / 1000)}s.`));
+      }, timeoutMs);
+
+      session.sock.ev.on('messages.update', onMessagesUpdate);
+      session.sock.ev.on('message-receipt.update', onReceiptUpdate);
+    });
+  }
+
+  async _sendWithAck(session, jid, content, timeoutMs = 15000) {
+    const result = await session.sock.sendMessage(jid, content);
+    await this._waitForMessageAck(session, result?.key, timeoutMs);
+    return result;
+  }
+
   async sendMessage(sessionId, phone, message, media = null) {
     const session = this.sessions.get(sessionId);
     if (!session || session.status !== 'connected') {
@@ -222,9 +274,33 @@ class WhatsAppManager extends EventEmitter {
 
     const cleaned = phone.replace(/\D/g, '');
     const withCountry = cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
-    const jid = `${withCountry}@s.whatsapp.net`;
+    let jid = `${withCountry}@s.whatsapp.net`;
 
     try {
+      const [waContact] = await session.sock.onWhatsApp(withCountry);
+      if (!waContact?.exists) {
+        throw new Error(`Número ${withCountry} não encontrado no WhatsApp.`);
+      }
+      jid = waContact.jid || jid;
+
+      let result = null;
+      const sendWithRetry = async (content, timeoutMs = 15000) => {
+        let lastError = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            return await this._sendWithAck(session, jid, content, timeoutMs);
+          } catch (e) {
+            lastError = e;
+            console.warn(`[wpp] Tentativa ${attempt} falhou para ${phone} via ${sessionId}: ${e.message}`);
+            if (attempt < 2) {
+              try { await session.sock.sendPresenceUpdate('available'); } catch {}
+              await new Promise(r => setTimeout(r, 1500));
+            }
+          }
+        }
+        throw lastError;
+      };
+
       if (media) {
         const { buffer, mimetype, filename, caption } = media;
 
@@ -273,19 +349,19 @@ class WhatsAppManager extends EventEmitter {
           };
         }
 
-        await session.sock.sendMessage(jid, msgContent);
+        result = await sendWithRetry(msgContent, 20000);
         console.log(`[wpp] ✅ Mídia enviada para ${phone}`);
 
         // Envia texto separado após áudio (não suporta caption)
         if (message && (mimetype.startsWith('audio/'))) {
           await new Promise(r => setTimeout(r, 1000));
-          await session.sock.sendMessage(jid, { text: message });
+          result = await sendWithRetry({ text: message });
         }
       } else {
-        await session.sock.sendMessage(jid, { text: message });
+        result = await sendWithRetry({ text: message });
       }
 
-      return { success: true, to: jid };
+      return { success: true, to: jid, messageId: result?.key?.id || null, from: session.phone || null };
     } catch (e) {
       console.error(`[wpp] ❌ Erro ao enviar para ${phone}:`, e.message);
       throw new Error(`Falha ao enviar para ${phone}: ${e.message}`);
@@ -300,8 +376,8 @@ class WhatsAppManager extends EventEmitter {
           .replace(/\{nome\}/gi, contact.name || '')
           .replace(/\{name\}/gi, contact.name || '')
           .replace(/\{numero\}/gi, contact.phone || '');
-        await this.sendMessage(sessionId, contact.phone, personalizedMsg, media);
-        results.push({ ...contact, status: 'sent' });
+        const sendResult = await this.sendMessage(sessionId, contact.phone, personalizedMsg, media);
+        results.push({ ...contact, status: 'sent', whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || null });
         console.log(`[WPP] ✅ Enviado para ${contact.phone}`);
       } catch (e) {
         results.push({ ...contact, status: 'failed', error: e.message });
@@ -327,8 +403,8 @@ class WhatsAppManager extends EventEmitter {
           .replace(/\{nome\}/gi, contact.name || '')
           .replace(/\{name\}/gi, contact.name || '')
           .replace(/\{numero\}/gi, contact.phone || '');
-        await this.sendMessage(session.key, contact.phone, personalizedMsg, media);
-        results.push({ ...contact, status: 'sent', sentVia: `slot${session.slot}` });
+        const sendResult = await this.sendMessage(session.key, contact.phone, personalizedMsg, media);
+        results.push({ ...contact, status: 'sent', sentVia: `slot${session.slot}`, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || session.phone || null });
         console.log(`[WPP] ✅ ${contact.phone} via slot ${session.slot}`);
       } catch (e) {
         results.push({ ...contact, status: 'failed', error: e.message, sentVia: `slot${session.slot}` });
