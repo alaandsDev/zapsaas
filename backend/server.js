@@ -595,7 +595,7 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
 
 app.post('/api/dispatches', requireAuth, async (req, res) => {
   try {
-    const { messageId, contactIds, scheduledAt, useWhatsapp, dualChip, channel } = req.body;
+    const { messageId, contactIds, scheduledAt, useWhatsapp, dualChip, channel, mediaUrl, mediaMimetype, mediaFilename } = req.body;
     if (!messageId || !contactIds?.length) {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
@@ -613,13 +613,11 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
 
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
 
-    // Detecta canal disponível
     const connectedForDispatch = getConnectedSessions(req.user.id);
     const cloudConfig = await getCloudConfig(req.user.id);
     const hasBaileys = connectedForDispatch.length > 0;
     const hasCloud = !!(cloudConfig?.access_token && cloudConfig?.enabled);
 
-    // canal: 'cloud' | 'baileys' | 'auto' (padrão)
     const useCloud = channel === 'cloud' || (!hasBaileys && hasCloud);
     const useBaileys = !useCloud && hasBaileys && useWhatsapp !== false;
     const via = useCloud ? 'cloud_api' : useBaileys ? 'baileys' : 'simulated';
@@ -628,6 +626,9 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       message_id: messageId,
       message_title: message.title,
       message_content: message.content,
+      media_url: mediaUrl || null,
+      media_mimetype: mediaMimetype || null,
+      media_filename: mediaFilename || null,
       total: items.length,
       sent: 0, failed: 0,
       status: isScheduled ? 'scheduled' : 'pending',
@@ -671,7 +672,6 @@ async function executeRealDispatch(dispatchId, userId) {
 
   await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatchId);
 
-  // Pega todas as sessões conectadas para round-robin
   const sessions = getConnectedSessions(userId);
   if (!sessions.length) {
     await supabase.from('dispatches').update({ status: 'failed' }).eq('id', dispatchId);
@@ -682,7 +682,37 @@ async function executeRealDispatch(dispatchId, userId) {
   const contacts = dispatch.items.map(i => ({ id: i.contactId, name: i.contactName, phone: i.contactPhone }));
   console.log(`[dispatch] ${dispatchId} — ${contacts.length} contatos, ${sessions.length} sessão(ões): ${sessions.map(s => s.key).join(', ')}`);
 
-  // Round-robin: envia 1 msg por sessão alternando
+  // Baixa mídia uma vez se existir
+  let media = null;
+  if (dispatch.media_url) {
+    try {
+      console.log(`[dispatch] Baixando mídia: ${dispatch.media_url}`);
+      let filePath = null;
+      if (dispatch.media_url.includes('/storage/v1/object/public/media/')) {
+        filePath = decodeURIComponent(dispatch.media_url.split('/storage/v1/object/public/media/')[1]);
+      }
+      let buffer;
+      if (filePath) {
+        const { data: fileData, error: dlErr } = await supabase.storage.from('media').download(filePath);
+        if (dlErr) throw new Error('Storage: ' + dlErr.message);
+        buffer = Buffer.from(await fileData.arrayBuffer());
+      } else {
+        const resp = await fetch(dispatch.media_url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        buffer = Buffer.from(await resp.arrayBuffer());
+      }
+      media = {
+        buffer,
+        mimetype: dispatch.media_mimetype || 'application/octet-stream',
+        filename: dispatch.media_filename || 'arquivo',
+        caption: dispatch.message_content || '',
+      };
+      console.log(`[dispatch] ✅ Mídia pronta: ${media.filename} | ${media.mimetype} | ${buffer.length} bytes`);
+    } catch (e) {
+      console.error(`[dispatch] ❌ Erro ao baixar mídia:`, e.message);
+    }
+  }
+
   const results = [];
   let sent = 0, failed = 0;
   let sessionIdx = 0;
@@ -694,7 +724,9 @@ async function executeRealDispatch(dispatchId, userId) {
 
     try {
       const personalizedMsg = dispatch.message_content.replace(/\{nome\}/gi, contact.name || '');
-      await wpp.sendMessage(session.key, contact.phone, personalizedMsg);
+      // Personaliza caption da mídia também
+      if (media) media.caption = personalizedMsg;
+      await wpp.sendMessage(session.key, contact.phone, personalizedMsg, media);
       results.push({ ...dispatch.items[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: session.slot });
       sent++;
       console.log(`[dispatch] ✓ ${contact.phone} via slot ${session.slot}`);
@@ -704,7 +736,6 @@ async function executeRealDispatch(dispatchId, userId) {
       console.error(`[dispatch] ✗ ${contact.phone}: ${e.message}`);
     }
 
-    // Delay anti-ban entre envios (2.5s + variação aleatória)
     if (i < contacts.length - 1) {
       await new Promise(r => setTimeout(r, 2500 + Math.random() * 1000));
     }

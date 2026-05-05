@@ -19,3 +19,10 @@ UPDATE dispatches SET channel = 'baileys' WHERE channel IS NULL;
 CREATE INDEX IF NOT EXISTS idx_dispatches_channel ON dispatches(user_id, channel);
 
 SELECT 'channel column adicionada com sucesso!' as resultado;
+
+-- Adiciona colunas de mídia na tabela dispatches
+ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS media_url TEXT;
+ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS media_mimetype TEXT;
+ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS media_filename TEXT;
+
+SELECT 'colunas de mídia adicionadas!' as resultado;
