@@ -19,6 +19,21 @@ function fmtDate(iso) {
   } catch { return "—"; }
 }
 
+function StatBlock({ label, value, hint, tone = "neutral" }) {
+  const tones = {
+    neutral: "border-white/10 bg-white/[0.03] text-ink-100",
+    warn:    "border-yellow-500/25 bg-yellow-500/[0.06] text-yellow-300",
+    success: "border-primary/30 bg-primary/[0.08] text-primary",
+  };
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 ${tones[tone]}`}>
+      <div className="text-[10px] uppercase tracking-wider opacity-70 font-semibold">{label}</div>
+      <div className="text-2xl font-bold tabular-nums leading-tight mt-0.5">{value.toLocaleString("pt-BR")}</div>
+      {hint && <div className="text-[10px] opacity-60 mt-0.5">{hint}</div>}
+    </div>
+  );
+}
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [lists, setLists] = useState([]);
@@ -243,14 +258,31 @@ function LeadModal({ open, onClose, initial, onSaved }) {
 function ImportModal({ open, onClose, onSaved }) {
   const [name, setName] = useState("");
   const [rows, setRows] = useState([]);
+  const [stats, setStats] = useState(null); // { total, valid, duplicates, invalid }
   const [err, setErr] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    if (open) { setName(""); setRows([]); setErr(""); setInfo(""); }
+    if (open) { setName(""); setRows([]); setStats(null); setErr(""); setInfo(""); }
   }, [open]);
+
+  // Normaliza + remove duplicatas + descarta inválidos (<10 dígitos)
+  function cleanContacts(parsed) {
+    const seen = new Set();
+    const valid = [];
+    let duplicates = 0;
+    let invalid = 0;
+    for (const r of parsed) {
+      const phone = String(r.NUMERO || "").replace(/\D/g, "");
+      if (phone.length < 10) { invalid++; continue; }
+      if (seen.has(phone)) { duplicates++; continue; }
+      seen.add(phone);
+      valid.push({ NOME: String(r.NOME || "").trim() || phone, NUMERO: phone });
+    }
+    return { valid, duplicates, invalid, total: parsed.length };
+  }
 
   async function readFile(file) {
     if (!file) return;
@@ -293,12 +325,15 @@ function ImportModal({ open, onClose, onSaved }) {
           NUMERO: String(r[pi] || "").replace(/\D/g, ""),
         }));
       }
-      if (!parsed.length) throw new Error("Nenhum contato válido");
-      setRows(parsed);
-      setInfo(`${parsed.length} contatos lidos`);
+      if (!parsed.length) throw new Error("Nenhum contato encontrado no arquivo");
+      const result = cleanContacts(parsed);
+      if (!result.valid.length) throw new Error("Nenhum contato válido após limpeza (verifique se os números têm DDD)");
+      setRows(result.valid);
+      setStats(result);
+      setInfo("");
       if (!name) setName(file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
     } catch (e) {
-      setErr(e.message); setInfo("");
+      setErr(e.message); setInfo(""); setStats(null); setRows([]);
     }
   }
 
@@ -338,6 +373,29 @@ function ImportModal({ open, onClose, onSaved }) {
         </div>
         {info && <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-xl px-4 py-2">{info}</div>}
         {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
+        {stats && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold">Relatório da importação</div>
+              <div className="text-[10px] uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">limpeza automática</div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <StatBlock label="Importados" value={stats.total} tone="neutral" />
+              <StatBlock label="Duplicados" value={stats.duplicates} tone={stats.duplicates > 0 ? "warn" : "neutral"} hint="removidos" />
+              <StatBlock label="Válidos" value={stats.valid.length} tone="success" hint="serão salvos" />
+            </div>
+            {stats.invalid > 0 && (
+              <div className="text-xs text-ink-400 mt-2">
+                ⚠️ {stats.invalid} número(s) inválido(s) descartado(s) (sem DDD ou com formato incorreto)
+              </div>
+            )}
+            {stats.duplicates > 0 && (
+              <div className="text-xs text-ink-400 mt-1">
+                ✨ {stats.duplicates} duplicata(s) removida(s) automaticamente
+              </div>
+            )}
+          </div>
+        )}
         {rows.length > 0 && (
           <div className="rounded-xl border border-white/10 max-h-48 overflow-y-auto">
             <table className="w-full text-sm">
