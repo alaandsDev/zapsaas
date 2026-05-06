@@ -21,33 +21,27 @@ const nav = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [usage, setUsage] = useState(null);
-  const [expanded, setExpanded] = useState(true);
+  // pinned = expandida fixa (botão clicado); hover = expandida temporária por mouse
+  const [pinned, setPinned] = useState(false);
+  const [hover, setHover] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
     api("/api/usage").then(setUsage).catch(() => {});
   }, [pathname]);
 
-  // Restaura preferência
+  // Restaura preferência (pinned)
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar_expanded");
-    if (saved === "0") setExpanded(false);
+    const saved = localStorage.getItem("sidebar_pinned");
+    if (saved === "1") setPinned(true);
   }, []);
 
   // Persiste preferência
   useEffect(() => {
-    localStorage.setItem("sidebar_expanded", expanded ? "1" : "0");
-  }, [expanded]);
+    localStorage.setItem("sidebar_pinned", pinned ? "1" : "0");
+  }, [pinned]);
 
-  // Click fora colapsa
-  useEffect(() => {
-    if (!expanded) return;
-    function onDocClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setExpanded(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [expanded]);
+  const expanded = pinned || hover;
 
   const isPro = usage?.plan === "pro";
   const used = usage?.dispatches?.used ?? 0;
@@ -58,18 +52,21 @@ export default function Sidebar() {
     <>
       <aside
         ref={ref}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
         className={`hidden md:flex shrink-0 border-r border-white/[0.06] bg-bg/50 backdrop-blur-sm h-screen sticky top-0 flex-col transition-[width] duration-300 ease-out ${expanded ? "w-64" : "w-16"}`}
       >
         <div className={`h-16 flex items-center border-b border-white/[0.06] gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
           {expanded && <Link href="/dashboard"><Logo /></Link>}
           <button
-            onClick={() => setExpanded((v) => !v)}
-            className="size-9 flex items-center justify-center rounded-lg hover:bg-white/5 text-ink-300 hover:text-ink-100 transition-colors"
-            aria-label={expanded ? "Recolher menu" : "Expandir menu"}
-            title={expanded ? "Recolher menu" : "Expandir menu"}
+            onClick={() => setPinned((v) => !v)}
+            className={`size-9 flex items-center justify-center rounded-lg transition-colors ${pinned ? "bg-primary/15 text-primary" : "hover:bg-white/5 text-ink-300 hover:text-ink-100"}`}
+            aria-label={pinned ? "Desafixar menu" : "Fixar menu aberto"}
+            title={pinned ? "Desafixar (volta a recolher no hover)" : "Fixar menu aberto"}
           >
-            <svg className={`size-5 transition-transform duration-300 ${expanded ? "" : "rotate-180"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
+            {/* ícone de pin */}
+            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2l3 6 6 1-4.5 4 1 6L12 16l-5.5 3 1-6L3 9l6-1z" fill={pinned ? "currentColor" : "none"} />
             </svg>
           </button>
         </div>
