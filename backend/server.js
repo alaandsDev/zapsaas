@@ -1648,8 +1648,9 @@ app.get('/api/chats/stream', requireAuth, (req, res) => {
 wpp.on('message', async (evt) => {
   try {
     const { userId, slot } = parseSessionId(evt.sessionId);
-    if (!userId) return;
-    if (evt.isGroup) return; // grupos fora de escopo por enquanto
+    console.log(`[chat] msg ${evt.fromMe ? 'OUT' : 'IN'} session=${evt.sessionId} user=${userId} slot=${slot} phone=${evt.phone} text="${(evt.text || '').slice(0, 40)}"`);
+    if (!userId) { console.warn('[chat] sessionId inválido, ignorando'); return; }
+    if (evt.isGroup) { console.log('[chat] ignorado: grupo'); return; }
 
     // Upsert chat
     const ts = new Date(evt.timestamp).toISOString();
@@ -1700,7 +1701,7 @@ wpp.on('message', async (evt) => {
       timestamp: ts,
     });
   } catch (e) {
-    console.error('[chat persist]', e.message);
+    console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');
   }
 });
 
