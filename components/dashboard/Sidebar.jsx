@@ -48,13 +48,20 @@ export default function Sidebar() {
   const limit = usage?.dispatches?.limit ?? 3;
   const pct = isPro ? 100 : Math.min(100, (used / Math.max(limit, 1)) * 100);
 
+  // Estado "flutuante" = expandida por hover mas não fixada → desenha shadow + overlay
+  const floating = hover && !pinned;
+
   return (
     <>
+      {/* SPACER no fluxo do layout — só cresce quando pinned (conteúdo desloca de fato) */}
+      <div className={`hidden md:block shrink-0 transition-[width] duration-300 ease-out ${pinned ? "w-64" : "w-16"}`} aria-hidden="true" />
+
+      {/* SIDEBAR flutuante — sempre fixa na esquerda, cresce sobre o conteúdo no hover */}
       <aside
         ref={ref}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        className={`hidden md:flex shrink-0 border-r border-white/[0.06] bg-bg/50 backdrop-blur-sm h-screen sticky top-0 flex-col transition-[width] duration-300 ease-out ${expanded ? "w-64" : "w-16"}`}
+        className={`hidden md:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-white/[0.06] bg-bg/95 backdrop-blur-xl transition-[width,box-shadow] duration-300 ease-out ${expanded ? "w-64" : "w-16"} ${floating ? "shadow-2xl shadow-black/50" : ""}`}
       >
         <div className={`h-16 flex items-center border-b border-white/[0.06] gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
           {expanded && <Link href="/dashboard"><Logo /></Link>}
