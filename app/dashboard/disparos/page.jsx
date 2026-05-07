@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../../components/dashboard/Topbar";
+import Modal from "../../../components/dashboard/Modal";
 import { Field, Input, Textarea, Select, Button } from "../../../components/ui/Field";
 import { api, API_URL, getToken } from "../../../lib/api";
 
@@ -25,6 +26,7 @@ export default function DisparosPage() {
   const [lists, setLists] = useState([]);
   const [leads, setLeads] = useState([]);
   const [dispatches, setDispatches] = useState([]);
+  const [detailOpen, setDetailOpen] = useState(null);
   const [usage, setUsage] = useState(null);
   const [messages, setMessages] = useState([{ id: Date.now(), text: "" }]);
   const [listSel, setListSel] = useState("");
@@ -572,7 +574,11 @@ export default function DisparosPage() {
                 const pct = total ? Math.round(((sent + failed) / total) * 100) : 0;
                 const s = STATUS[d.status] || { label: d.status || "—", cls: "bg-white/5 text-ink-300 border-white/10" };
                 return (
-                  <div key={d.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <button
+                    key={d.id}
+                    onClick={() => setDetailOpen(d)}
+                    className="w-full text-left rounded-xl border border-white/10 bg-white/[0.02] p-3 hover:border-primary/30 hover:bg-white/[0.04] transition-colors"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-sm font-medium truncate">{d.message_title || d.messageTitle || "Disparo"}</div>
                       <span className={`shrink-0 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${s.cls}`}>{s.label}</span>
@@ -584,15 +590,203 @@ export default function DisparosPage() {
                     <div className="flex gap-3 mt-1.5 text-[11px] text-ink-300">
                       <span>✅ {sent}</span>
                       <span>❌ {failed}</span>
-                      <span className="ml-auto">{pct}%</span>
+                      <span className="ml-auto text-primary">📊 Ver relatório →</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
       </div>
+
+      <DispatchDetailModal dispatch={detailOpen} onClose={() => setDetailOpen(null)} />
     </>
+  );
+}
+
+// ── Modal de detalhe + export Excel ──────────────────────────
+function DispatchDetailModal({ dispatch, onClose }) {
+  const [filter, setFilter] = useState("all"); // all|sent|failed|pending
+  const [exporting, setExporting] = useState(false);
+
+  if (!dispatch) return null;
+
+  const items = Array.isArray(dispatch.items) ? dispatch.items : [];
+  const counts = items.reduce((acc, i) => {
+    const k = (i.status || "pending").toLowerCase();
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  const sent = counts.sent || 0;
+  const failed = counts.failed || 0;
+  const pending = (counts.pending || 0) + (counts.sending || 0);
+
+  const filtered = items.filter((i) => {
+    if (filter === "all") return true;
+    if (filter === "sent") return i.status === "sent";
+    if (filter === "failed") return i.status === "failed";
+    if (filter === "pending") return !i.status || i.status === "pending" || i.status === "sending";
+    return true;
+  });
+
+  async function ensureXLSX() {
+    if (typeof window !== "undefined" && window.XLSX) return window.XLSX;
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+    return window.XLSX;
+  }
+
+  async function exportXLSX() {
+    setExporting(true);
+    try {
+      const XLSX = await ensureXLSX();
+      const rows = items.map((i) => ({
+        Nome: i.contactName || i.name || "",
+        Numero: i.contactPhone || i.phone || "",
+        Status: i.status === "sent" ? "Enviado" : i.status === "failed" ? "Falhou" : "Pendente",
+        EnviadoEm: i.sentAt ? new Date(i.sentAt).toLocaleString("pt-BR") : "",
+        Erro: i.error || "",
+      }));
+
+      const wb = XLSX.utils.book_new();
+
+      // Sheet "Resumo"
+      const summary = XLSX.utils.aoa_to_sheet([
+        ["Disparo", dispatch.message_title || dispatch.messageTitle || "—"],
+        ["Status",  dispatch.status || "—"],
+        ["Criado em", dispatch.created_at ? new Date(dispatch.created_at).toLocaleString("pt-BR") : "—"],
+        ["Total",   items.length],
+        ["Enviados", sent],
+        ["Falhas",   failed],
+        ["Pendentes", pending],
+        [],
+        ["Mensagem"],
+        [dispatch.message_content || dispatch.messageContent || ""],
+      ]);
+      summary["!cols"] = [{ wch: 18 }, { wch: 60 }];
+      XLSX.utils.book_append_sheet(wb, summary, "Resumo");
+
+      // Sheet "Contatos"
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 50 }];
+      XLSX.utils.book_append_sheet(wb, ws, "Contatos");
+
+      const safeTitle = (dispatch.message_title || "disparo").replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 30);
+      const dateStr = new Date(dispatch.created_at || Date.now()).toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `relatorio_${safeTitle}_${dateStr}.xlsx`);
+    } finally { setExporting(false); }
+  }
+
+  const statusBadge = (st) => {
+    const map = {
+      sent:    { label: "Enviado",  cls: "bg-primary/15 text-primary border-primary/30" },
+      failed:  { label: "Falhou",   cls: "bg-red-500/15 text-red-300 border-red-500/30" },
+      sending: { label: "Enviando", cls: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
+    };
+    const m = map[st] || { label: "Pendente", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" };
+    return <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${m.cls}`}>{m.label}</span>;
+  };
+
+  return (
+    <Modal
+      open={!!dispatch}
+      onClose={onClose}
+      size="lg"
+      title={dispatch.message_title || dispatch.messageTitle || "Detalhe do Disparo"}
+      footer={
+        <>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Fechar</button>
+          <button onClick={exportXLSX} disabled={exporting || !items.length} className="px-4 py-2 rounded-lg bg-primary text-bg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+            {exporting ? "Gerando..." : "📊 Exportar Excel"}
+          </button>
+        </>
+      }
+    >
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-2 mb-5">
+        <Stat label="Total" value={items.length} tone="neutral" />
+        <Stat label="Enviados" value={sent} tone="success" />
+        <Stat label="Falhas" value={failed} tone="danger" />
+        <Stat label="Pendentes" value={pending} tone="warn" />
+      </div>
+
+      {/* Mensagem */}
+      {(dispatch.message_content || dispatch.messageContent) && (
+        <div className="mb-5">
+          <div className="text-xs text-ink-400 uppercase tracking-wider mb-1">Mensagem enviada</div>
+          <div className="rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3 text-sm whitespace-pre-wrap max-h-32 overflow-y-auto">
+            {dispatch.message_content || dispatch.messageContent}
+          </div>
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="flex gap-2 mb-3">
+        {[
+          { v: "all",     label: `Todos (${items.length})` },
+          { v: "sent",    label: `✅ ${sent}` },
+          { v: "failed",  label: `❌ ${failed}` },
+          { v: "pending", label: `⌛ ${pending}` },
+        ].map((f) => (
+          <button
+            key={f.v}
+            onClick={() => setFilter(f.v)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              filter === f.v ? "bg-primary/15 text-primary border-primary/30" : "bg-white/5 text-ink-300 border-white/10 hover:bg-white/10"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabela */}
+      <div className="rounded-xl border border-white/10 overflow-hidden max-h-[50vh] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-white/[0.04] sticky top-0 z-10">
+            <tr className="text-left text-[11px] text-ink-400 uppercase tracking-wider">
+              <th className="px-3 py-2">Contato</th>
+              <th className="px-3 py-2">Número</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2 hidden sm:table-cell">Quando</th>
+              <th className="px-3 py-2 hidden md:table-cell">Erro</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.04]">
+            {filtered.length === 0 ? (
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-ink-500">Nenhum item nesse filtro</td></tr>
+            ) : filtered.map((i, idx) => (
+              <tr key={idx} className="hover:bg-white/[0.02]">
+                <td className="px-3 py-2 font-medium">{i.contactName || i.name || "—"}</td>
+                <td className="px-3 py-2 text-ink-300 font-mono text-xs">{i.contactPhone || i.phone || "—"}</td>
+                <td className="px-3 py-2">{statusBadge(i.status)}</td>
+                <td className="px-3 py-2 text-ink-400 text-xs hidden sm:table-cell">{i.sentAt ? new Date(i.sentAt).toLocaleString("pt-BR") : "—"}</td>
+                <td className="px-3 py-2 text-red-400 text-xs hidden md:table-cell max-w-xs truncate" title={i.error}>{i.error || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Modal>
+  );
+}
+
+function Stat({ label, value, tone = "neutral" }) {
+  const tones = {
+    neutral: "bg-white/[0.03] border-white/10 text-ink-100",
+    success: "bg-primary/[0.08] border-primary/30 text-primary",
+    danger:  "bg-red-500/[0.08] border-red-500/30 text-red-300",
+    warn:    "bg-yellow-500/[0.06] border-yellow-500/25 text-yellow-300",
+  };
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 ${tones[tone]}`}>
+      <div className="text-[10px] uppercase tracking-wider opacity-70 font-semibold">{label}</div>
+      <div className="text-2xl font-bold tabular-nums leading-tight mt-0.5">{value.toLocaleString("pt-BR")}</div>
+    </div>
   );
 }
