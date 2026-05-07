@@ -327,7 +327,7 @@ async function verifyPassword(password, stored) {
 }
 
 async function requireAuth(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
+  const token = req.headers.authorization?.split(' ')[1] || req.query.token;
   if (!token) return res.status(401).json({ error: 'Não autorizado' });
 
   try {
@@ -1606,6 +1606,44 @@ function parseSessionId(sessionId) {
   return { userId: sessionId, slot: 1 };
 }
 
+// ── SSE: clientes conectados por userId ──────────────────────
+const sseClients = new Map(); // userId -> Set<res>
+
+function sseSend(userId, event, data) {
+  const set = sseClients.get(userId);
+  if (!set || !set.size) return;
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of set) {
+    try { res.write(payload); } catch {}
+  }
+}
+
+// SSE stream — autentica via Authorization header OU ?token=...
+app.get('/api/chats/stream', requireAuth, (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders?.();
+  res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+
+  const userId = req.user.id;
+  if (!sseClients.has(userId)) sseClients.set(userId, new Set());
+  sseClients.get(userId).add(res);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch {}
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.get(userId)?.delete(res);
+    if (!sseClients.get(userId)?.size) sseClients.delete(userId);
+  });
+});
+
 // ── Persistência de mensagens recebidas/enviadas em chats + chat_messages ──
 wpp.on('message', async (evt) => {
   try {
@@ -1649,6 +1687,18 @@ wpp.on('message', async (evt) => {
       timestamp: ts,
       status: evt.fromMe ? 'sent' : null,
     }, { onConflict: 'chat_id,wa_id' });
+
+    // Emite via SSE pra UI atualizar instantâneo
+    sseSend(userId, 'message', {
+      chatId,
+      slot,
+      phone: evt.phone,
+      name: evt.pushName,
+      direction: evt.fromMe ? 'out' : 'in',
+      type: evt.type,
+      text: evt.text,
+      timestamp: ts,
+    });
   } catch (e) {
     console.error('[chat persist]', e.message);
   }
@@ -1720,6 +1770,10 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
         chat_id: chat.id, user_id: req.user.id,
         direction: 'out', type: 'text', text: message,
         status: 'sent', timestamp: ts
+      });
+      sseSend(req.user.id, 'message', {
+        chatId: chat.id, slot: useSlot, phone: cleanedPhone,
+        direction: 'out', type: 'text', text: message, timestamp: ts,
       });
     }
     res.json({ ok: true, sentTo: r.to });

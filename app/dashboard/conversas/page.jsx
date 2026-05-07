@@ -4,10 +4,10 @@ import Link from "next/link";
 import Topbar from "../../../components/dashboard/Topbar";
 import { Input, Button } from "../../../components/ui/Field";
 import EmptyState from "../../../components/dashboard/EmptyState";
-import { api } from "../../../lib/api";
+import { api, API_URL, getToken } from "../../../lib/api";
 
-const POLL_CHATS_MS = 5000;
-const POLL_MSGS_MS = 3000;
+// Polling fica como fallback caso SSE caia. Intervalo bem maior agora.
+const POLL_FALLBACK_MS = 30000;
 
 function fmtTime(iso) {
   if (!iso) return "";
@@ -89,20 +89,59 @@ export default function Conversas() {
     loadChats();
   }, [activeSlot]);
 
-  // Poll chats
+  // Carrega mensagens ao trocar de chat
+  useEffect(() => { if (activeChat?.id) loadMsgs(); }, [activeChat?.id, loadMsgs]);
+
+  // SSE — recebe novas mensagens em tempo real
+  const activeChatRef = useRef(null);
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    const url = `${API_URL}/api/chats/stream?token=${encodeURIComponent(token)}`;
+    let es;
+    try { es = new EventSource(url); } catch { return; }
+
+    es.addEventListener("message", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Atualiza lista de chats (refresh leve)
+        loadChats();
+        // Se a mensagem é do chat aberto, anexa direto
+        const cur = activeChatRef.current;
+        if (cur?.id === data.chatId) {
+          setMsgs((prev) => {
+            // Evita duplicar se a mensagem já veio do envio otimista local
+            if (data.direction === "out" && prev.some((m) => m.text === data.text && Math.abs(new Date(m.timestamp) - new Date(data.timestamp)) < 5000)) {
+              return prev;
+            }
+            return [...prev, {
+              id: `sse_${Date.now()}_${Math.random()}`,
+              direction: data.direction,
+              type: data.type,
+              text: data.text,
+              status: data.direction === "out" ? "sent" : null,
+              timestamp: data.timestamp,
+            }];
+          });
+        }
+      } catch {}
+    });
+
+    es.onerror = () => { /* navegador reconecta sozinho */ };
+    return () => { try { es.close(); } catch {} };
+  }, [loadChats]);
+
+  // Polling fallback (caso SSE falhe ou rede instável)
   useEffect(() => {
     if (!activeSlot) return;
-    const i = setInterval(loadChats, POLL_CHATS_MS);
+    const i = setInterval(() => {
+      loadChats();
+      if (activeChatRef.current?.id) loadMsgs();
+    }, POLL_FALLBACK_MS);
     return () => clearInterval(i);
-  }, [activeSlot, loadChats]);
-
-  // Poll messages
-  useEffect(() => {
-    if (!activeChat?.id) return;
-    loadMsgs();
-    const i = setInterval(loadMsgs, POLL_MSGS_MS);
-    return () => clearInterval(i);
-  }, [activeChat?.id, loadMsgs]);
+  }, [activeSlot, loadChats, loadMsgs]);
 
   // Auto scroll
   useEffect(() => {
