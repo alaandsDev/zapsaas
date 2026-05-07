@@ -1,4 +1,4 @@
-let makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers;
+let makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers, downloadMediaMessage;
 try {
   const baileys = require('@whiskeysockets/baileys');
   makeWASocket = baileys.default;
@@ -6,6 +6,7 @@ try {
   DisconnectReason = baileys.DisconnectReason;
   fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
   Browsers = baileys.Browsers;
+  downloadMediaMessage = baileys.downloadMediaMessage;
 } catch(e) {
   console.error('[WPP] Erro ao carregar Baileys:', e.message);
 }
@@ -209,15 +210,23 @@ class WhatsAppManager extends EventEmitter {
       await saveCreds();
     });
 
-    sock.ev.on('messages.upsert', (upsert) => {
+    sock.ev.on('messages.upsert', async (upsert) => {
       try {
         if (!upsert?.messages?.length) return;
         for (const msg of upsert.messages) {
           if (!msg?.message) continue;
           const remoteJid = msg.key?.remoteJid || '';
-          if (!remoteJid || remoteJid === 'status@broadcast') continue;
-          const isGroup = remoteJid.endsWith('@g.us');
+          if (!remoteJid) continue;
+
+          // Filtra: aceita só conversas 1-1 reais. Ignora canais/newsletter/lid/broadcast/grupos.
+          // @s.whatsapp.net = 1:1 normal, @c.us = legacy 1:1
+          const isPersonal = remoteJid.endsWith('@s.whatsapp.net') || remoteJid.endsWith('@c.us');
+          if (!isPersonal) continue;
+
           const phone = remoteJid.split('@')[0].split(':')[0];
+          // Sanity: phone deve ser numérico e ter tamanho realista (10-15 dígitos)
+          if (!/^\d{10,15}$/.test(phone)) continue;
+
           const fromMe = !!msg.key?.fromMe;
           const m = msg.message;
           const text = m.conversation
@@ -227,23 +236,38 @@ class WhatsAppManager extends EventEmitter {
             || m.documentMessage?.caption
             || '';
           let type = 'text';
-          if (m.imageMessage) type = 'image';
-          else if (m.audioMessage) type = 'audio';
-          else if (m.videoMessage) type = 'video';
-          else if (m.documentMessage) type = 'document';
-          else if (m.stickerMessage) type = 'sticker';
-          else if (!text) type = 'other';
+          let mediaMessage = null;
+          let mimeType = null;
+          let fileName = null;
+          if (m.imageMessage)         { type = 'image';    mediaMessage = m.imageMessage;    mimeType = m.imageMessage.mimetype; }
+          else if (m.audioMessage)    { type = 'audio';    mediaMessage = m.audioMessage;    mimeType = m.audioMessage.mimetype; }
+          else if (m.videoMessage)    { type = 'video';    mediaMessage = m.videoMessage;    mimeType = m.videoMessage.mimetype; }
+          else if (m.documentMessage) { type = 'document'; mediaMessage = m.documentMessage; mimeType = m.documentMessage.mimetype; fileName = m.documentMessage.fileName; }
+          else if (m.stickerMessage)  { type = 'sticker';  mediaMessage = m.stickerMessage;  mimeType = m.stickerMessage.mimetype; }
+          else if (!text)             { type = 'other'; }
+
+          // Baixa mídia (best-effort) — buffer vai no evento, server faz upload no Supabase
+          let mediaBuffer = null;
+          if (mediaMessage && downloadMediaMessage && !fromMe) {
+            try {
+              mediaBuffer = await downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+            } catch (e) {
+              console.warn(`[WPP] Falha ao baixar mídia ${type}:`, e.message);
+            }
+          }
 
           this.emit('message', {
             sessionId,
             waId: msg.key?.id,
             phone,
             jid: remoteJid,
-            isGroup,
             fromMe,
             pushName: msg.pushName || null,
             text,
             type,
+            mimeType,
+            fileName,
+            mediaBuffer,
             timestamp: (msg.messageTimestamp ? Number(msg.messageTimestamp) : Date.now() / 1000) * 1000,
           });
         }

@@ -1645,12 +1645,26 @@ app.get('/api/chats/stream', requireAuth, (req, res) => {
 });
 
 // ── Persistência de mensagens recebidas/enviadas em chats + chat_messages ──
+async function uploadIncomingMedia(userId, evt) {
+  if (!evt.mediaBuffer || !evt.mediaBuffer.length) return null;
+  try {
+    const ext = (evt.mimeType || '').split('/')[1]?.split(';')[0] || 'bin';
+    const safeName = (evt.fileName || `${evt.type}_${Date.now()}`).replace(/[^a-zA-Z0-9.\-_]/g, '_').slice(0, 60);
+    const filePath = `${userId}/incoming/${Date.now()}_${safeName}${safeName.includes('.') ? '' : '.' + ext}`;
+    const { error } = await supabase.storage.from('media').upload(filePath, evt.mediaBuffer, {
+      contentType: evt.mimeType || 'application/octet-stream', upsert: false
+    });
+    if (error) { console.warn('[chat media] upload erro:', error.message); return null; }
+    const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+    return data?.publicUrl || null;
+  } catch (e) { console.warn('[chat media] erro:', e.message); return null; }
+}
+
 wpp.on('message', async (evt) => {
   try {
     const { userId, slot } = parseSessionId(evt.sessionId);
-    console.log(`[chat] msg ${evt.fromMe ? 'OUT' : 'IN'} session=${evt.sessionId} user=${userId} slot=${slot} phone=${evt.phone} text="${(evt.text || '').slice(0, 40)}"`);
+    console.log(`[chat] msg ${evt.fromMe ? 'OUT' : 'IN'} session=${evt.sessionId} user=${userId} slot=${slot} phone=${evt.phone} type=${evt.type} text="${(evt.text || '').slice(0, 40)}"`);
     if (!userId) { console.warn('[chat] sessionId inválido, ignorando'); return; }
-    if (evt.isGroup) { console.log('[chat] ignorado: grupo'); return; }
 
     // Upsert chat
     const ts = new Date(evt.timestamp).toISOString();
@@ -1679,12 +1693,17 @@ wpp.on('message', async (evt) => {
     }
     if (!chatId) return;
 
+    // Upload mídia (se houver) → media_url
+    const mediaUrl = await uploadIncomingMedia(userId, evt);
+
     // Insert message (idempotente por wa_id)
     await supabase.from('chat_messages').upsert({
       chat_id: chatId, user_id: userId,
       wa_id: evt.waId,
       direction: evt.fromMe ? 'out' : 'in',
       type: evt.type, text: evt.text || null,
+      media_url: mediaUrl,
+      mime_type: evt.mimeType || null,
       timestamp: ts,
       status: evt.fromMe ? 'sent' : null,
     }, { onConflict: 'chat_id,wa_id' });
@@ -1698,6 +1717,8 @@ wpp.on('message', async (evt) => {
       direction: evt.fromMe ? 'out' : 'in',
       type: evt.type,
       text: evt.text,
+      media_url: mediaUrl,
+      mime_type: evt.mimeType,
       timestamp: ts,
     });
   } catch (e) {
@@ -1730,7 +1751,7 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
     if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
 
     const { data, error } = await supabase.from('chat_messages')
-      .select('id, wa_id, direction, type, text, caption, media_url, status, timestamp')
+      .select('id, wa_id, direction, type, text, caption, media_url, mime_type, status, timestamp')
       .eq('chat_id', req.params.chatId)
       .order('timestamp', { ascending: true })
       .limit(500);

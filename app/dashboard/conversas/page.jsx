@@ -121,6 +121,8 @@ export default function Conversas() {
               direction: data.direction,
               type: data.type,
               text: data.text,
+              media_url: data.media_url || null,
+              mime_type: data.mime_type || null,
               status: data.direction === "out" ? "sent" : null,
               timestamp: data.timestamp,
             }];
@@ -327,10 +329,28 @@ export default function Conversas() {
                           }`}
                           style={{ wordBreak: "break-word" }}
                         >
-                          {m.type !== "text" && m.type !== "other" && (
-                            <div className="text-xs text-ink-400 mb-1">📎 {m.type}</div>
+                          {m.media_url && m.type === "image" && (
+                            <a href={m.media_url} target="_blank" rel="noopener noreferrer">
+                              <img src={m.media_url} alt="" className="rounded-lg max-w-full max-h-72 object-cover mb-1" />
+                            </a>
                           )}
-                          <div>{m.text || (m.type !== "text" ? `[${m.type}]` : "")}</div>
+                          {m.media_url && m.type === "audio" && (
+                            <audio controls src={m.media_url} className="w-64 max-w-full mb-1" />
+                          )}
+                          {m.media_url && m.type === "video" && (
+                            <video controls src={m.media_url} className="rounded-lg max-w-full max-h-72 mb-1" />
+                          )}
+                          {m.media_url && m.type === "document" && (
+                            <a href={m.media_url} target="_blank" rel="noopener noreferrer"
+                               className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-lg hover:bg-white/10 mb-1">
+                              <span className="text-2xl">📄</span>
+                              <span className="text-xs truncate">Abrir documento</span>
+                            </a>
+                          )}
+                          {!m.media_url && m.type !== "text" && m.type !== "other" && (
+                            <div className="text-xs text-ink-400 italic">📎 {m.type} (sem prévia)</div>
+                          )}
+                          {m.text && <div>{m.text}</div>}
                           <div className="text-[10px] text-ink-500 mt-1 text-right flex items-center justify-end gap-1">
                             {fmtTime(m.timestamp)}
                             {m.direction === "out" && (
