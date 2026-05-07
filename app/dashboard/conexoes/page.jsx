@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Topbar from "../../../components/dashboard/Topbar";
 import { Field, Input, Textarea, Button } from "../../../components/ui/Field";
-import { api } from "../../../lib/api";
+import { api, API_URL, getToken } from "../../../lib/api";
 
 const MAX_SLOTS = 2;
 
@@ -35,6 +35,30 @@ export default function Conexoes() {
     startPoll();
     return () => stopPoll();
   }, []);
+
+  // SSE — atualização instantânea do status da conexão
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    let es;
+    try { es = new EventSource(`${API_URL}/api/chats/stream?token=${encodeURIComponent(token)}`); } catch { return; }
+
+    es.addEventListener("connection", (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        setSessions((prev) => prev.map((s) =>
+          s.slot === d.slot
+            ? { ...s, status: d.status, qr: d.qr ?? (d.status === "connected" ? null : s.qr), phone: d.phone ?? s.phone }
+            : s
+        ));
+        // Garantia: re-busca completa após poucos ms (caso o evento chegue antes da persistência)
+        setTimeout(refresh, 300);
+      } catch {}
+    });
+
+    es.onerror = () => { /* navegador reconecta sozinho */ };
+    return () => { try { es.close(); } catch {} };
+  }, [refresh]);
 
   // Para polling quando todas as sessões estão conectadas ou desconectadas (sem QR pendente)
   useEffect(() => {

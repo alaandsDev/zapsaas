@@ -1618,6 +1618,23 @@ function sseSend(userId, event, data) {
   }
 }
 
+// Eventos de conexão WhatsApp → broadcast SSE pro usuário dono da sessão
+wpp.on('qr', ({ sessionId, qr }) => {
+  const { userId, slot } = parseSessionId(sessionId);
+  if (!userId) return;
+  sseSend(userId, 'connection', { slot, status: 'qr_ready', qr });
+});
+wpp.on('connected', ({ sessionId, phone }) => {
+  const { userId, slot } = parseSessionId(sessionId);
+  if (!userId) return;
+  sseSend(userId, 'connection', { slot, status: 'connected', phone });
+});
+wpp.on('disconnected', ({ sessionId }) => {
+  const { userId, slot } = parseSessionId(sessionId);
+  if (!userId) return;
+  sseSend(userId, 'connection', { slot, status: 'disconnected' });
+});
+
 // SSE stream — autentica via Authorization header OU ?token=...
 app.get('/api/chats/stream', requireAuth, (req, res) => {
   res.set({
