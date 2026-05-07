@@ -349,21 +349,13 @@ class WhatsAppManager extends EventEmitter {
       jid = waContact.jid || jid;
 
       let result = null;
-      const sendWithRetry = async (content, timeoutMs = 15000) => {
-        let lastError = null;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          try {
-            return await this._sendWithAck(session, jid, content, timeoutMs);
-          } catch (e) {
-            lastError = e;
-            console.warn(`[wpp] Tentativa ${attempt} falhou para ${phone} via ${sessionId}: ${e.message}`);
-            if (attempt < 2) {
-              try { await session.sock.sendPresenceUpdate('available'); } catch {}
-              await new Promise(r => setTimeout(r, 1500));
-            }
-          }
-        }
-        throw lastError;
+      // Envio direto: se sock.sendMessage resolver, considera enviado.
+      // O ACK (delivered/read) chega depois via messages.update e atualiza o status no DB.
+      // NÃO retentamos aqui — retry causava entrega duplicada quando o ACK demorava (#duplicate-msg).
+      const sendWithRetry = async (content) => {
+        const r = await session.sock.sendMessage(jid, content);
+        if (!r?.key?.id) throw new Error('WhatsApp não retornou ID da mensagem.');
+        return r;
       };
 
       if (media) {
