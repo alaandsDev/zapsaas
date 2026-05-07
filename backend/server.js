@@ -1598,6 +1598,137 @@ function sessionKey(userId, slot) {
   return `${userId}_slot${slot}`;
 }
 
+// Decompõe sessionId -> { userId, slot }
+function parseSessionId(sessionId) {
+  const m = String(sessionId || '').match(/^(.+)_slot(\d+)$/);
+  if (m) return { userId: m[1], slot: parseInt(m[2]) };
+  // legacy: sessionId == userId
+  return { userId: sessionId, slot: 1 };
+}
+
+// ── Persistência de mensagens recebidas/enviadas em chats + chat_messages ──
+wpp.on('message', async (evt) => {
+  try {
+    const { userId, slot } = parseSessionId(evt.sessionId);
+    if (!userId) return;
+    if (evt.isGroup) return; // grupos fora de escopo por enquanto
+
+    // Upsert chat
+    const ts = new Date(evt.timestamp).toISOString();
+    const { data: existing } = await supabase
+      .from('chats').select('id, unread')
+      .eq('user_id', userId).eq('session_slot', slot).eq('phone', evt.phone)
+      .maybeSingle();
+    let chatId = existing?.id;
+    if (!chatId) {
+      const { data: created } = await supabase.from('chats').insert({
+        user_id: userId, session_slot: slot, phone: evt.phone,
+        name: evt.pushName || null,
+        last_message: evt.text || `[${evt.type}]`,
+        last_message_at: ts,
+        unread: evt.fromMe ? 0 : 1,
+      }).select('id').single();
+      chatId = created?.id;
+    } else {
+      await supabase.from('chats').update({
+        name: evt.pushName || undefined,
+        last_message: evt.text || `[${evt.type}]`,
+        last_message_at: ts,
+        unread: evt.fromMe ? (existing.unread || 0) : (existing.unread || 0) + 1,
+        updated_at: new Date().toISOString(),
+      }).eq('id', chatId);
+    }
+    if (!chatId) return;
+
+    // Insert message (idempotente por wa_id)
+    await supabase.from('chat_messages').upsert({
+      chat_id: chatId, user_id: userId,
+      wa_id: evt.waId,
+      direction: evt.fromMe ? 'out' : 'in',
+      type: evt.type, text: evt.text || null,
+      timestamp: ts,
+      status: evt.fromMe ? 'sent' : null,
+    }, { onConflict: 'chat_id,wa_id' });
+  } catch (e) {
+    console.error('[chat persist]', e.message);
+  }
+});
+
+// ── Endpoints de Conversas ────────────────────────────────────
+// Lista conversas (filtrável por slot)
+app.get('/api/chats', requireAuth, async (req, res) => {
+  try {
+    const slot = req.query.slot ? parseInt(req.query.slot) : null;
+    let q = supabase.from('chats')
+      .select('id, session_slot, phone, name, last_message, last_message_at, unread')
+      .eq('user_id', req.user.id)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(200);
+    if (slot) q = q.eq('session_slot', slot);
+    const { data, error } = await q;
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Mensagens de um chat
+app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
+  try {
+    const { data: chat } = await supabase.from('chats')
+      .select('id').eq('id', req.params.chatId).eq('user_id', req.user.id).single();
+    if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
+
+    const { data, error } = await supabase.from('chat_messages')
+      .select('id, wa_id, direction, type, text, caption, media_url, status, timestamp')
+      .eq('chat_id', req.params.chatId)
+      .order('timestamp', { ascending: true })
+      .limit(500);
+    if (error) throw error;
+    // Zera unread ao abrir
+    await supabase.from('chats').update({ unread: 0 }).eq('id', req.params.chatId);
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Envia mensagem por uma sessão específica e persiste
+app.post('/api/chats/send', requireAuth, async (req, res) => {
+  try {
+    const { slot, phone, message } = req.body;
+    if (!phone || !message) return res.status(400).json({ error: 'phone e message obrigatórios' });
+    const useSlot = slot ? parseInt(slot) : 1;
+    const key = sessionKey(req.user.id, useSlot);
+    const status = wpp.getStatus(key);
+    if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
+
+    const r = await wpp.sendMessage(key, phone, message);
+    // O hook messages.upsert (fromMe) também persiste, mas assegura aqui
+    const cleanedPhone = String(phone).replace(/\D/g, '');
+    const ts = new Date().toISOString();
+    let { data: chat } = await supabase.from('chats').select('id')
+      .eq('user_id', req.user.id).eq('session_slot', useSlot).eq('phone', cleanedPhone).maybeSingle();
+    if (!chat) {
+      const { data: created } = await supabase.from('chats').insert({
+        user_id: req.user.id, session_slot: useSlot, phone: cleanedPhone,
+        last_message: message, last_message_at: ts, unread: 0
+      }).select('id').single();
+      chat = created;
+    } else {
+      await supabase.from('chats').update({ last_message: message, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
+    }
+    if (chat?.id) {
+      await supabase.from('chat_messages').insert({
+        chat_id: chat.id, user_id: req.user.id,
+        direction: 'out', type: 'text', text: message,
+        status: 'sent', timestamp: ts
+      });
+    }
+    res.json({ ok: true, sentTo: r.to });
+  } catch (e) {
+    console.error('[chats/send]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Retorna todas as sessões ativas do usuário
 function getUserSessions(userId) {
   const sessions = [];

@@ -1,68 +1,143 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Topbar from "../../../components/dashboard/Topbar";
 import { Input, Button } from "../../../components/ui/Field";
 import EmptyState from "../../../components/dashboard/EmptyState";
 import { api } from "../../../lib/api";
 
+const POLL_CHATS_MS = 5000;
+const POLL_MSGS_MS = 3000;
+
+function fmtTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return "Ontem";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function fmtDayHeader(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return "Hoje";
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return "Ontem";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
 export default function Conversas() {
-  const [status, setStatus] = useState(null);
-  const [contacts, setContacts] = useState([]);
-  const [active, setActive] = useState(null);
+  const [sessions, setSessions] = useState([]);   // todos slots
+  const [activeSlot, setActiveSlot] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+  const [msgs, setMsgs] = useState([]);
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState({});
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
   const msgsEndRef = useRef(null);
+
+  const connectedSessions = useMemo(
+    () => sessions.filter((s) => s.status === "connected"),
+    [sessions]
+  );
+
+  // Carregar sessões
+  const loadSessions = useCallback(async () => {
+    try {
+      const list = await api("/api/whatsapp/sessions");
+      setSessions(list || []);
+      const conn = (list || []).filter((s) => s.status === "connected");
+      if (conn.length && !activeSlot) setActiveSlot(conn[0].slot);
+    } catch {}
+  }, [activeSlot]);
+
+  // Carregar chats da slot ativa
+  const loadChats = useCallback(async () => {
+    if (!activeSlot) return;
+    try {
+      const list = await api(`/api/chats?slot=${activeSlot}`);
+      setChats(list || []);
+    } catch {}
+  }, [activeSlot]);
+
+  // Carregar mensagens do chat ativo
+  const loadMsgs = useCallback(async () => {
+    if (!activeChat?.id) return;
+    try {
+      const list = await api(`/api/chats/${activeChat.id}/messages`);
+      setMsgs(list || []);
+    } catch {}
+  }, [activeChat]);
 
   useEffect(() => {
     (async () => {
-      try {
-        const s = await api("/api/whatsapp/status");
-        setStatus(s);
-        if (s?.status === "connected") {
-          const leads = await api("/api/leads").catch(() => []);
-          const arr = Array.isArray(leads) ? leads : leads?.data || [];
-          setContacts(arr);
-          if (arr[0]) setActive(arr[0]);
-        }
-      } catch {}
-      finally { setLoading(false); }
+      setLoading(true);
+      await loadSessions();
+      setLoading(false);
     })();
   }, []);
 
   useEffect(() => {
+    if (!activeSlot) return;
+    setActiveChat(null);
+    setMsgs([]);
+    loadChats();
+  }, [activeSlot]);
+
+  // Poll chats
+  useEffect(() => {
+    if (!activeSlot) return;
+    const i = setInterval(loadChats, POLL_CHATS_MS);
+    return () => clearInterval(i);
+  }, [activeSlot, loadChats]);
+
+  // Poll messages
+  useEffect(() => {
+    if (!activeChat?.id) return;
+    loadMsgs();
+    const i = setInterval(loadMsgs, POLL_MSGS_MS);
+    return () => clearInterval(i);
+  }, [activeChat?.id, loadMsgs]);
+
+  // Auto scroll
+  useEffect(() => {
     msgsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, active]);
+  }, [msgs.length, activeChat?.id]);
 
-  const filtered = useMemo(() => {
+  const filteredChats = useMemo(() => {
     const term = q.toLowerCase().trim();
-    if (!term) return contacts;
-    return contacts.filter((c) => [c.name, c.phone].filter(Boolean).join(" ").toLowerCase().includes(term));
-  }, [q, contacts]);
-
-  const isConnected = status?.status === "connected";
+    if (!term) return chats;
+    return chats.filter((c) =>
+      [c.name, c.phone, c.last_message].filter(Boolean).join(" ").toLowerCase().includes(term)
+    );
+  }, [q, chats]);
 
   async function send() {
-    if (!draft.trim() || !active) return;
+    if (!draft.trim() || !activeChat || sending) return;
     const text = draft.trim();
-    const time = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    const id = active.id;
-    setMessages((m) => ({ ...m, [id]: [...(m[id] || []), { text, out: true, time, status: "sending" }] }));
     setDraft("");
+    setSending(true);
+    // Otimista
+    const tempId = `tmp_${Date.now()}`;
+    setMsgs((m) => [...m, {
+      id: tempId, direction: "out", type: "text", text,
+      status: "pending", timestamp: new Date().toISOString()
+    }]);
     try {
-      await api("/api/whatsapp/send", { method: "POST", body: { phone: active.phone, message: text } });
-      setMessages((m) => ({
-        ...m,
-        [id]: m[id].map((msg, i) => i === m[id].length - 1 ? { ...msg, status: "sent" } : msg),
-      }));
+      await api("/api/chats/send", {
+        method: "POST",
+        body: { slot: activeSlot, phone: activeChat.phone, message: text }
+      });
+      // Recarrega na próxima rodada de poll; aqui só atualiza status local
+      setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "sent" } : msg));
     } catch (e) {
-      setMessages((m) => ({
-        ...m,
-        [id]: m[id].map((msg, i) => i === m[id].length - 1 ? { ...msg, status: "failed" } : msg),
-      }));
-    }
+      setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
+    } finally { setSending(false); }
   }
 
   if (loading) {
@@ -76,15 +151,15 @@ export default function Conversas() {
     );
   }
 
-  if (!isConnected) {
+  if (!connectedSessions.length) {
     return (
       <>
         <Topbar title="Conversas" subtitle="Suas conversas pelo WhatsApp" />
         <div className="p-6 lg:p-8">
           <EmptyState
             icon="📵"
-            title="WhatsApp desconectado"
-            desc="Conecte um WhatsApp em Conexões para ver as conversas."
+            title="Nenhum WhatsApp conectado"
+            desc="Conecte um número em Conexões para ver suas conversas em tempo real."
             action={<Link href="/dashboard/conexoes"><Button>Ir para Conexões</Button></Link>}
           />
         </div>
@@ -92,98 +167,151 @@ export default function Conversas() {
     );
   }
 
-  const activeMsgs = active ? (messages[active.id] || []) : [];
-
   return (
     <>
-      <Topbar title="Conversas" subtitle="Responda mensagens do WhatsApp em tempo real" />
-      <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[320px_1fr] overflow-hidden">
-        <aside className="border-r border-white/[0.06] bg-bg/40 flex flex-col">
-          <div className="p-3 border-b border-white/[0.06] flex items-center justify-between">
-            <span className="text-sm font-semibold">💬 Conversas</span>
-            <span className="text-xs text-primary">🟢 {status.phone ? `+${status.phone}` : "Conectado"}</span>
-          </div>
+      <Topbar title="Conversas" subtitle="Espelha o WhatsApp Web em tempo real" />
+
+      {/* Tabs por sessão (1 aba por número conectado) */}
+      {connectedSessions.length > 1 && (
+        <div className="px-4 lg:px-6 pt-3 flex gap-2 border-b border-white/[0.06] bg-bg/40">
+          {connectedSessions.map((s) => (
+            <button
+              key={s.slot}
+              onClick={() => setActiveSlot(s.slot)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                activeSlot === s.slot
+                  ? "border-primary text-primary"
+                  : "border-transparent text-ink-400 hover:text-ink-200"
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <span className="size-2 rounded-full bg-primary" />
+                Número {s.slot}
+                {s.phone && <span className="text-xs text-ink-500">+{s.phone}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="h-[calc(100vh-4rem-3rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] overflow-hidden">
+        {/* Lista de conversas */}
+        <aside className="border-r border-white/[0.06] bg-bg/40 flex flex-col min-h-0">
           <div className="p-3 border-b border-white/[0.06]">
-            <Input placeholder="Buscar conversa..." value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input placeholder="🔍 Buscar conversa..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div className="flex-1 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="p-8 text-center text-sm text-ink-500">Nenhum contato disponível</div>
-            ) : (
-              filtered.map((c) => {
-                const isActive = active?.id === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setActive(c)}
-                    className={`w-full text-left px-4 py-3 border-b border-white/[0.04] flex items-center gap-3 transition-colors ${
-                      isActive ? "bg-primary/[0.06] border-l-2 border-l-primary" : "hover:bg-white/[0.02]"
-                    }`}
-                  >
-                    <div className="size-10 rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-sm shrink-0">
-                      {(c.name || "?")[0]?.toUpperCase()}
+            {!filteredChats.length ? (
+              <div className="p-8 text-center text-sm text-ink-500">
+                {q ? "Nenhuma conversa encontrada" : "Aguardando mensagens — assim que alguém te mandar algo, aparece aqui."}
+              </div>
+            ) : filteredChats.map((c) => {
+              const isActive = activeChat?.id === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveChat(c)}
+                  className={`w-full text-left px-4 py-3 border-b border-white/[0.04] flex items-center gap-3 transition-colors ${
+                    isActive ? "bg-primary/[0.06]" : "hover:bg-white/[0.02]"
+                  }`}
+                >
+                  <div className="size-11 rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-sm shrink-0">
+                    {(c.name || c.phone || "?")[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-medium text-sm truncate">{c.name || `+${c.phone}`}</div>
+                      <span className="text-[10px] text-ink-500 shrink-0">{fmtTime(c.last_message_at)}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{c.name || c.phone}</div>
-                      <div className="text-xs text-ink-500 truncate">{c.phone}</div>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <div className="text-xs text-ink-400 truncate">{c.last_message || "—"}</div>
+                      {c.unread > 0 && (
+                        <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-bg text-[10px] font-bold flex items-center justify-center">
+                          {c.unread > 99 ? "99+" : c.unread}
+                        </span>
+                      )}
                     </div>
-                  </button>
-                );
-              })
-            )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </aside>
 
-        <section className="flex flex-col bg-card/30">
-          {!active ? (
+        {/* Chat ativo */}
+        <section className="flex flex-col bg-card/30 min-h-0">
+          {!activeChat ? (
             <div className="flex-1 flex items-center justify-center p-8 text-center">
               <div>
                 <div className="text-6xl mb-3 opacity-30">💬</div>
                 <h3 className="font-semibold">Selecione uma conversa</h3>
-                <p className="text-sm text-ink-500 mt-1">Suas mensagens aparecem aqui</p>
+                <p className="text-sm text-ink-500 mt-1">Suas mensagens aparecem aqui em tempo real</p>
               </div>
             </div>
           ) : (
             <>
-              <div className="h-16 border-b border-white/[0.06] flex items-center px-5 gap-3">
-                <div className="size-9 rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-sm">
-                  {(active.name || "?")[0]?.toUpperCase()}
+              {/* Header do chat */}
+              <div className="h-16 border-b border-white/[0.06] flex items-center px-5 gap-3 bg-bg/30">
+                <div className="size-10 rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-sm">
+                  {(activeChat.name || activeChat.phone || "?")[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{active.name || active.phone}</div>
-                  <div className="text-xs text-primary truncate">{active.phone}</div>
+                  <div className="font-medium text-sm truncate">{activeChat.name || `+${activeChat.phone}`}</div>
+                  <div className="text-xs text-ink-500 truncate">+{activeChat.phone}</div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-6 space-y-2">
-                {activeMsgs.length === 0 ? (
-                  <div className="text-center text-sm text-ink-500 my-8">
-                    Nenhuma mensagem ainda. Envie a primeira! 👋
+
+              {/* Mensagens */}
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
+                {!msgs.length ? (
+                  <div className="text-center text-sm text-ink-500 my-12">
+                    Sem mensagens ainda. Mande a primeira 👇
                   </div>
                 ) : (
-                  activeMsgs.map((m, i) => (
-                    <div
-                      key={i}
-                      className={`max-w-[65%] px-3 py-2 rounded-xl text-sm ${
-                        m.out
-                          ? "ml-auto bg-primary/15 border border-primary/20"
-                          : "bg-card2 border border-white/10"
-                      }`}
-                      style={{ wordBreak: "break-word" }}
-                    >
-                      {m.text}
-                      <div className="text-[10px] text-ink-500 mt-1 text-right">
-                        {m.time}
-                        {m.out && (
-                          <span className={`ml-1 ${m.status === "failed" ? "text-red-400" : "text-primary"}`}>
-                            {m.status === "failed" ? "✕" : m.status === "sending" ? "✓" : "✓✓"}
-                          </span>
+                  msgs.map((m, i) => {
+                    const prev = msgs[i - 1];
+                    const showDay = !prev || new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString();
+                    return (
+                      <div key={m.id || m.wa_id || i}>
+                        {showDay && (
+                          <div className="flex justify-center my-3">
+                            <span className="text-[10px] uppercase tracking-wider text-ink-500 bg-white/5 px-3 py-1 rounded-full">
+                              {fmtDayHeader(m.timestamp)}
+                            </span>
+                          </div>
                         )}
+                        <div
+                          className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
+                            m.direction === "out"
+                              ? "ml-auto bg-primary/15 border border-primary/20 rounded-br-sm"
+                              : "bg-card2 border border-white/10 rounded-bl-sm"
+                          }`}
+                          style={{ wordBreak: "break-word" }}
+                        >
+                          {m.type !== "text" && m.type !== "other" && (
+                            <div className="text-xs text-ink-400 mb-1">📎 {m.type}</div>
+                          )}
+                          <div>{m.text || (m.type !== "text" ? `[${m.type}]` : "")}</div>
+                          <div className="text-[10px] text-ink-500 mt-1 text-right flex items-center justify-end gap-1">
+                            {fmtTime(m.timestamp)}
+                            {m.direction === "out" && (
+                              <span className={m.status === "failed" ? "text-red-400" : m.status === "read" ? "text-primary" : ""}>
+                                {m.status === "failed" ? "✕"
+                                  : m.status === "pending" ? "⌛"
+                                  : m.status === "read" ? "✓✓"
+                                  : "✓"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
                 <div ref={msgsEndRef} />
               </div>
+
+              {/* Input */}
               <div className="border-t border-white/[0.06] p-3 bg-bg/40">
                 <div className="flex gap-2 items-end">
                   <textarea
@@ -196,10 +324,11 @@ export default function Conversas() {
                   />
                   <button
                     onClick={send}
-                    disabled={!draft.trim()}
+                    disabled={!draft.trim() || sending}
                     className="size-10 rounded-full bg-primary text-bg flex items-center justify-center disabled:opacity-50 hover:scale-105 transition-transform"
+                    aria-label="Enviar"
                   >
-                    ➤
+                    {sending ? "⌛" : "➤"}
                   </button>
                 </div>
               </div>

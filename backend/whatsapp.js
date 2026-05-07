@@ -209,7 +209,48 @@ class WhatsAppManager extends EventEmitter {
       await saveCreds();
     });
 
-    sock.ev.on('messages.upsert', () => {});
+    sock.ev.on('messages.upsert', (upsert) => {
+      try {
+        if (!upsert?.messages?.length) return;
+        for (const msg of upsert.messages) {
+          if (!msg?.message) continue;
+          const remoteJid = msg.key?.remoteJid || '';
+          if (!remoteJid || remoteJid === 'status@broadcast') continue;
+          const isGroup = remoteJid.endsWith('@g.us');
+          const phone = remoteJid.split('@')[0].split(':')[0];
+          const fromMe = !!msg.key?.fromMe;
+          const m = msg.message;
+          const text = m.conversation
+            || m.extendedTextMessage?.text
+            || m.imageMessage?.caption
+            || m.videoMessage?.caption
+            || m.documentMessage?.caption
+            || '';
+          let type = 'text';
+          if (m.imageMessage) type = 'image';
+          else if (m.audioMessage) type = 'audio';
+          else if (m.videoMessage) type = 'video';
+          else if (m.documentMessage) type = 'document';
+          else if (m.stickerMessage) type = 'sticker';
+          else if (!text) type = 'other';
+
+          this.emit('message', {
+            sessionId,
+            waId: msg.key?.id,
+            phone,
+            jid: remoteJid,
+            isGroup,
+            fromMe,
+            pushName: msg.pushName || null,
+            text,
+            type,
+            timestamp: (msg.messageTimestamp ? Number(msg.messageTimestamp) : Date.now() / 1000) * 1000,
+          });
+        }
+      } catch (e) {
+        console.error('[WPP] messages.upsert handler error:', e.message);
+      }
+    });
 
     return { status: 'connecting', qr: null };
   }
