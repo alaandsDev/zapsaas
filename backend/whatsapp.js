@@ -227,8 +227,19 @@ class WhatsAppManager extends EventEmitter {
           // Sanity: phone deve ser numérico e ter tamanho realista (10-15 dígitos)
           if (!/^\d{10,15}$/.test(phone)) continue;
 
-          const fromMe = !!msg.key?.fromMe;
+          // Filtra "Recados para mim" / self-chat: jid é o próprio número conectado
+          const ownPhone = sock.user?.id?.split(':')[0]?.split('@')[0];
+          if (ownPhone && ownPhone === phone) continue;
+
           const m = msg.message;
+
+          // Ignora mensagens de protocolo / reactions / chave (não são conteúdo real)
+          if (m.protocolMessage || m.reactionMessage || m.senderKeyDistributionMessage
+              || m.messageContextInfo && Object.keys(m).length === 1) {
+            continue;
+          }
+
+          const fromMe = !!msg.key?.fromMe;
           const text = m.conversation
             || m.extendedTextMessage?.text
             || m.imageMessage?.caption
@@ -244,7 +255,7 @@ class WhatsAppManager extends EventEmitter {
           else if (m.videoMessage)    { type = 'video';    mediaMessage = m.videoMessage;    mimeType = m.videoMessage.mimetype; }
           else if (m.documentMessage) { type = 'document'; mediaMessage = m.documentMessage; mimeType = m.documentMessage.mimetype; fileName = m.documentMessage.fileName; }
           else if (m.stickerMessage)  { type = 'sticker';  mediaMessage = m.stickerMessage;  mimeType = m.stickerMessage.mimetype; }
-          else if (!text)             { type = 'other'; }
+          else if (!text) { continue; } // sem texto e sem mídia conhecida — descarta
 
           // Baixa mídia (best-effort) — buffer vai no evento, server faz upload no Supabase
           let mediaBuffer = null;

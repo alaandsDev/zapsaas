@@ -310,6 +310,8 @@ export default function Conversas() {
                   </div>
                 ) : (
                   msgs.map((m, i) => {
+                    // Não renderiza balão se não tem nada útil pra mostrar
+                    if (!m.text && !m.media_url && (m.type === "other" || !m.type)) return null;
                     const prev = msgs[i - 1];
                     const showDay = !prev || new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString();
                     return (

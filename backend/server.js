@@ -1685,6 +1685,9 @@ wpp.on('message', async (evt) => {
 
     // Upsert chat
     const ts = new Date(evt.timestamp).toISOString();
+    const previewLabels = { image: '📷 Foto', audio: '🎵 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🌟 Figurinha' };
+    const lastMsg = evt.text || previewLabels[evt.type] || '';
+
     const { data: existing } = await supabase
       .from('chats').select('id, unread')
       .eq('user_id', userId).eq('session_slot', slot).eq('phone', evt.phone)
@@ -1694,7 +1697,7 @@ wpp.on('message', async (evt) => {
       const { data: created } = await supabase.from('chats').insert({
         user_id: userId, session_slot: slot, phone: evt.phone,
         name: evt.pushName || null,
-        last_message: evt.text || `[${evt.type}]`,
+        last_message: lastMsg,
         last_message_at: ts,
         unread: evt.fromMe ? 0 : 1,
       }).select('id').single();
@@ -1702,7 +1705,7 @@ wpp.on('message', async (evt) => {
     } else {
       await supabase.from('chats').update({
         name: evt.pushName || undefined,
-        last_message: evt.text || `[${evt.type}]`,
+        last_message: lastMsg,
         last_message_at: ts,
         unread: evt.fromMe ? (existing.unread || 0) : (existing.unread || 0) + 1,
         updated_at: new Date().toISOString(),
