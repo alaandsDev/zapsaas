@@ -20,6 +20,30 @@ function fmtTime(iso) {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
+function Avatar({ src, name, size = 40 }) {
+  const [errored, setErrored] = useState(false);
+  const initial = (name || "?").trim()[0]?.toUpperCase() || "?";
+  if (src && !errored) {
+    return (
+      <img
+        src={src}
+        alt=""
+        onError={() => setErrored(true)}
+        style={{ width: size, height: size }}
+        className="rounded-full object-cover bg-bg2 shrink-0"
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
+      className="rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center shrink-0"
+    >
+      {initial}
+    </div>
+  );
+}
+
 function fmtDayHeader(iso) {
   const d = new Date(iso);
   const now = new Date();
@@ -256,9 +280,7 @@ export default function Conversas() {
                     isActive ? "bg-primary/[0.06]" : "hover:bg-white/[0.02]"
                   }`}
                 >
-                  <div className="size-11 rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-sm shrink-0">
-                    {(c.name || c.phone || "?")[0]?.toUpperCase()}
-                  </div>
+                  <Avatar src={c.profile_pic_url} name={c.name || c.phone} size={44} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-medium text-sm truncate">{c.name || `+${c.phone}`}</div>
@@ -293,9 +315,7 @@ export default function Conversas() {
             <>
               {/* Header do chat */}
               <div className="h-16 border-b border-white/[0.06] flex items-center px-5 gap-3 bg-bg/30">
-                <div className="size-10 rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-sm">
-                  {(activeChat.name || activeChat.phone || "?")[0]?.toUpperCase()}
-                </div>
+                <Avatar src={activeChat.profile_pic_url} name={activeChat.name || activeChat.phone} size={40} />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm truncate">{activeChat.name || `+${activeChat.phone}`}</div>
                   <div className="text-xs text-ink-500 truncate">+{activeChat.phone}</div>

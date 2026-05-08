@@ -1661,6 +1661,36 @@ app.get('/api/chats/stream', requireAuth, (req, res) => {
   });
 });
 
+// ── Atualiza nome salvo do contato (pelo phonebook do telefone do user) ──
+wpp.on('contact', async ({ sessionId, phone, name }) => {
+  try {
+    const { userId, slot } = parseSessionId(sessionId);
+    if (!userId || !name) return;
+    await supabase.from('chats').update({ name, updated_at: new Date().toISOString() })
+      .eq('user_id', userId).eq('session_slot', slot).eq('phone', phone);
+  } catch (e) { console.warn('[contact update]', e.message); }
+});
+
+// ── Refresh de foto de perfil (cache 24h) ────────────────────
+const PIC_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+async function refreshProfilePic(userId, slot, sessionId, phone, currentRow) {
+  try {
+    const refreshedAt = currentRow?.profile_pic_refreshed_at ? new Date(currentRow.profile_pic_refreshed_at).getTime() : 0;
+    if (currentRow?.profile_pic_url && Date.now() - refreshedAt < PIC_CACHE_TTL) return null;
+    const url = await wpp.getProfilePicture(sessionId, phone, 'image');
+    if (url === currentRow?.profile_pic_url) {
+      await supabase.from('chats').update({ profile_pic_refreshed_at: new Date().toISOString() })
+        .eq('user_id', userId).eq('session_slot', slot).eq('phone', phone);
+      return null;
+    }
+    await supabase.from('chats').update({
+      profile_pic_url: url || null,
+      profile_pic_refreshed_at: new Date().toISOString()
+    }).eq('user_id', userId).eq('session_slot', slot).eq('phone', phone);
+    return url;
+  } catch (e) { return null; }
+}
+
 // ── Persistência de mensagens recebidas/enviadas em chats + chat_messages ──
 async function uploadIncomingMedia(userId, evt) {
   if (!evt.mediaBuffer || !evt.mediaBuffer.length) return null;
@@ -1689,7 +1719,7 @@ wpp.on('message', async (evt) => {
     const lastMsg = evt.text || previewLabels[evt.type] || '';
 
     const { data: existing } = await supabase
-      .from('chats').select('id, unread')
+      .from('chats').select('id, unread, profile_pic_url, profile_pic_refreshed_at')
       .eq('user_id', userId).eq('session_slot', slot).eq('phone', evt.phone)
       .maybeSingle();
     let chatId = existing?.id;
@@ -1712,6 +1742,9 @@ wpp.on('message', async (evt) => {
       }).eq('id', chatId);
     }
     if (!chatId) return;
+
+    // Refresh profile pic em background (não bloqueia)
+    refreshProfilePic(userId, slot, evt.sessionId, evt.phone, existing).catch(() => {});
 
     // Upload mídia (se houver) → media_url
     const mediaUrl = await uploadIncomingMedia(userId, evt);
@@ -1752,7 +1785,7 @@ app.get('/api/chats', requireAuth, async (req, res) => {
   try {
     const slot = req.query.slot ? parseInt(req.query.slot) : null;
     let q = supabase.from('chats')
-      .select('id, session_slot, phone, name, last_message, last_message_at, unread')
+      .select('id, session_slot, phone, name, last_message, last_message_at, unread, profile_pic_url')
       .eq('user_id', req.user.id)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200);

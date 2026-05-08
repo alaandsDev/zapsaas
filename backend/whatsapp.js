@@ -287,7 +287,44 @@ class WhatsAppManager extends EventEmitter {
       }
     });
 
+    // Atualizações de contatos (nome salvo no celular do usuário)
+    sock.ev.on('contacts.upsert', (contacts) => {
+      try {
+        for (const c of contacts || []) {
+          const jid = c.id || '';
+          if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@c.us')) continue;
+          const phone = jid.split('@')[0].split(':')[0];
+          const name = c.name || c.notify || c.verifiedName || null;
+          if (name) this.emit('contact', { sessionId, phone, name });
+        }
+      } catch {}
+    });
+    sock.ev.on('contacts.update', (contacts) => {
+      try {
+        for (const c of contacts || []) {
+          const jid = c.id || '';
+          if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@c.us')) continue;
+          const phone = jid.split('@')[0].split(':')[0];
+          const name = c.name || c.notify || c.verifiedName || null;
+          if (name) this.emit('contact', { sessionId, phone, name });
+        }
+      } catch {}
+    });
+
     return { status: 'connecting', qr: null };
+  }
+
+  // Busca foto de perfil — preview (pequena) ou image (alta)
+  async getProfilePicture(sessionId, phone, type = 'image') {
+    const session = this.sessions.get(sessionId);
+    if (!session?.sock || session.status !== 'connected') return null;
+    const cleaned = String(phone).replace(/\D/g, '');
+    const jid = `${cleaned}@s.whatsapp.net`;
+    try {
+      return await session.sock.profilePictureUrl(jid, type);
+    } catch (e) {
+      return null; // contato sem foto OU privacy bloqueando
+    }
   }
 
   _offEvent(ev, eventName, handler) {
