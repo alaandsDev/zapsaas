@@ -10,6 +10,7 @@ export default function sitemap() {
     { path: "/oticas", priority: 0.9, changeFrequency: "weekly" },
     { path: "/login", priority: 0.4, changeFrequency: "yearly" },
     { path: "/register", priority: 0.6, changeFrequency: "yearly" },
+    { path: "/changelog", priority: 0.5, changeFrequency: "weekly" },
   ];
 
   return routes.map((r) => ({

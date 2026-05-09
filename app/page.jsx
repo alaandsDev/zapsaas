@@ -16,6 +16,7 @@ export const metadata = {
 import Hero from "../components/Hero";
 import Benefits from "../components/Benefits";
 import HowItWorks from "../components/HowItWorks";
+import BeforeAfter from "../components/BeforeAfter";
 import Features from "../components/Features";
 import SocialProof from "../components/SocialProof";
 import Pricing from "../components/Pricing";
@@ -115,6 +116,7 @@ export default function Home() {
           { title: "Comece a vender", desc: "O sistema dispara, organiza e responde. Você só acompanha as vendas chegando." },
         ]}
       />
+      <BeforeAfter />
       <Features
         title="Tudo que você precisa pra vender mais — em um único lugar"
         items={[

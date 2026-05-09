@@ -1,4 +1,6 @@
 import "./globals.css";
+import { ToastProvider } from "../components/Toast";
+import FloatingCTA from "../components/FloatingCTA";
 
 const SITE_URL = "https://zapflow.vercel.app";
 
@@ -124,7 +126,12 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSONLD) }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ToastProvider>
+          {children}
+          <FloatingCTA />
+        </ToastProvider>
+      </body>
     </html>
   );
 }

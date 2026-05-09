@@ -20,6 +20,22 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-in { animation: fade-in .5s ease-out both; }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px) scale(.95); }
+    to   { opacity: 1; transform: translateX(0)    scale(1); }
+  }
+  @keyframes toast-out {
+    from { opacity: 1; transform: translateX(0)    scale(1); }
+    to   { opacity: 0; transform: translateX(20px) scale(.95); }
+  }
+  @keyframes toast-bar {
+    from { width: 100%; }
+    to   { width: 0%; }
+  }
+  .animate-toast-in  { animation: toast-in  .22s ease-out both; }
+  .animate-toast-out { animation: toast-out .18s ease-in  both; }
+  .animate-toast-bar { animation: toast-bar linear forwards; }
 }
 
 @layer components {
