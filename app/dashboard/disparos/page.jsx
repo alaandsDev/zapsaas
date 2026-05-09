@@ -242,7 +242,7 @@ export default function DisparosPage() {
   return (
     <>
       <Topbar title="Disparos" subtitle="Enviar mensagens em massa para seus contatos" />
-      <div className="p-6 lg:p-8 grid lg:grid-cols-[2fr_1fr] gap-6">
+      <div className="page-x grid lg:grid-cols-[2fr_1fr] gap-6">
         <div className="card p-6 space-y-5">
           <h3 className="font-semibold">🚀 Novo Disparo</h3>
 

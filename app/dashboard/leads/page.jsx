@@ -105,7 +105,7 @@ export default function LeadsPage() {
           </>
         }
       />
-      <div className="p-6 lg:p-8 space-y-6">
+      <div className="page-x space-y-6">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[240px]">
             <Input placeholder="Buscar por nome, telefone, interesse..." value={q} onChange={(e) => setQ(e.target.value)} />

@@ -41,7 +41,7 @@ export default function MinhaContaPage() {
   return (
     <>
       <Topbar title="Minha Conta" subtitle="Perfil, plano e configurações" />
-      <div className="p-6 lg:p-8 space-y-6 max-w-3xl">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10 space-y-6">
         <div className="card p-6">
           <h3 className="font-semibold mb-4">👤 Perfil</h3>
           <div className="space-y-4">

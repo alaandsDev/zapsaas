@@ -80,7 +80,7 @@ export default function SmsPage() {
 
   return (
     <ComingSoonOverlay title="SMS em breve">
-      <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto">
+      <div className="page-x">
       <header className="mb-8 flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">SMS em Massa</h1>

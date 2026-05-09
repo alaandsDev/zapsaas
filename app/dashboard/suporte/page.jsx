@@ -13,7 +13,7 @@ export default function SuportePage() {
   return (
     <>
       <Topbar title="Suporte" subtitle="Entre em contato com nossa equipe" />
-      <div className="p-6 lg:p-8 max-w-3xl space-y-6">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10 space-y-6">
         <div className="card p-8 text-center">
           <div className="text-5xl mb-4">🆘</div>
           <h2 className="text-xl font-bold">Suporte ZapFlow</h2>

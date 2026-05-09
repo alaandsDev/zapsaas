@@ -92,7 +92,7 @@ export default function Conexoes() {
   return (
     <>
       <Topbar title="Conexões" subtitle="Conecte até 2 números para disparos com round-robin anti-ban" />
-      <div className="p-6 lg:p-8 space-y-6 max-w-5xl">
+      <div className="page-x space-y-6">
 
         {/* Info banner */}
         {connectedCount > 1 && (

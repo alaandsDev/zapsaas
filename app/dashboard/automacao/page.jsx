@@ -73,7 +73,7 @@ export default function AutomacaoPage() {
 
   return (
     <ComingSoonOverlay title="Automação em breve">
-      <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto">
+      <div className="page-x">
       <header className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Automação Inteligente</h1>
