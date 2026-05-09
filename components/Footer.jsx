@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "./Logo";
+import NewsletterForm from "./NewsletterForm";
 
 export default function Footer() {
   return (
@@ -51,19 +52,7 @@ export default function Footer() {
             <p className="text-xs text-ink-400 mb-4">
               1 e-mail por semana com táticas reais de WhatsApp marketing. Zero spam.
             </p>
-            <form className="flex flex-col sm:flex-row gap-2" onSubmit={(e) => e.preventDefault()}>
-              <input
-                type="email"
-                placeholder="seu@email.com"
-                className="flex-1 bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/60"
-              />
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-primary text-bg font-semibold text-sm hover:opacity-90 whitespace-nowrap"
-              >
-                Inscrever
-              </button>
-            </form>
+            <NewsletterForm />
           </div>
         </div>
 
