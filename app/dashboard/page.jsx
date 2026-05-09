@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../components/dashboard/Topbar";
 import OnboardingChecklist from "../../components/dashboard/OnboardingChecklist";
+import ProductTour from "../../components/dashboard/ProductTour";
 import EmptyState from "../../components/dashboard/EmptyState";
 import { SkeletonStats, SkeletonRow } from "../../components/dashboard/Skeleton";
 import { api, getUser } from "../../lib/api";
@@ -47,6 +48,7 @@ export default function DashboardHome() {
 
   return (
     <>
+      <ProductTour />
       <Topbar title="Dashboard" subtitle="Visão geral da plataforma" />
       <div className="page-x space-y-6">
         <div className="card p-6 lg:p-8 bg-gradient-to-br from-primary/[0.06] via-card to-card border-primary/20">

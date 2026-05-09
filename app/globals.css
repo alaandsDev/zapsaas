@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Modo claro (beta — sobrepõe variáveis principais) ───────────
+   Aplicado via data-theme="light" no <html>. As páginas de marketing
+   continuam dark sempre (mais ousado pra venda); o claro é só pro app. */
+html[data-theme="light"] body {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,200,140,.10), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(99,102,241,.08), transparent 60%),
+    #f6f7fb !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] {
+  --bg-light: #f6f7fb;
+}
+html[data-theme="light"] .card {
+  background: #ffffff !important;
+  border-color: rgba(15,23,42,0.08) !important;
+}
+html[data-theme="light"] .text-ink-100,
+html[data-theme="light"] .text-ink-200 { color: #0f172a !important; }
+html[data-theme="light"] .text-ink-300 { color: #334155 !important; }
+html[data-theme="light"] .text-ink-400 { color: #475569 !important; }
+html[data-theme="light"] .text-ink-500 { color: #64748b !important; }
+html[data-theme="light"] .border-white\/\[0\.06\],
+html[data-theme="light"] .border-white\/10,
+html[data-theme="light"] .border-white\/\[0\.08\] { border-color: rgba(15,23,42,0.08) !important; }
+html[data-theme="light"] .bg-bg,
+html[data-theme="light"] .bg-bg\/40,
+html[data-theme="light"] .bg-bg\/50,
+html[data-theme="light"] .bg-bg\/60,
+html[data-theme="light"] .bg-bg\/70,
+html[data-theme="light"] .bg-bg\/80,
+html[data-theme="light"] .bg-bg\/95 { background-color: rgba(255,255,255,0.85) !important; }
+html[data-theme="light"] .bg-bg2,
+html[data-theme="light"] .bg-bg2\/95 { background-color: #ffffff !important; }
+html[data-theme="light"] .bg-card,
+html[data-theme="light"] .bg-card\/30,
+html[data-theme="light"] .bg-card\/40 { background-color: #ffffff !important; }
+html[data-theme="light"] .hover\:bg-white\/5:hover,
+html[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(15,23,42,0.04) !important; }
+
 @layer base {
   html { scroll-behavior: smooth; }
   body {

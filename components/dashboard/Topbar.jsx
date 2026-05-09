@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUser, clearAuth } from "../../lib/api";
+import NotificationsBell from "./NotificationsBell";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Topbar({ title, subtitle, actions }) {
   const router = useRouter();
@@ -26,6 +28,8 @@ export default function Topbar({ title, subtitle, actions }) {
         {subtitle && <p className="text-xs text-ink-500 truncate">{subtitle}</p>}
       </div>
       {actions && <div className="flex max-w-[48vw] items-center justify-end gap-2 overflow-x-auto sm:max-w-none">{actions}</div>}
+      <ThemeToggle />
+      <NotificationsBell />
       <div className="relative">
         <button
           onClick={() => setOpen((v) => !v)}

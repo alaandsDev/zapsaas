@@ -44,6 +44,8 @@ export default function OnboardingChecklist() {
       desc: "Escaneie o QR code em 30s e ative seu número",
       cta: "Conectar agora",
       href: "/dashboard/conexoes",
+      xp: 50,
+      badge: { icon: "📱", label: "Conectado" },
     },
     {
       done: steps.hasContacts,
@@ -51,6 +53,8 @@ export default function OnboardingChecklist() {
       desc: "Excel, CSV ou cadastre manualmente — limpamos duplicatas pra você",
       cta: "Importar contatos",
       href: "/dashboard/leads",
+      xp: 75,
+      badge: { icon: "🗂️", label: "Curador" },
     },
     {
       done: steps.hasDispatch,
@@ -58,8 +62,13 @@ export default function OnboardingChecklist() {
       desc: "Mande uma mensagem em massa pra sua base — em 2 cliques",
       cta: "Criar disparo",
       href: "/dashboard/disparos",
+      xp: 125,
+      badge: { icon: "🚀", label: "Vendedor" },
     },
   ];
+
+  const totalXP = items.reduce((sum, i) => sum + i.xp, 0);
+  const earnedXP = items.filter((i) => i.done).reduce((sum, i) => sum + i.xp, 0);
 
   const completed = items.filter((i) => i.done).length;
   const pct = Math.round((completed / items.length) * 100);
@@ -83,6 +92,12 @@ export default function OnboardingChecklist() {
           <p className="text-sm text-ink-300 mt-1">
             {completed} de {items.length} concluído · {pct}% pronto
           </p>
+          {/* XP earned */}
+          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/25 text-xs">
+            <span className="text-base">⚡</span>
+            <span className="text-primary font-bold tabular-nums">{earnedXP}</span>
+            <span className="text-ink-400">/ {totalXP} XP</span>
+          </div>
         </div>
         <button
           onClick={dismiss}
@@ -122,8 +137,19 @@ export default function OnboardingChecklist() {
               {item.done ? "✓" : i + 1}
             </div>
             <div className="flex-1 min-w-0">
-              <div className={`font-semibold text-sm ${item.done ? "text-ink-400 line-through" : ""}`}>
-                {item.title}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`font-semibold text-sm ${item.done ? "text-ink-400 line-through" : ""}`}>
+                  {item.title}
+                </span>
+                {item.done ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/15 border border-primary/30 text-[10px] font-bold text-primary">
+                    {item.badge.icon} {item.badge.label}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary">
+                    +{item.xp} XP
+                  </span>
+                )}
               </div>
               {!item.done && <div className="text-xs text-ink-400 mt-0.5">{item.desc}</div>}
             </div>
