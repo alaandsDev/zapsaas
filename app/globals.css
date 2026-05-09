@@ -12,6 +12,12 @@
     background-attachment: fixed;
   }
   ::selection { background: rgba(0,255,178,0.25); color: #fff; }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in { animation: fade-in .5s ease-out both; }
 }
 
 @layer components {

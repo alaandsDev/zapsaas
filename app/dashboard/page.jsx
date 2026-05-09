@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../components/dashboard/Topbar";
+import OnboardingChecklist from "../../components/dashboard/OnboardingChecklist";
 import { api, getUser } from "../../lib/api";
 
 const STAT_CARDS = [
@@ -45,11 +46,13 @@ export default function DashboardHome() {
   return (
     <>
       <Topbar title="Dashboard" subtitle="Visão geral da plataforma" />
-      <div className="p-6 lg:p-8 space-y-6">
+      <div className="page-x space-y-6">
         <div className="card p-6 lg:p-8 bg-gradient-to-br from-primary/[0.06] via-card to-card border-primary/20">
           <h2 className="text-2xl font-bold">Olá, {firstName || "Admin"}! 👋</h2>
           <p className="text-ink-300 mt-2">Aqui está o resumo da sua plataforma hoje.</p>
         </div>
+
+        <OnboardingChecklist />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {STAT_CARDS.map((c) => (
