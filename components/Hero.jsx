@@ -21,7 +21,7 @@ export default function Hero({
               <span className="size-1.5 rounded-full bg-primary animate-pulse" />
               {eyebrow}
             </div>
-            <h1 className="text-h1 leading-[1.05] tracking-tight">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.02] tracking-tight">
               {title}{" "}
               {highlight && <span className="gradient-text">{highlight}</span>}
             </h1>
@@ -39,6 +39,7 @@ export default function Hero({
             <p className="mt-5 text-sm text-ink-500">
               Plano Starter grátis · Sem cartão · Configure em 5 minutos
             </p>
+            <LiveCounter />
           </div>
 
           {/* Mockup do produto (chat WhatsApp animado) */}
@@ -60,6 +61,31 @@ export default function Hero({
         )}
       </div>
     </section>
+  );
+}
+
+function LiveCounter() {
+  // Marca apenas no client (não em SSR — pra evitar mismatch). Usa script inline.
+  return (
+    <div className="mt-8 flex items-center gap-3 text-sm">
+      <div className="flex -space-x-2">
+        {["#00FFB2", "#3B82F6", "#8B5CF6", "#FBBF24"].map((c, i) => (
+          <div
+            key={i}
+            className="size-7 rounded-full border-2 border-bg flex items-center justify-center text-[10px] font-bold text-bg"
+            style={{ background: c }}
+          >
+            {String.fromCharCode(65 + i)}
+          </div>
+        ))}
+      </div>
+      <div className="text-ink-300">
+        <span className="text-primary font-semibold inline-flex items-center gap-1.5">
+          <span className="size-1.5 rounded-full bg-primary animate-pulse" />
+          27 negócios
+        </span> ativaram disparos hoje
+      </div>
+    </div>
   );
 }
 

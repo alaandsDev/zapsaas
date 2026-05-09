@@ -8,7 +8,9 @@
     @apply bg-bg text-ink-100 font-sans antialiased;
     background-image:
       radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,255,178,0.10), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 80% 10%, rgba(139,92,246,0.08), transparent 60%);
+      radial-gradient(ellipse 60% 40% at 80% 10%, rgba(139,92,246,0.08), transparent 60%),
+      radial-gradient(ellipse 50% 30% at 10% 60%, rgba(59,130,246,0.06), transparent 60%),
+      radial-gradient(ellipse 40% 30% at 90% 80%, rgba(0,255,178,0.05), transparent 60%);
     background-attachment: fixed;
   }
   ::selection { background: rgba(0,255,178,0.25); color: #fff; }
