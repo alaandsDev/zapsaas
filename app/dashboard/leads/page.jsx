@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Topbar from "../../../components/dashboard/Topbar";
 import Modal from "../../../components/dashboard/Modal";
 import EmptyState from "../../../components/dashboard/EmptyState";
+import { SkeletonList } from "../../../components/dashboard/Skeleton";
 import { Field, Input, Select, Button } from "../../../components/ui/Field";
 import { api } from "../../../lib/api";
 
@@ -145,14 +146,25 @@ export default function LeadsPage() {
         )}
 
         {loading ? (
-          <div className="card p-12 flex justify-center"><div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          <SkeletonList rows={6} cols={5} />
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon="👥"
-            title={leads.length === 0 ? "Nenhum lead ainda" : "Nenhum lead encontrado"}
-            desc={leads.length === 0 ? "Adicione manualmente ou importe sua lista." : "Tente outros filtros."}
-            action={leads.length === 0 && <Button onClick={() => setOpenLead(true)}>Adicionar primeiro lead</Button>}
-          />
+          leads.length === 0 ? (
+            <EmptyState
+              icon="🎯"
+              title="Sua base de contatos começa aqui"
+              desc="Importe um Excel/CSV (limpamos duplicatas pra você) ou cadastre manualmente. Sua próxima venda tá nessa lista."
+              cta={{ label: "📂 Importar lista", onClick: () => setOpenImport(true) }}
+              secondary={{ label: "+ Adicionar manualmente", onClick: () => setOpenLead(true) }}
+              tip="Importações de até 10.000 contatos são processadas em segundos"
+            />
+          ) : (
+            <EmptyState
+              icon="🔍"
+              title="Nenhum lead com esse filtro"
+              desc="Ajuste o status ou a busca pra encontrar o que procura."
+              cta={{ label: "Limpar filtros", onClick: () => { setFilterStatus(""); setSearch?.(""); } }}
+            />
+          )
         ) : (
           <div className="card overflow-hidden">
             <table className="w-full">

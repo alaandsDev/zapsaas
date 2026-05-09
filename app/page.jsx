@@ -19,6 +19,7 @@ import HowItWorks from "../components/HowItWorks";
 import Features from "../components/Features";
 import SocialProof from "../components/SocialProof";
 import Pricing from "../components/Pricing";
+import FAQ from "../components/FAQ";
 import CTASection from "../components/CTASection";
 import Footer from "../components/Footer";
 
@@ -130,12 +131,13 @@ export default function Home() {
           { value: "98%", label: "de taxa de entrega das mensagens" },
         ]}
         testimonials={[
-          { name: "Marcelo S.", role: "Dono de ótica · Curitiba", quote: "Coloquei o ZapFlow numa terça. Na sexta já tinha 11 vendas que vieram só do WhatsApp. Pago a mensalidade no primeiro cliente.", color: "#00FFB2" },
-          { name: "Camila R.", role: "Clínica de estética · Belo Horizonte", quote: "Minha agenda estava sempre com buracos. Hoje passo o dia atendendo. O sistema enche a agenda sozinho.", color: "#3B82F6" },
-          { name: "Diego P.", role: "Hamburgueria · São Paulo", quote: "Nos fins de semana fechados o sistema já bate o faturamento de uma terça inteira. Mudou meu jogo.", color: "#8B5CF6" },
+          { name: "Marcelo S.", role: "Dono de ótica · Curitiba", result: "+R$ 11k em 5 dias", quote: "Coloquei o ZapFlow numa terça. Na sexta já tinha 11 vendas que vieram só do WhatsApp. Pago a mensalidade no primeiro cliente.", color: "#00FFB2" },
+          { name: "Camila R.", role: "Clínica de estética · Belo Horizonte", result: "Agenda 100% lotada", quote: "Minha agenda estava sempre com buracos. Hoje passo o dia atendendo. O sistema enche a agenda sozinho.", color: "#3B82F6" },
+          { name: "Diego P.", role: "Hamburgueria · São Paulo", result: "Faturou 3x mais", quote: "Nos fins de semana fechados o sistema já bate o faturamento de uma terça inteira. Mudou meu jogo.", color: "#8B5CF6" },
         ]}
       />
       <Pricing />
+      <FAQ />
       <CTASection />
       <Footer />
     </>

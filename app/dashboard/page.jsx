@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../components/dashboard/Topbar";
 import OnboardingChecklist from "../../components/dashboard/OnboardingChecklist";
+import EmptyState from "../../components/dashboard/EmptyState";
+import { SkeletonStats, SkeletonRow } from "../../components/dashboard/Skeleton";
 import { api, getUser } from "../../lib/api";
 
 const STAT_CARDS = [
@@ -54,18 +56,20 @@ export default function DashboardHome() {
 
         <OnboardingChecklist />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {STAT_CARDS.map((c) => (
-            <div key={c.key} className={`card p-5 bg-gradient-to-br ${COLORS[c.color]}`}>
-              <div className="text-2xl">{c.icon}</div>
-              <div className="text-xs text-ink-300 mt-3">{c.label}</div>
-              <div className={`text-3xl font-bold mt-1 ${COLORS[c.color].split(" ").pop()}`}>
-                {loading ? "—" : stats[c.key] ?? 0}
+        {loading ? <SkeletonStats count={4} /> : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {STAT_CARDS.map((c) => (
+              <div key={c.key} className={`card p-5 bg-gradient-to-br ${COLORS[c.color]}`}>
+                <div className="text-2xl">{c.icon}</div>
+                <div className="text-xs text-ink-300 mt-3">{c.label}</div>
+                <div className={`text-3xl font-bold mt-1 ${COLORS[c.color].split(" ").pop()}`}>
+                  {stats[c.key] ?? 0}
+                </div>
+                <div className="text-xs text-ink-500 mt-1">{c.sub}</div>
               </div>
-              <div className="text-xs text-ink-500 mt-1">{c.sub}</div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-[2fr_1fr] gap-4">
           <div className="card p-5">
@@ -73,8 +77,16 @@ export default function DashboardHome() {
               <h3 className="font-semibold">Leads Recentes</h3>
               <Link href="/dashboard/leads" className="text-xs text-primary hover:underline">Ver todos →</Link>
             </div>
-            {recent.length === 0 ? (
-              <p className="text-ink-500 text-sm text-center py-8">Nenhum lead ainda</p>
+            {loading ? (
+              <div className="space-y-1">{Array.from({length:4}).map((_,i)=><SkeletonRow key={i} cols={3}/>)}</div>
+            ) : recent.length === 0 ? (
+              <EmptyState
+                icon="🎯"
+                title="Nenhum lead ainda"
+                desc="Capture leads via formulário ou importe sua lista de contatos pra começar."
+                cta={{ label: "Importar contatos", href: "/dashboard/leads" }}
+                tip="Importações com 1.000 leads são limpas em 2 segundos"
+              />
             ) : (
               <div className="divide-y divide-white/[0.06]">
                 {recent.map((l) => (
