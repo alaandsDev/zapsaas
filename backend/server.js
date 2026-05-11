@@ -310,9 +310,9 @@ function hash(str) {
   return crypto.createHash('sha256').update(str).digest('hex');
 }
 
-// bcrypt lazy — usa módulo nativo se disponível, senão fallback para sha256+salt
+// bcryptjs (pure JS, sem compilação nativa — funciona no Railway)
 let bcrypt = null;
-try { bcrypt = require('bcrypt'); } catch { console.warn('[auth] bcrypt não instalado, usando sha256+salt'); }
+try { bcrypt = require('bcryptjs'); } catch { console.warn('[auth] bcryptjs não instalado'); }
 
 async function hashPassword(password) {
   if (bcrypt) return bcrypt.hash(password, 12);

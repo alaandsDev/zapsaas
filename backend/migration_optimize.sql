@@ -32,3 +32,20 @@ SELECT
 FROM pg_tables 
 WHERE schemaname = 'public'
 ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+
+-- ============================================================
+-- Limpeza wpp_sessions (tabela mais pesada — 5MB)
+-- Remove sessões de usuários que não existem mais
+-- ============================================================
+DELETE FROM wpp_sessions 
+WHERE user_id NOT IN (SELECT id FROM users);
+
+-- Compacta a tabela após deleções
+VACUUM ANALYZE wpp_sessions;
+VACUUM ANALYZE sessions;
+VACUUM ANALYZE dispatches;
+
+-- Verifica tamanho após limpeza
+SELECT tablename, pg_size_pretty(pg_total_relation_size('public.'||tablename)) as size
+FROM pg_tables WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size('public.'||tablename) DESC;
