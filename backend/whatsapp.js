@@ -255,9 +255,9 @@ class WhatsAppManager extends EventEmitter {
           else if (m.videoMessage)    { type = 'video';    mediaMessage = m.videoMessage;    mimeType = m.videoMessage.mimetype; }
           else if (m.documentMessage) { type = 'document'; mediaMessage = m.documentMessage; mimeType = m.documentMessage.mimetype; fileName = m.documentMessage.fileName; }
           else if (m.stickerMessage)  { type = 'sticker';  mediaMessage = m.stickerMessage;  mimeType = m.stickerMessage.mimetype; }
-          else if (!text) { continue; } // sem texto e sem mídia conhecida — descarta
+          else if (!text) { continue; } // sem texto e sem mídia — descarta
 
-          // Baixa mídia (best-effort) — buffer vai no evento, server faz upload no Supabase
+          // Baixa mídia (best-effort, só mensagens recebidas — fromMe não tem buffer disponível)
           let mediaBuffer = null;
           if (mediaMessage && downloadMediaMessage && !fromMe) {
             try {

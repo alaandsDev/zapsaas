@@ -1713,8 +1713,7 @@ wpp.on('message', async (evt) => {
     console.log(`[chat] msg ${evt.fromMe ? 'OUT' : 'IN'} session=${evt.sessionId} user=${userId} slot=${slot} phone=${evt.phone} type=${evt.type} text="${(evt.text || '').slice(0, 40)}"`);
     if (!userId) { console.warn('[chat] sessionId inválido, ignorando'); return; }
 
-    // Upsert chat
-    const ts = new Date(evt.timestamp).toISOString();
+    const ts = evt.timestamp ? new Date(evt.timestamp).toISOString() : new Date().toISOString();
     const previewLabels = { image: '📷 Foto', audio: '🎵 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🌟 Figurinha' };
     const lastMsg = evt.text || previewLabels[evt.type] || '';
 
@@ -1723,14 +1722,16 @@ wpp.on('message', async (evt) => {
       .eq('user_id', userId).eq('session_slot', slot).eq('phone', evt.phone)
       .maybeSingle();
     let chatId = existing?.id;
+
     if (!chatId) {
-      const { data: created } = await supabase.from('chats').insert({
+      const { data: created, error: cErr } = await supabase.from('chats').insert({
         user_id: userId, session_slot: slot, phone: evt.phone,
         name: evt.pushName || null,
         last_message: lastMsg,
         last_message_at: ts,
         unread: evt.fromMe ? 0 : 1,
       }).select('id').single();
+      if (cErr) { console.error('[chat] erro criar chat:', cErr.message, cErr.details || ''); return; }
       chatId = created?.id;
     } else {
       await supabase.from('chats').update({
@@ -1741,38 +1742,40 @@ wpp.on('message', async (evt) => {
         updated_at: new Date().toISOString(),
       }).eq('id', chatId);
     }
-    if (!chatId) return;
+    if (!chatId) { console.error('[chat] chatId nulo'); return; }
 
-    // Refresh profile pic em background (não bloqueia)
     refreshProfilePic(userId, slot, evt.sessionId, evt.phone, existing).catch(() => {});
 
-    // Upload mídia (se houver) → media_url
     const mediaUrl = await uploadIncomingMedia(userId, evt);
 
-    // Insert message (idempotente por wa_id)
-    await supabase.from('chat_messages').upsert({
+    // Insert mensagem — upsert só quando wa_id existir (NULL quebra unique constraint)
+    const msgData = {
       chat_id: chatId, user_id: userId,
-      wa_id: evt.waId,
       direction: evt.fromMe ? 'out' : 'in',
-      type: evt.type, text: evt.text || null,
+      type: evt.type || 'text',
+      text: evt.text || null,
       media_url: mediaUrl,
       mime_type: evt.mimeType || null,
       timestamp: ts,
       status: evt.fromMe ? 'sent' : null,
-    }, { onConflict: 'chat_id,wa_id' });
+    };
 
-    // Emite via SSE pra UI atualizar instantâneo
+    if (evt.waId) {
+      const { error: mErr } = await supabase.from('chat_messages')
+        .upsert({ ...msgData, wa_id: evt.waId }, { onConflict: 'chat_id,wa_id', ignoreDuplicates: true });
+      if (mErr) console.error('[chat] erro upsert msg:', mErr.message, mErr.details || '');
+    } else {
+      const { error: mErr } = await supabase.from('chat_messages').insert(msgData);
+      if (mErr && !mErr.message?.includes('duplicate')) {
+        console.error('[chat] erro insert msg:', mErr.message, mErr.details || '');
+      }
+    }
+
     sseSend(userId, 'message', {
-      chatId,
-      slot,
-      phone: evt.phone,
-      name: evt.pushName,
+      chatId, slot, phone: evt.phone, name: evt.pushName,
       direction: evt.fromMe ? 'out' : 'in',
-      type: evt.type,
-      text: evt.text,
-      media_url: mediaUrl,
-      mime_type: evt.mimeType,
-      timestamp: ts,
+      type: evt.type, text: evt.text,
+      media_url: mediaUrl, mime_type: evt.mimeType, timestamp: ts,
     });
   } catch (e) {
     console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');
