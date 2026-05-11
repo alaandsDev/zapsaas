@@ -269,11 +269,22 @@ function rateLimit(windowMs, max) {
     next();
   };
 }
-// Limpa entradas expiradas a cada 10 min
+// ── Limpeza de sessões expiradas (a cada 1h) ──────────────────
+// Reduz crescimento da tabela sessions e carga no Supabase
+setInterval(async () => {
+  try {
+    const { count } = await supabase.from('sessions')
+      .delete({ count: 'exact' })
+      .lt('expires_at', new Date().toISOString());
+    if (count > 0) console.log(`[cleanup] ${count} sessões expiradas removidas`);
+  } catch(e) { console.warn('[cleanup] erro:', e.message); }
+}, 60 * 60 * 1000);
+
+// ── Rate limit map cleanup (a cada 15min) ─────────────────────
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of rateLimitMap) { if (now > val.resetAt) rateLimitMap.delete(key); }
-}, 10 * 60 * 1000);
+}, 15 * 60 * 1000);
 
 // ── SUPABASE ──────────────────────────────────────────────────
 console.log('[startup] SUPABASE_URL:', process.env.SUPABASE_URL ? 'OK' : 'MISSING');
@@ -301,29 +312,37 @@ function hash(str) {
 
 // bcrypt lazy — usa módulo nativo se disponível, senão fallback para sha256+salt
 let bcrypt = null;
-try { bcrypt = require('bcrypt'); } catch {}
+try { bcrypt = require('bcrypt'); } catch { console.warn('[auth] bcrypt não instalado, usando sha256+salt'); }
 
 async function hashPassword(password) {
   if (bcrypt) return bcrypt.hash(password, 12);
-  // Fallback: sha256 com salt aleatório — melhor que sem salt
   const salt = crypto.randomBytes(16).toString('hex');
   return salt + ':' + crypto.createHash('sha256').update(salt + password).digest('hex');
 }
 
 async function verifyPassword(password, stored) {
   if (!stored) return false;
-  // bcrypt hash começa com $2b$
-  if (stored.startsWith('$2b$') || stored.startsWith('$2a$')) {
-    if (bcrypt) return bcrypt.compare(password, stored);
+  try {
+    // bcrypt hash
+    if (stored.startsWith('$2b$') || stored.startsWith('$2a$')) {
+      if (!bcrypt) {
+        // bcrypt não instalado mas senha é bcrypt — fallback impossível, retorna false
+        console.error('[auth] Senha bcrypt mas módulo não disponível!');
+        return false;
+      }
+      return bcrypt.compare(password, stored);
+    }
+    // salt:sha256 format (hex salt de 32 chars)
+    if (stored.includes(':') && stored.indexOf(':') === 32) {
+      const [salt, h] = stored.split(':');
+      return crypto.createHash('sha256').update(salt + password).digest('hex') === h;
+    }
+    // Legacy: sha256 puro sem salt
+    return hash(password) === stored;
+  } catch(e) {
+    console.error('[auth] verifyPassword erro:', e.message);
     return false;
   }
-  // salt:hash format
-  if (stored.includes(':') && stored.split(':')[0].length === 32) {
-    const [salt, h] = stored.split(':');
-    return crypto.createHash('sha256').update(salt + password).digest('hex') === h;
-  }
-  // Legacy sha256 sem salt
-  return hash(password) === stored;
 }
 
 async function requireAuth(req, res, next) {
@@ -352,6 +371,10 @@ async function requireAuth(req, res, next) {
     return res.status(500).json({ error: 'Erro de autenticação' });
   }
 }
+
+// ── Caches em memória (reduz queries repetidas no Supabase) ───
+const chatsCache = new Map();  // key: userId:slot → { data, ts }
+const profilePicCache = new Map(); // key: phone → { url, ts }
 
 // ── HEALTH CHECK ──────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -1771,6 +1794,9 @@ wpp.on('message', async (evt) => {
       }
     }
 
+    // Invalida cache chats
+    chatsCache.delete(`${userId}:${slot}`);
+    chatsCache.delete(`${userId}:null`);
     sseSend(userId, 'message', {
       chatId, slot, phone: evt.phone, name: evt.pushName,
       direction: evt.fromMe ? 'out' : 'in',
@@ -1788,6 +1814,14 @@ app.get('/api/chats', requireAuth, async (req, res) => {
   try {
     const slot = req.query.slot ? parseInt(req.query.slot) : null;
     console.log(`[chats GET] user=${req.user.id} slot=${slot}`);
+
+    // Cache simples em memória por 3s — evita rafaga de queries no Supabase
+    const cacheKey = `${req.user.id}:${slot}`;
+    const cached = chatsCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < 3000) {
+      return res.json(cached.data);
+    }
+
     let q = supabase.from('chats')
       .select('id, session_slot, phone, name, last_message, last_message_at, unread, profile_pic_url')
       .eq('user_id', req.user.id)
@@ -1796,8 +1830,11 @@ app.get('/api/chats', requireAuth, async (req, res) => {
     if (slot) q = q.eq('session_slot', slot);
     const { data, error } = await q;
     if (error) throw error;
-    console.log(`[chats GET] found ${data?.length || 0} chats`);
-    res.json(data || []);
+
+    const result = data || [];
+    chatsCache.set(cacheKey, { data: result, ts: Date.now() });
+    console.log(`[chats GET] found ${result.length} chats`);
+    res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

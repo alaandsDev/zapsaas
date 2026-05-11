@@ -24,7 +24,7 @@ export default function Conexoes() {
 
   function startPoll() {
     stopPoll();
-    pollRef.current = setInterval(refresh, 2500);
+    pollRef.current = setInterval(refresh, 5000);
   }
   function stopPoll() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }

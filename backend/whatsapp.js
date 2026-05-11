@@ -55,7 +55,7 @@ class WhatsAppManager extends EventEmitter {
       } catch (e) {
         console.warn(`[WPP] Keepalive falhou para ${sessionId}:`, e.message);
       }
-    }, 4 * 60 * 1000); // Every 4 minutes
+    }, 10 * 60 * 1000); // 10 minutos (reduz carga Supabase)
     this.keepAliveTimers.set(sessionId, timer);
   }
 
