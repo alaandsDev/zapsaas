@@ -76,15 +76,21 @@ export default function Conversas() {
       const list = await api("/api/whatsapp/sessions");
       setSessions(list || []);
       const conn = (list || []).filter((s) => s.status === "connected");
-      if (conn.length && !activeSlot) setActiveSlot(conn[0].slot);
+      if (conn.length) {
+        const slot = conn[0].slot;
+        setActiveSlot(slot);
+        return slot; // retorna o slot para uso imediato
+      }
     } catch {}
-  }, [activeSlot]);
+    return null;
+  }, []);
 
   // Carregar chats da slot ativa
-  const loadChats = useCallback(async () => {
-    if (!activeSlot) return;
+  const loadChats = useCallback(async (slotOverride) => {
+    const slot = slotOverride ?? activeSlot;
+    if (!slot) return;
     try {
-      const list = await api(`/api/chats?slot=${activeSlot}`);
+      const list = await api(`/api/chats?slot=${slot}`);
       setChats(list || []);
     } catch {}
   }, [activeSlot]);
@@ -101,7 +107,8 @@ export default function Conversas() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await loadSessions();
+      const slot = await loadSessions(); // aguarda e pega o slot diretamente
+      if (slot) await loadChats(slot);   // carrega chats imediatamente sem depender do state
       setLoading(false);
     })();
   }, []);
@@ -110,7 +117,7 @@ export default function Conversas() {
     if (!activeSlot) return;
     setActiveChat(null);
     setMsgs([]);
-    loadChats();
+    loadChats(activeSlot);
   }, [activeSlot]);
 
   // Carrega mensagens ao trocar de chat
@@ -130,8 +137,7 @@ export default function Conversas() {
     es.addEventListener("message", (e) => {
       try {
         const data = JSON.parse(e.data);
-        // Atualiza lista de chats (refresh leve)
-        loadChats();
+        loadChats(activeSlot);  // passa slot atual
         // Se a mensagem é do chat aberto, anexa direto
         const cur = activeChatRef.current;
         if (cur?.id === data.chatId) {
@@ -163,7 +169,7 @@ export default function Conversas() {
   useEffect(() => {
     if (!activeSlot) return;
     const i = setInterval(() => {
-      loadChats();
+      loadChats(activeSlot);
       if (activeChatRef.current?.id) loadMsgs();
     }, POLL_FALLBACK_MS);
     return () => clearInterval(i);

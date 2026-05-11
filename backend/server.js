@@ -1787,6 +1787,7 @@ wpp.on('message', async (evt) => {
 app.get('/api/chats', requireAuth, async (req, res) => {
   try {
     const slot = req.query.slot ? parseInt(req.query.slot) : null;
+    console.log(`[chats GET] user=${req.user.id} slot=${slot}`);
     let q = supabase.from('chats')
       .select('id, session_slot, phone, name, last_message, last_message_at, unread, profile_pic_url')
       .eq('user_id', req.user.id)
@@ -1795,6 +1796,7 @@ app.get('/api/chats', requireAuth, async (req, res) => {
     if (slot) q = q.eq('session_slot', slot);
     const { data, error } = await q;
     if (error) throw error;
+    console.log(`[chats GET] found ${data?.length || 0} chats`);
     res.json(data || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
