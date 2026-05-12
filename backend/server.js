@@ -345,11 +345,26 @@ async function verifyPassword(password, stored) {
   }
 }
 
+// Cache de autenticação em memória — evita query no Supabase a cada requisição
+const authCache = new Map(); // token → { user_data, expires_at, cachedAt }
+const AUTH_CACHE_TTL = 60 * 1000; // 60 segundos
+
 async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1] || req.query.token;
   if (!token) return res.status(401).json({ error: 'Não autorizado' });
 
   try {
+    // Verifica cache primeiro — evita hit no Supabase
+    const cached = authCache.get(token);
+    if (cached && Date.now() - cached.cachedAt < AUTH_CACHE_TTL) {
+      if (new Date(cached.expires_at) < new Date()) {
+        authCache.delete(token);
+        return res.status(401).json({ error: 'Sessão expirada' });
+      }
+      req.user = cached.user_data;
+      return next();
+    }
+
     const { data: session, error } = await supabase
       .from('sessions')
       .select('*')
@@ -357,12 +372,21 @@ async function requireAuth(req, res, next) {
       .single();
 
     if (error || !session) {
+      authCache.delete(token);
       return res.status(401).json({ error: 'Sessão inválida' });
     }
     if (new Date(session.expires_at) < new Date()) {
       await supabase.from('sessions').delete().eq('token', token);
+      authCache.delete(token);
       return res.status(401).json({ error: 'Sessão expirada' });
     }
+
+    // Salva no cache
+    authCache.set(token, {
+      user_data: session.user_data,
+      expires_at: session.expires_at,
+      cachedAt: Date.now()
+    });
 
     req.user = session.user_data;
     next();
@@ -371,6 +395,14 @@ async function requireAuth(req, res, next) {
     return res.status(500).json({ error: 'Erro de autenticação' });
   }
 }
+
+// Limpa cache de auth expirado a cada 5 minutos
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, val] of authCache) {
+    if (now - val.cachedAt > AUTH_CACHE_TTL * 2) authCache.delete(token);
+  }
+}, 5 * 60 * 1000);
 
 // ── Caches em memória (reduz queries repetidas no Supabase) ───
 const chatsCache = new Map();  // key: userId:slot → { data, ts }
@@ -1815,10 +1847,10 @@ app.get('/api/chats', requireAuth, async (req, res) => {
     const slot = req.query.slot ? parseInt(req.query.slot) : null;
     console.log(`[chats GET] user=${req.user.id} slot=${slot}`);
 
-    // Cache simples em memória por 3s — evita rafaga de queries no Supabase
+    // Cache simples em memória por 10s — evita rafaga de queries no Supabase
     const cacheKey = `${req.user.id}:${slot}`;
     const cached = chatsCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < 3000) {
+    if (cached && Date.now() - cached.ts < 10000) {
       return res.json(cached.data);
     }
 
