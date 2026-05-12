@@ -1855,7 +1855,7 @@ app.get('/api/chats', requireAuth, async (req, res) => {
     }
 
     let q = supabase.from('chats')
-      .select('id, session_slot, phone, name, last_message, last_message_at, unread, profile_pic_url')
+      .select('id, session_slot, phone, name, last_message, last_message_at')
       .eq('user_id', req.user.id)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200);
