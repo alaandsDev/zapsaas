@@ -2653,18 +2653,30 @@ app.post('/api/stripe/portal', requireAuth, async (req, res) => {
 // CRON — DISPAROS AGENDADOS com lock atômico
 // ═══════════════════════════════════════════════════════════════
 
-cron.schedule('* * * * *', async () => {
+cron.schedule('*/3 * * * *', async () => {
   try {
     const now = new Date().toISOString();
 
-    // Lock atômico: UPDATE status='processing' WHERE status='scheduled' AND scheduled_at <= now
-    // Apenas UMA instância processa cada disparo — sem duplicatas
-    const { data: pending, error } = await supabase
+    // Lock atômico com timeout — evita travar quando Supabase está lento
+    const cronPromise = supabase
       .from('dispatches')
       .update({ status: 'sending', processing_started_at: now })
       .eq('status', 'scheduled')
       .lte('scheduled_at', now)
       .select();
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('cron timeout')), 8000)
+    );
+
+    let pending, error;
+    try {
+      const result = await Promise.race([cronPromise, timeoutPromise]);
+      pending = result.data;
+      error = result.error;
+    } catch (timeoutErr) {
+      return; // silencia timeout do cron
+    }
 
     if (error) { console.error('[cron] Lock error:', error.message); return; }
     if (!pending?.length) return;
