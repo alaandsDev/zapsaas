@@ -218,9 +218,15 @@ class WhatsAppManager extends EventEmitter {
           if (!msg?.message) { console.log(`[WPP] msg sem message, key=${JSON.stringify(msg?.key)}`); continue; }
           const remoteJid = msg.key?.remoteJid || '';
           if (!remoteJid) { console.log(`[WPP] msg sem remoteJid`); continue; }
-          const isPersonal = remoteJid.endsWith('@s.whatsapp.net') || remoteJid.endsWith('@c.us');
+          const isPersonal = remoteJid.endsWith('@s.whatsapp.net') || remoteJid.endsWith('@c.us') || remoteJid.endsWith('@lid');
           if (!isPersonal) { console.log(`[WPP] filtrado jid=${remoteJid}`); continue; }
-          const phone = remoteJid.split('@')[0].split(':')[0];
+
+          // Para @lid, usa remoteJidAlt (@s.whatsapp.net) se disponível
+          const resolvedJid = (remoteJid.endsWith('@lid') && msg.key?.remoteJidAlt)
+            ? msg.key.remoteJidAlt
+            : remoteJid;
+
+          const phone = resolvedJid.split('@')[0].split(':')[0];
           if (!/^\d{10,15}$/.test(phone)) { console.log(`[WPP] filtrado phone=${phone}`); continue; }
           const ownPhone = sock.user?.id?.split(':')[0]?.split('@')[0];
           if (ownPhone && ownPhone === phone) { console.log(`[WPP] filtrado self phone=${phone}`); continue; }
