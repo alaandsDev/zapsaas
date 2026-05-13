@@ -1808,13 +1808,14 @@ wpp.on('message', async (evt) => {
     let chatId = existing?.id;
 
     if (!chatId) {
-      const { data: created, error: cErr } = await supabase.from('chats').insert({
+      // Usa upsert para evitar duplicate key quando há race condition
+      const { data: created, error: cErr } = await supabase.from('chats').upsert({
         user_id: userId, session_slot: slot, phone: evt.phone,
         name: evt.pushName || null,
         last_message: lastMsg,
         last_message_at: ts,
         unread: evt.fromMe ? 0 : 1,
-      }).select('id').single();
+      }, { onConflict: 'user_id,session_slot,phone' }).select('id').single();
       if (cErr) { console.error('[chat] erro criar chat:', cErr.message, cErr.details || ''); return; }
       chatId = created?.id;
     } else {
