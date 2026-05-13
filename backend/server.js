@@ -404,16 +404,27 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// ── Limpeza automática das keys do Baileys a cada 24h ─────────
-// Evita acúmulo de MB na tabela wpp_sessions que trava o Supabase
+// ── Limpeza seletiva das keys do Baileys a cada 24h ─────────
+// Remove apenas keys antigas (>7 dias) para evitar acúmulo sem quebrar sessões ativas
 setInterval(async () => {
   try {
-    const { error } = await supabase
-      .from('wpp_sessions')
-      .update({ keys: {}, updated_at: new Date().toISOString() })
-      .neq('session_id', 'placeholder'); // atualiza todas
-    if (error) console.error('[cleanup] Erro ao limpar keys Baileys:', error.message);
-    else console.log('[cleanup] Keys do Baileys limpas com sucesso');
+    const { data: sessions } = await supabase.from('wpp_sessions').select('session_id, keys');
+    if (!sessions) return;
+    for (const s of sessions) {
+      if (!s.keys || typeof s.keys !== 'object') continue;
+      const keys = s.keys;
+      const total = JSON.stringify(keys).length;
+      // Só limpa se keys passou de 500KB — remove entradas mais antigas
+      if (total > 500000) {
+        const entries = Object.entries(keys);
+        // Mantém apenas as últimas 1000 entradas
+        const trimmed = Object.fromEntries(entries.slice(-1000));
+        await supabase.from('wpp_sessions')
+          .update({ keys: trimmed, updated_at: new Date().toISOString() })
+          .eq('session_id', s.session_id);
+        console.log(`[cleanup] Keys de ${s.session_id} reduzidas de ${entries.length} para 1000 entradas`);
+      }
+    }
   } catch (e) {
     console.error('[cleanup] Falhou:', e.message);
   }
