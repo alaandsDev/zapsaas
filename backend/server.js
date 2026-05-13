@@ -435,22 +435,34 @@ app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
 
-    const { data: user, error } = await supabase
+    // Timeout de 10s para não deixar o cliente esperando 24s
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 10000)
+    );
+
+    const userPromise = supabase
       .from('users')
       .select('id, name, email, role, password')
       .eq('email', email.toLowerCase().trim())
       .single();
 
+    const { data: user, error } = await Promise.race([userPromise, timeoutPromise])
+      .catch(e => {
+        if (e.message === 'timeout') return { data: null, error: { message: 'timeout' } };
+        return { data: null, error: e };
+      });
+
+    if (error?.message === 'timeout') return res.status(503).json({ error: 'Servidor temporariamente lento, tente novamente em instantes' });
     if (error || !user) return res.status(401).json({ error: 'Email ou senha inválidos' });
 
-    // Suporta bcrypt e sha256 legacy (migração lazy)
     const valid = await verifyPassword(password, user.password);
     if (!valid) return res.status(401).json({ error: 'Email ou senha inválidos' });
 
-    // Migração lazy: se senha ainda é sha256, re-hash com bcrypt
+    // Migração lazy: se senha ainda é sha256, re-hash com bcrypt (em background)
     if (bcrypt && !user.password.startsWith('$2')) {
-      const newHash = await hashPassword(password);
-      await supabase.from('users').update({ password: newHash }).eq('id', user.id);
+      hashPassword(password).then(newHash =>
+        supabase.from('users').update({ password: newHash }).eq('id', user.id)
+      ).catch(() => {});
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -465,13 +477,15 @@ app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
 
     if (sessionError) return res.status(500).json({ error: 'Erro ao criar sessão' });
 
-    // Limpa sessões antigas do usuário (mantém últimas 5)
-    const { data: oldSessions } = await supabase.from('sessions')
-      .select('token').eq('user_id', user.id).order('expires_at', { ascending: true });
-    if (oldSessions && oldSessions.length > 5) {
-      const toDelete = oldSessions.slice(0, oldSessions.length - 5).map(s => s.token);
-      await supabase.from('sessions').delete().in('token', toDelete);
-    }
+    // Limpa sessões antigas em background — não bloqueia o login
+    supabase.from('sessions')
+      .select('token').eq('user_id', user.id).order('expires_at', { ascending: true })
+      .then(({ data: oldSessions }) => {
+        if (oldSessions && oldSessions.length > 5) {
+          const toDelete = oldSessions.slice(0, oldSessions.length - 5).map(s => s.token);
+          return supabase.from('sessions').delete().in('token', toDelete);
+        }
+      }).catch(() => {});
 
     res.json({ token, user: userData });
   } catch (e) {
