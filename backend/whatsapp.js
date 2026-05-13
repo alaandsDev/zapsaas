@@ -212,6 +212,7 @@ class WhatsAppManager extends EventEmitter {
 
     sock.ev.on('messages.upsert', async (upsert) => {
       try {
+        console.log(`[WPP] messages.upsert disparou: ${upsert?.messages?.length} msgs, type=${upsert?.type}`);
         if (!upsert?.messages?.length) return;
         for (const msg of upsert.messages) {
           if (!msg?.message) continue;
