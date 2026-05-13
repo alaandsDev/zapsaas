@@ -215,22 +215,16 @@ class WhatsAppManager extends EventEmitter {
         console.log(`[WPP] messages.upsert disparou: ${upsert?.messages?.length} msgs, type=${upsert?.type}`);
         if (!upsert?.messages?.length) return;
         for (const msg of upsert.messages) {
-          if (!msg?.message) continue;
+          if (!msg?.message) { console.log(`[WPP] msg sem message, key=${JSON.stringify(msg?.key)}`); continue; }
           const remoteJid = msg.key?.remoteJid || '';
-          if (!remoteJid) continue;
-
-          // Filtra: aceita só conversas 1-1 reais. Ignora canais/newsletter/lid/broadcast/grupos.
-          // @s.whatsapp.net = 1:1 normal, @c.us = legacy 1:1
+          if (!remoteJid) { console.log(`[WPP] msg sem remoteJid`); continue; }
           const isPersonal = remoteJid.endsWith('@s.whatsapp.net') || remoteJid.endsWith('@c.us');
-          if (!isPersonal) continue;
-
+          if (!isPersonal) { console.log(`[WPP] filtrado jid=${remoteJid}`); continue; }
           const phone = remoteJid.split('@')[0].split(':')[0];
-          // Sanity: phone deve ser numérico e ter tamanho realista (10-15 dígitos)
-          if (!/^\d{10,15}$/.test(phone)) continue;
-
-          // Filtra "Recados para mim" / self-chat: jid é o próprio número conectado
+          if (!/^\d{10,15}$/.test(phone)) { console.log(`[WPP] filtrado phone=${phone}`); continue; }
           const ownPhone = sock.user?.id?.split(':')[0]?.split('@')[0];
-          if (ownPhone && ownPhone === phone) continue;
+          if (ownPhone && ownPhone === phone) { console.log(`[WPP] filtrado self phone=${phone}`); continue; }
+          console.log(`[WPP] msg passou filtros: phone=${phone} fromMe=${msg.key?.fromMe} type=${upsert.type}`);
 
           const m = msg.message;
 
