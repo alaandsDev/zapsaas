@@ -404,6 +404,21 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// ── Limpeza automática das keys do Baileys a cada 24h ─────────
+// Evita acúmulo de MB na tabela wpp_sessions que trava o Supabase
+setInterval(async () => {
+  try {
+    const { error } = await supabase
+      .from('wpp_sessions')
+      .update({ keys: {}, updated_at: new Date().toISOString() })
+      .neq('session_id', 'placeholder'); // atualiza todas
+    if (error) console.error('[cleanup] Erro ao limpar keys Baileys:', error.message);
+    else console.log('[cleanup] Keys do Baileys limpas com sucesso');
+  } catch (e) {
+    console.error('[cleanup] Falhou:', e.message);
+  }
+}, 24 * 60 * 60 * 1000); // 24 horas
+
 // ── Caches em memória (reduz queries repetidas no Supabase) ───
 const chatsCache = new Map();  // key: userId:slot → { data, ts }
 const profilePicCache = new Map(); // key: phone → { url, ts }
