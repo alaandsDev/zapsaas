@@ -740,6 +740,7 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       scheduled_at: scheduledAt || null,
       user_id: req.user.id,
       channel: via,
+      session_slot: sourceSessionSlot ? parseInt(sourceSessionSlot) : null,
     }).select().single();
 
     if (error) throw error;
@@ -1770,6 +1771,17 @@ wpp.on('disconnected', ({ sessionId }) => {
   const { userId, slot } = parseSessionId(sessionId);
   if (!userId) return;
   sseSend(userId, 'connection', { slot, status: 'disconnected' });
+
+  // Cancela disparos ativos desse slot para não enviar com número desconectado
+  supabase.from('dispatches')
+    .update({ status: 'cancelled', cancel_reason: 'Número desconectado' })
+    .eq('user_id', userId)
+    .eq('session_slot', slot)
+    .in('status', ['sending', 'scheduled', 'paused'])
+    .then(({ error }) => {
+      if (error) console.error(`[disconnect] Erro ao cancelar disparos do slot${slot}:`, error.message);
+      else console.log(`[disconnect] Disparos ativos do user=${userId} slot=${slot} cancelados por desconexão`);
+    });
 });
 
 // SSE stream — autentica via Authorization header OU ?token=...
