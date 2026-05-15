@@ -868,27 +868,41 @@ async function executeRealDispatch(dispatchId, userId) {
     }
   }
 
-  const results = [];
-  let sent = 0, failed = 0;
+  const results = [...dispatch.items]; // preserva items existentes
+  let sent = dispatch.sent || 0;
+  let failed = dispatch.failed || 0;
   let sessionIdx = 0;
 
   for (let i = 0; i < contacts.length; i++) {
+    // Verifica se foi pausado ou cancelado durante o envio
+    const { data: current } = await supabase.from('dispatches').select('status').eq('id', dispatchId).single();
+    if (current?.status === 'paused' || current?.status === 'cancelled') {
+      console.log(`[dispatch] ${dispatchId} interrompido por status=${current.status}`);
+      return;
+    }
+    // Pula contatos já enviados (retomada após restart)
+    if (results[i]?.status === 'sent') { sessionIdx++; continue; }
+
     const contact = contacts[i];
     const session = sessions[sessionIdx % sessions.length];
     sessionIdx++;
 
     try {
       const personalizedMsg = dispatch.message_content.replace(/\{nome\}/gi, contact.name || '');
-      // Personaliza caption da mídia também
       if (media) media.caption = personalizedMsg;
       const sendResult = await wpp.sendMessage(session.key, contact.phone, personalizedMsg, media);
-      results.push({ ...dispatch.items[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: session.slot, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || session.phone || null });
+      results[i] = { ...dispatch.items[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: session.slot, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || session.phone || null };
       sent++;
-      console.log(`[dispatch] ✓ ${contact.phone} via slot ${session.slot}`);
+      console.log(`[dispatch] ✓ ${i+1}/${contacts.length} ${contact.phone} via slot ${session.slot}`);
     } catch (e) {
-      results.push({ ...dispatch.items[i], status: 'failed', error: e.message, sentVia: session.slot });
+      results[i] = { ...dispatch.items[i], status: 'failed', error: e.message, sentVia: session.slot };
       failed++;
       console.error(`[dispatch] ✗ ${contact.phone}: ${e.message}`);
+    }
+
+    // Salva progresso a cada 5 envios
+    if (i % 5 === 0 || i === contacts.length - 1) {
+      await supabase.from('dispatches').update({ sent, failed, items: results }).eq('id', dispatchId);
     }
 
     if (i < contacts.length - 1) {
