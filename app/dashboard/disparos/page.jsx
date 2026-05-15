@@ -609,8 +609,29 @@ export default function DisparosPage() {
 function DispatchDetailModal({ dispatch, onClose }) {
   const [filter, setFilter] = useState("all"); // all|sent|failed|pending
   const [exporting, setExporting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null); // 'pause'|'resume'|'cancel'
 
   if (!dispatch) return null;
+
+  const isActive = dispatch.status === "sending" || dispatch.status === "scheduled";
+  const isPaused = dispatch.status === "paused";
+
+  async function handleAction(action) {
+    setActionLoading(action);
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const API = process.env.NEXT_PUBLIC_API_URL || "";
+      await fetch(`${API}/api/dispatches/${dispatch.id}/${action}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      onClose();
+    } catch (e) {
+      alert("Erro ao executar ação: " + e.message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   const items = Array.isArray(dispatch.items) ? dispatch.items : [];
   const counts = items.reduce((acc, i) => {
@@ -701,6 +722,21 @@ function DispatchDetailModal({ dispatch, onClose }) {
       footer={
         <>
           <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Fechar</button>
+          {isActive && (
+            <button onClick={() => handleAction("pause")} disabled={actionLoading === "pause"} className="px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+              {actionLoading === "pause" ? "Pausando..." : "⏸ Pausar"}
+            </button>
+          )}
+          {isPaused && (
+            <button onClick={() => handleAction("resume")} disabled={actionLoading === "resume"} className="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+              {actionLoading === "resume" ? "Retomando..." : "▶ Retomar"}
+            </button>
+          )}
+          {(isActive || isPaused) && (
+            <button onClick={() => { if (confirm("Cancelar disparo? Os contatos pendentes não receberão a mensagem.")) handleAction("cancel"); }} disabled={actionLoading === "cancel"} className="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+              {actionLoading === "cancel" ? "Cancelando..." : "✕ Cancelar"}
+            </button>
+          )}
           <button onClick={exportXLSX} disabled={exporting || !items.length} className="px-4 py-2 rounded-lg bg-primary text-bg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
             {exporting ? "Gerando..." : "📊 Exportar Excel"}
           </button>

@@ -770,6 +770,48 @@ app.delete('/api/dispatches/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/dispatches/:id/pause', requireAuth, async (req, res) => {
+  try {
+    const { error } = await supabase.from('dispatches')
+      .update({ status: 'paused' })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .in('status', ['sending', 'scheduled']);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: 'Disparo pausado' });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao pausar disparo' });
+  }
+});
+
+app.post('/api/dispatches/:id/resume', requireAuth, async (req, res) => {
+  try {
+    const { error } = await supabase.from('dispatches')
+      .update({ status: 'scheduled' })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .eq('status', 'paused');
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: 'Disparo retomado' });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao retomar disparo' });
+  }
+});
+
+app.post('/api/dispatches/:id/cancel', requireAuth, async (req, res) => {
+  try {
+    const { error } = await supabase.from('dispatches')
+      .update({ status: 'cancelled' })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .in('status', ['sending', 'scheduled', 'paused']);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: 'Disparo cancelado' });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao cancelar disparo' });
+  }
+});
+
 async function executeRealDispatch(dispatchId, userId) {
   const { data: dispatch } = await supabase.from('dispatches').select('*').eq('id', dispatchId).single();
   if (!dispatch) return;
