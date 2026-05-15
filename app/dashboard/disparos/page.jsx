@@ -619,11 +619,10 @@ function DispatchDetailModal({ dispatch, onClose }) {
   async function handleAction(action) {
     setActionLoading(action);
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       const API = process.env.NEXT_PUBLIC_API_URL || "";
       await fetch(`${API}/api/dispatches/${dispatch.id}/${action}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${getToken()}` },
       });
       onClose();
     } catch (e) {
