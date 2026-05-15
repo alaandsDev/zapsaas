@@ -600,16 +600,16 @@ export default function DisparosPage() {
         </div>
       </div>
 
-      <DispatchDetailModal dispatch={detailOpen} onClose={() => setDetailOpen(null)} />
+      <DispatchDetailModal dispatch={detailOpen} onClose={() => setDetailOpen(null)} onRefresh={loadAll} />
     </>
   );
 }
 
 // ── Modal de detalhe + export Excel ──────────────────────────
-function DispatchDetailModal({ dispatch, onClose }) {
-  const [filter, setFilter] = useState("all"); // all|sent|failed|pending
+function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
+  const [filter, setFilter] = useState("all");
   const [exporting, setExporting] = useState(false);
-  const [actionLoading, setActionLoading] = useState(null); // 'pause'|'resume'|'cancel'
+  const [actionLoading, setActionLoading] = useState(null);
 
   if (!dispatch) return null;
 
@@ -620,11 +620,13 @@ function DispatchDetailModal({ dispatch, onClose }) {
     setActionLoading(action);
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "";
-      await fetch(`${API}/api/dispatches/${dispatch.id}/${action}`, {
+      const res = await fetch(`${API}/api/dispatches/${dispatch.id}/${action}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${getToken()}` },
       });
+      if (!res.ok) throw new Error(await res.text());
       onClose();
+      if (onRefresh) onRefresh();
     } catch (e) {
       alert("Erro ao executar ação: " + e.message);
     } finally {
