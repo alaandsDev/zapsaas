@@ -1354,6 +1354,63 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// GATILHO AUTOMÁTICO — mensagem recebida dispara o workflow PUBLICADO
+// Gate de segurança: só roda se houver um workflow com status
+// 'published'. Sem publicação, o comportamento é idêntico ao anterior.
+// ═══════════════════════════════════════════════════════════════
+
+const wfCooldown = new Map(); // `${userId}:${phone}` -> timestamp
+const WF_COOLDOWN_MS = 30 * 1000;
+
+wpp.on('message', async ({ sessionId: userId, phone, text, name }) => {
+  try {
+    // 1) Gate: existe workflow publicado para esse usuário?
+    const { data: wf } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'published')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (!wf) return; // nada publicado → não muda nada
+
+    // 2) Captura de lead (cria se não existir)
+    const { data: existing } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('phone', phone)
+      .limit(1)
+      .maybeSingle();
+    if (!existing) {
+      const { data: lead } = await supabase.from('leads').insert({
+        name: name || phone,
+        phone,
+        source: 'whatsapp',
+        status: 'new',
+        user_id: userId,
+      }).select().single();
+      if (lead) {
+        realtime.feed(userId, { type: 'lead', title: 'Novo lead capturado', name: lead.name, phone });
+      }
+    }
+
+    // 3) Cooldown anti-tempestade por contato
+    const key = `${userId}:${phone}`;
+    const now = Date.now();
+    if (now - (wfCooldown.get(key) || 0) < WF_COOLDOWN_MS) return;
+    wfCooldown.set(key, now);
+
+    // 4) Executa o fluxo publicado
+    const result = await workflowEngine.testRun(wf, userId, phone, name);
+    realtime.feed(userId, { type: 'automation', title: 'Automação executada', name: wf.name, steps: result.steps || 0 });
+  } catch (e) {
+    console.warn('[workflow-trigger] falhou:', e.message);
+  }
+});
+
 // ── START ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 const httpServer = http.createServer(app);

@@ -168,9 +168,28 @@ class WhatsAppManager extends EventEmitter {
     // Save credentials on every update
     sock.ev.on('creds.update', saveCreds);
 
-    // Handle messages to keep session active (optional processing)
-    sock.ev.on('messages.upsert', () => {
-      // Just receiving messages keeps the connection alive
+    // Mensagens recebidas — emite evento para o motor de workflow.
+    // Totalmente protegido: nenhuma falha aqui pode derrubar a sessão.
+    sock.ev.on('messages.upsert', (ev) => {
+      try {
+        if (ev.type !== 'notify') return;
+        for (const m of ev.messages || []) {
+          if (!m.message || m.key?.fromMe) continue;
+          const jid = m.key?.remoteJid || '';
+          if (!jid.endsWith('@s.whatsapp.net')) continue; // ignora grupos/status/broadcast
+          const text =
+            m.message.conversation ||
+            m.message.extendedTextMessage?.text ||
+            m.message.imageMessage?.caption ||
+            m.message.videoMessage?.caption ||
+            '';
+          if (!text) continue;
+          const phone = jid.split('@')[0];
+          this.emit('message', { sessionId, phone, text, name: m.pushName || '' });
+        }
+      } catch (e) {
+        console.warn(`[WPP] Erro ao processar mensagem recebida (${sessionId}):`, e.message);
+      }
     });
 
     return { status: 'connecting', qr: null };
