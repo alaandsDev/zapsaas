@@ -207,6 +207,7 @@ class WhatsAppManager extends EventEmitter {
 
     try {
       await session.sock.sendMessage(jid, { text: message });
+      try { this.emit('message-sent', { sessionId, phone: withCountry, text: message }); } catch {}
       return { success: true, to: jid };
     } catch (e) {
       throw new Error(`Falha ao enviar para ${phone}: ${e.message}`);

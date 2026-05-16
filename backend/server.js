@@ -371,7 +371,10 @@ app.post('/api/leads', async (req, res) => {
       .single();
 
     if (error) throw error;
-    if (userId) realtime.feed(userId, { type: 'lead', title: 'Novo lead capturado', name: data.name, phone: data.phone });
+    if (userId) {
+      realtime.feed(userId, { type: 'lead', title: 'Novo lead capturado', name: data.name, phone: data.phone });
+      logEvent(userId, 'lead', { source: data.source });
+    }
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: 'Erro ao criar lead' });
@@ -525,6 +528,7 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
     }
 
     realtime.feed(req.user.id, { type: 'campaign', title: isScheduled ? 'Campanha agendada' : 'Campanha iniciada', name: message.title, total: items.length });
+    logEvent(req.user.id, 'campaign', { total: items.length });
     res.json({ ...dispatch, via: hasWhatsapp ? 'whatsapp' : 'simulated', scheduled: isScheduled });
   } catch (e) {
     console.error('Dispatch error:', e);
@@ -1205,7 +1209,146 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
 
     const result = await workflowEngine.testRun(wf, req.user.id, phone, name);
     realtime.feed(req.user.id, { type: 'automation', title: 'Automação executada', name: wf.name, steps: result.steps || 0 });
+    logEvent(req.user.id, 'automation', { steps: result.steps || 0 });
     res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+// CRM INBOX
+// ═══════════════════════════════════════════════════════════════
+
+app.get('/api/crm/threads', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('crm_threads')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('last_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/crm/threads/:phone', requireAuth, async (req, res) => {
+  try {
+    const phone = req.params.phone;
+    const { data: messages } = await supabase
+      .from('wa_messages')
+      .select('id, direction, body, name, created_at')
+      .eq('user_id', req.user.id).eq('phone', phone)
+      .order('created_at', { ascending: true })
+      .limit(500);
+    await supabase.from('crm_threads').update({ unread: 0 })
+      .eq('user_id', req.user.id).eq('phone', phone);
+    res.json(messages || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/crm/threads/:phone/reply', requireAuth, rateLimit(60 * 1000, 30), async (req, res) => {
+  try {
+    const phone = req.params.phone;
+    const { body } = req.body;
+    if (!body?.trim()) return res.status(400).json({ error: 'Mensagem vazia' });
+    const wa = wpp.getStatus(req.user.id);
+    if (wa.status !== 'connected') {
+      return res.status(409).json({ error: 'WhatsApp não conectado.' });
+    }
+    await wpp.sendMessage(req.user.id, phone, body); // persistência via evento message-sent
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.patch('/api/crm/threads/:phone', requireAuth, async (req, res) => {
+  try {
+    const allowed = ['tags', 'note', 'status', 'assignee', 'name'];
+    const patch = Object.fromEntries(
+      Object.entries(req.body).filter(([k]) => allowed.includes(k))
+    );
+    const { data, error } = await supabase
+      .from('crm_threads')
+      .update(patch)
+      .eq('user_id', req.user.id).eq('phone', req.params.phone)
+      .select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+// RELATÓRIOS (histórico real a partir de events)
+// ═══════════════════════════════════════════════════════════════
+
+app.get('/api/reports', requireAuth, async (req, res) => {
+  try {
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 7));
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
+
+    const { data: events } = await supabase
+      .from('events')
+      .select('type, created_at')
+      .eq('user_id', req.user.id)
+      .gte('created_at', start.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(20000);
+
+    const ev = events || [];
+    const dayKey = (d) => new Date(d).toISOString().slice(0, 10);
+
+    // Esqueleto de N dias zerados
+    const buckets = {};
+    for (let i = 0; i < days; i++) {
+      const dt = new Date(start);
+      dt.setDate(start.getDate() + i);
+      buckets[dt.toISOString().slice(0, 10)] = {
+        d: dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        leads: 0, messages: 0, conversions: 0, campaigns: 0, automations: 0,
+      };
+    }
+    const hours = Array.from({ length: 24 }, (_, h) => ({ h: `${String(h).padStart(2, '0')}h`, value: 0 }));
+
+    for (const e of ev) {
+      const b = buckets[dayKey(e.created_at)];
+      if (b) {
+        if (e.type === 'lead') b.leads++;
+        else if (e.type === 'message_out' || e.type === 'message_in') b.messages++;
+        else if (e.type === 'conversion') b.conversions++;
+        else if (e.type === 'campaign') b.campaigns++;
+        else if (e.type === 'automation') b.automations++;
+      }
+      if (e.type === 'message_in') {
+        hours[new Date(e.created_at).getHours()].value++;
+      }
+    }
+
+    const series = Object.values(buckets);
+    const totals = series.reduce(
+      (a, s) => ({
+        leads: a.leads + s.leads,
+        messages: a.messages + s.messages,
+        conversions: a.conversions + s.conversions,
+        campaigns: a.campaigns + s.campaigns,
+        automations: a.automations + s.automations,
+      }),
+      { leads: 0, messages: 0, conversions: 0, campaigns: 0, automations: 0 }
+    );
+
+    res.json({ days, series, hours, totals, hasData: ev.length > 0 });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1363,8 +1506,55 @@ cron.schedule('* * * * *', async () => {
 const wfCooldown = new Map(); // `${userId}:${phone}` -> timestamp
 const WF_COOLDOWN_MS = 30 * 1000;
 
+// Registra um evento para os relatórios históricos. Fire-and-forget.
+function logEvent(userId, type, meta = {}) {
+  if (!userId) return;
+  supabase.from('events').insert({ user_id: userId, type, meta })
+    .then(() => {}, (e) => console.warn('[events] log falhou:', e?.message));
+}
+
+// Persiste uma mensagem (in/out), atualiza a thread do CRM e emite realtime.
+async function persistWaMessage(userId, phone, name, direction, body) {
+  logEvent(userId, direction === 'in' ? 'message_in' : 'message_out', { phone });
+  try {
+    await supabase.from('wa_messages').insert({
+      user_id: userId, phone, name: name || '', direction, body: body || '',
+    });
+    const { data: existing } = await supabase
+      .from('crm_threads')
+      .select('id, unread')
+      .eq('user_id', userId).eq('phone', phone).maybeSingle();
+    const patch = {
+      last_body: (body || '').slice(0, 200),
+      last_at: new Date().toISOString(),
+    };
+    if (existing) {
+      patch.unread = direction === 'in' ? (existing.unread || 0) + 1 : 0;
+      if (name) patch.name = name;
+      await supabase.from('crm_threads').update(patch).eq('id', existing.id);
+    } else {
+      await supabase.from('crm_threads').insert({
+        user_id: userId, phone, name: name || phone,
+        unread: direction === 'in' ? 1 : 0, ...patch,
+      });
+    }
+    realtime.emitToUser(userId, 'crm:message', {
+      phone, name: name || '', direction, body: body || '', at: patch.last_at,
+    });
+  } catch (e) {
+    console.warn('[crm] persist falhou:', e.message);
+  }
+}
+
+wpp.on('message-sent', ({ sessionId: userId, phone, text }) => {
+  persistWaMessage(userId, phone, '', 'out', text);
+});
+
 wpp.on('message', async ({ sessionId: userId, phone, text, name }) => {
   try {
+    // 0) Persiste a mensagem recebida no CRM (sempre, independe de workflow)
+    await persistWaMessage(userId, phone, name, 'in', text);
+
     // 1) Gate: existe workflow publicado para esse usuário?
     const { data: wf } = await supabase
       .from('workflows')
@@ -1394,6 +1584,7 @@ wpp.on('message', async ({ sessionId: userId, phone, text, name }) => {
       }).select().single();
       if (lead) {
         realtime.feed(userId, { type: 'lead', title: 'Novo lead capturado', name: lead.name, phone });
+        logEvent(userId, 'lead', { source: 'whatsapp' });
       }
     }
 
@@ -1406,6 +1597,7 @@ wpp.on('message', async ({ sessionId: userId, phone, text, name }) => {
     // 4) Executa o fluxo publicado
     const result = await workflowEngine.testRun(wf, userId, phone, name);
     realtime.feed(userId, { type: 'automation', title: 'Automação executada', name: wf.name, steps: result.steps || 0 });
+    logEvent(userId, 'automation', { steps: result.steps || 0 });
   } catch (e) {
     console.warn('[workflow-trigger] falhou:', e.message);
   }
