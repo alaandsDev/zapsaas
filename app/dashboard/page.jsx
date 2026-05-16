@@ -59,6 +59,7 @@ const FEED_META = {
 
 export default function DashboardHome() {
   const [stats, setStats] = useState(null);
+  const [report, setReport] = useState(null);
   const [user, setUser] = useState(null);
   const [feed, setFeed] = useState([]);
   const [live, setLive] = useState(false);
@@ -78,6 +79,8 @@ export default function DashboardHome() {
         setFeed(seed);
       })
       .catch(() => setStats({}));
+
+    api("/api/reports?days=7").then(setReport).catch(() => {});
 
     const sock = getSocket();
     if (sock) {
@@ -116,10 +119,12 @@ export default function DashboardHome() {
     { label: "Entrega", value: delivery, suffix: "%", delta: 0.4, tint: "#A78BFA" },
   ];
 
-  const growth = useMemo(
-    () => series(leads).map((v, i) => ({ d: DAYS[i], leads: v, msgs: series(sent)[i] })),
-    [leads, sent]
-  );
+  const growth = useMemo(() => {
+    if (report?.hasData && report.series?.length) {
+      return report.series.map((s) => ({ d: s.d, leads: s.leads, msgs: s.messages }));
+    }
+    return series(leads).map((v, i) => ({ d: DAYS[i], leads: v, msgs: series(sent)[i] }));
+  }, [report, leads, sent]);
   const funnel = useMemo(
     () => [
       { d: "Enviadas", v: sent || 0 },
