@@ -2,26 +2,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import Logo from "../Logo";
+import {
+  LayoutDashboard, MessageSquare, Users, Send, Phone,
+  Zap, Link2, HelpCircle, Settings, ChevronLeft,
+  MessageCircle, Sparkles, Pin
+} from "lucide-react";
 import { api } from "../../lib/api";
 
-const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: "M3 12l9-9 9 9v9a2 2 0 01-2 2h-4a2 2 0 01-2-2v-4a1 1 0 00-1-1h-2a1 1 0 00-1 1v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-9z" },
-  { href: "/dashboard/conversas", label: "Conversas", icon: "M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" },
-  { href: "/dashboard/leads", label: "Leads", icon: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" },
-  { href: "/dashboard/disparos", label: "Disparos", icon: "M13 2L4 14h7l-1 8 9-12h-7l1-8z" },
-  { href: "/dashboard/sms", label: "SMS", icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
-  { href: "/dashboard/automacao", label: "Automação", icon: "M9 19c-5 0-8-3-8-8s3-8 8-8h6c5 0 8 3 8 8M7 11h2m6 0h2M5 7h2m6 0h2M5 15h2m6 0h2" },
-  { href: "/dashboard/conexoes", label: "Conexões", icon: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" },
-  { href: "/dashboard/wpp-oficial", label: "WhatsApp Oficial", icon: "M22 11.5a8.5 8.5 0 0 1-8.5 8.5h-.5l-5 3v-3.5A8.5 8.5 0 1 1 22 11.5zM9 11h6m-3-3v6" },
-  { href: "/dashboard/suporte", label: "Suporte", icon: "M12 2a10 10 0 100 20 10 10 0 000-20zM9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01" },
-  { href: "/dashboard/minha-conta", label: "Minha Conta", icon: "M12 15a3 3 0 100-6 3 3 0 000 6zm7.4-3a7.4 7.4 0 00-.1-1.2l2-1.6-2-3.4-2.4.9a7.5 7.5 0 00-2-1.2L14.5 3h-5l-.4 2.5a7.5 7.5 0 00-2 1.2l-2.4-.9-2 3.4 2 1.6a7.4 7.4 0 000 2.4l-2 1.6 2 3.4 2.4-.9a7.5 7.5 0 002 1.2l.4 2.5h5l.4-2.5a7.5 7.5 0 002-1.2l2.4.9 2-3.4-2-1.6c.07-.4.1-.8.1-1.2z" },
+const NAV = [
+  { href: "/dashboard",            label: "Dashboard",         Icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/conversas",  label: "Conversas",         Icon: MessageSquare },
+  { href: "/dashboard/leads",      label: "Leads",             Icon: Users },
+  { href: "/dashboard/disparos",   label: "Disparos",          Icon: Send },
+  { href: "/dashboard/sms",        label: "SMS",               Icon: MessageCircle },
+  { href: "/dashboard/automacao",  label: "Automação",         Icon: Zap, highlight: true },
+  { href: "/dashboard/conexoes",   label: "Conexões",          Icon: Link2 },
+  { href: "/dashboard/wpp-oficial",label: "WhatsApp Oficial",  Icon: Phone },
+  { href: "/dashboard/suporte",    label: "Suporte",           Icon: HelpCircle },
+  { href: "/dashboard/minha-conta",label: "Minha Conta",       Icon: Settings },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [usage, setUsage] = useState(null);
-  // pinned = expandida fixa (botão clicado); hover = expandida temporária por mouse
   const [pinned, setPinned] = useState(false);
   const [hover, setHover] = useState(false);
   const ref = useRef(null);
@@ -30,129 +33,129 @@ export default function Sidebar() {
     api("/api/usage").then(setUsage).catch(() => {});
   }, [pathname]);
 
-  // Restaura preferência (pinned)
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar_pinned");
-    if (saved === "1") setPinned(true);
+    const s = localStorage.getItem("sidebar_pinned");
+    if (s === "1") setPinned(true);
   }, []);
 
-  // Persiste preferência
   useEffect(() => {
     localStorage.setItem("sidebar_pinned", pinned ? "1" : "0");
   }, [pinned]);
 
   const expanded = pinned || hover;
-
+  const floating = hover && !pinned;
   const isPro = usage?.plan === "pro";
   const used = usage?.dispatches?.used ?? 0;
   const limit = usage?.dispatches?.limit ?? 3;
   const pct = isPro ? 100 : Math.min(100, (used / Math.max(limit, 1)) * 100);
 
-  // Estado "flutuante" = expandida por hover mas não fixada → desenha shadow + overlay
-  const floating = hover && !pinned;
-
   return (
     <>
-      {/* SPACER no fluxo do layout — só cresce quando pinned (conteúdo desloca de fato) */}
+      {/* Spacer */}
       <div className={`hidden md:block shrink-0 transition-[width] duration-300 ease-out ${pinned ? "w-64" : "w-16"}`} aria-hidden="true" />
 
-      {/* SIDEBAR flutuante — sempre fixa na esquerda, cresce sobre o conteúdo no hover */}
+      {/* Sidebar */}
       <aside
         ref={ref}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        className={`hidden md:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-white/[0.06] bg-bg/95 backdrop-blur-xl transition-[width,box-shadow] duration-300 ease-out ${expanded ? "w-64" : "w-16"} ${floating ? "shadow-2xl shadow-black/50" : ""}`}
+        className={`hidden md:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-ink-700/60 bg-bg/95 backdrop-blur-xl transition-[width,box-shadow] duration-300 ease-out
+          ${expanded ? "w-64" : "w-16"}
+          ${floating ? "shadow-elevated" : ""}`}
       >
-        <div className={`h-16 flex items-center border-b border-white/[0.06] gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
-          {expanded && <Link href="/dashboard"><Logo /></Link>}
+        {/* Logo */}
+        <div className={`h-16 flex items-center border-b border-ink-700/60 gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
+          {expanded && (
+            <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
+              <div className="size-7 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
+                <Zap className="size-4 text-bg" />
+              </div>
+              <span className="font-black text-base tracking-tight whitespace-nowrap">ZapFlow</span>
+            </Link>
+          )}
           <button
-            onClick={() => setPinned((v) => !v)}
-            className={`size-9 flex items-center justify-center rounded-lg transition-colors ${pinned ? "bg-primary/15 text-primary" : "hover:bg-white/5 text-ink-300 hover:text-ink-100"}`}
-            aria-label={pinned ? "Desafixar menu" : "Fixar menu aberto"}
-            title={pinned ? "Desafixar (volta a recolher no hover)" : "Fixar menu aberto"}
+            onClick={() => setPinned(v => !v)}
+            className={`size-9 flex items-center justify-center rounded-lg transition-all ${pinned ? "bg-primary/15 text-primary" : "hover:bg-white/[0.04] text-ink-400 hover:text-ink-200"}`}
+            title={pinned ? "Desafixar menu" : "Fixar menu"}
           >
-            {/* ícone de pin */}
-            <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2l3 6 6 1-4.5 4 1 6L12 16l-5.5 3 1-6L3 9l6-1z" fill={pinned ? "currentColor" : "none"} />
-            </svg>
+            <Pin className={`size-4 transition-transform ${pinned ? "rotate-45" : ""}`} />
           </button>
         </div>
 
+        {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
-          {nav.map((item) => {
-            const active = item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+          {NAV.map((item) => {
+            const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+            const { Icon } = item;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 title={!expanded ? item.label : undefined}
-                className={`flex items-center gap-3 rounded-lg text-sm transition-all ${expanded ? "px-3 py-2" : "px-0 py-2 justify-center"} ${
-                  active
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "text-ink-300 hover:text-ink-100 hover:bg-white/5 border border-transparent"
-                }`}
+                className={`flex items-center gap-3 rounded-xl text-sm transition-all duration-150
+                  ${expanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center"}
+                  ${active ? "nav-active" : "nav-inactive"}
+                  ${item.highlight && !active ? "text-secondary hover:text-secondary hover:bg-secondary/[0.06]" : ""}
+                `}
               >
-                <svg className="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={item.icon} />
-                </svg>
-                {expanded && <span className="font-medium whitespace-nowrap overflow-hidden">{item.label}</span>}
+                <Icon className={`size-5 shrink-0 ${item.highlight && !active ? "text-secondary" : ""}`} />
+                {expanded && (
+                  <span className="font-medium whitespace-nowrap overflow-hidden flex-1">
+                    {item.label}
+                  </span>
+                )}
+                {expanded && item.highlight && !active && (
+                  <span className="badge-purple text-[9px] py-0 px-1.5 ml-auto">PRO</span>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="shrink-0 p-2 border-t border-white/[0.06]">
+        {/* Plan footer */}
+        <div className="shrink-0 p-2 border-t border-ink-700/60 space-y-1">
           {isPro ? (
-            <Link
-              href="/dashboard/minha-conta"
+            <Link href="/dashboard/minha-conta"
               title={!expanded ? "Plano Pro" : undefined}
-              className={`flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors ${expanded ? "px-2 py-2" : "p-2 justify-center"}`}
-            >
-              <div className="size-6 shrink-0 rounded-md bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-[10px]">⚡</div>
-              {expanded && <div className="text-xs font-semibold text-primary">Plano Pro</div>}
+              className={`flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors ${expanded ? "px-3 py-2.5" : "p-2.5 justify-center"}`}>
+              <div className="size-6 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
+                <Sparkles className="size-3.5 text-bg" />
+              </div>
+              {expanded && <span className="text-sm font-bold text-primary">Plano Pro</span>}
             </Link>
           ) : expanded ? (
-            <Link href="/dashboard/minha-conta" className="block px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors">
-              <div className="text-xs font-semibold text-primary truncate">Plano Gratuito</div>
-              <div className="text-[10px] text-ink-400 mt-0.5">{used}/{limit} disparos · upgrade ⚡</div>
-              <div className="mt-1.5 h-1 rounded-full bg-white/[0.06] overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+            <Link href="/dashboard/minha-conta" className="block px-3 py-2.5 rounded-xl bg-ink-700/40 border border-ink-600 hover:border-ink-500 transition-colors">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-ink-200">Plano Gratuito</span>
+                <span className="text-[10px] text-primary font-bold">Upgrade ⚡</span>
+              </div>
+              <div className="text-[10px] text-ink-500 mb-1.5">{used}/{limit} disparos usados</div>
+              <div className="h-1.5 bg-ink-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-primary transition-all duration-500" style={{ width: `${pct}%` }} />
               </div>
             </Link>
           ) : (
-            <Link
-              href="/dashboard/minha-conta"
+            <Link href="/dashboard/minha-conta"
               title={`Plano Gratuito · ${used}/${limit}`}
-              className="flex items-center justify-center p-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
-            >
-              <span className="text-base">⚡</span>
+              className="flex items-center justify-center p-2.5 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors">
+              <Sparkles className="size-4 text-primary" />
             </Link>
           )}
         </div>
       </aside>
 
-      <nav className="md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-bg/95 backdrop-blur-xl">
-        <div className="flex gap-1 overflow-x-auto px-2 py-2">
-          {nav.map((item) => {
-            const active = item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-ink-700/60 bg-bg/95 backdrop-blur-xl">
+        <div className="flex gap-1 overflow-x-auto px-2 py-2 hide-scrollbar">
+          {NAV.map((item) => {
+            const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+            const { Icon } = item;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`min-w-[70px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] transition-colors ${
-                  active
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "text-ink-300 border border-transparent"
-                }`}
-              >
-                <svg className="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={item.icon} />
-                </svg>
-                <span className="max-w-[62px] truncate">{item.label}</span>
+              <Link key={item.href} href={item.href}
+                className={`min-w-[64px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] transition-all
+                  ${active ? "nav-active" : "nav-inactive"}`}>
+                <Icon className="size-5 shrink-0" />
+                <span className="truncate max-w-[58px]">{item.label}</span>
               </Link>
             );
           })}
