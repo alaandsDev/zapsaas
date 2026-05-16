@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const wpp = require('./whatsapp');
 const workflowEngine = require('./workflow-engine');
+const realtime = require('./realtime');
+const http = require('http');
 const Stripe = require('stripe');
 const cron = require('node-cron');
 
@@ -369,6 +371,7 @@ app.post('/api/leads', async (req, res) => {
       .single();
 
     if (error) throw error;
+    if (userId) realtime.feed(userId, { type: 'lead', title: 'Novo lead capturado', name: data.name, phone: data.phone });
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: 'Erro ao criar lead' });
@@ -521,6 +524,7 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       }
     }
 
+    realtime.feed(req.user.id, { type: 'campaign', title: isScheduled ? 'Campanha agendada' : 'Campanha iniciada', name: message.title, total: items.length });
     res.json({ ...dispatch, via: hasWhatsapp ? 'whatsapp' : 'simulated', scheduled: isScheduled });
   } catch (e) {
     console.error('Dispatch error:', e);
@@ -1200,6 +1204,7 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
     }
 
     const result = await workflowEngine.testRun(wf, req.user.id, phone, name);
+    realtime.feed(req.user.id, { type: 'automation', title: 'Automação executada', name: wf.name, steps: result.steps || 0 });
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1351,7 +1356,9 @@ cron.schedule('* * * * *', async () => {
 
 // ── START ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, async () => {
+const httpServer = http.createServer(app);
+realtime.init(httpServer, supabase);
+httpServer.listen(PORT, async () => {
   console.log(`\n🚀 ZapSaaS v2 rodando em http://localhost:${PORT}`);
   console.log(`📦 Banco: Supabase`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);

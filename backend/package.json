@@ -19,6 +19,7 @@
     "node-cron": "^4.2.1",
     "pino": "^8.19.0",
     "qrcode": "^1.5.4",
+    "socket.io": "^4.8.3",
     "stripe": "^22.1.0"
   },
   "devDependencies": {
