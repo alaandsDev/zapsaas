@@ -4,6 +4,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const wpp = require('./whatsapp');
+const workflowEngine = require('./workflow-engine');
 const Stripe = require('stripe');
 const cron = require('node-cron');
 
@@ -1095,6 +1096,115 @@ app.delete('/api/lists/:id', requireAuth, async (req, res) => {
   }
 });
 
+
+
+// ═══════════════════════════════════════════════════════════════
+// WORKFLOWS (automações visuais)
+// ═══════════════════════════════════════════════════════════════
+
+app.get('/api/workflows', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('workflows')
+      .select('id, name, status, updated_at')
+      .eq('user_id', req.user.id)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/workflows/:id', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(404).json({ error: 'Fluxo não encontrado' });
+  }
+});
+
+app.post('/api/workflows', requireAuth, async (req, res) => {
+  try {
+    const { name, nodes, edges, status } = req.body;
+    const { data, error } = await supabase.from('workflows').insert({
+      name: name || 'Novo fluxo',
+      nodes: nodes || [],
+      edges: edges || [],
+      status: status === 'published' ? 'published' : 'draft',
+      user_id: req.user.id,
+    }).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/workflows/:id', requireAuth, async (req, res) => {
+  try {
+    const { name, nodes, edges, status } = req.body;
+    const patch = {};
+    if (name !== undefined) patch.name = name;
+    if (nodes !== undefined) patch.nodes = nodes;
+    if (edges !== undefined) patch.edges = edges;
+    if (status !== undefined) patch.status = status === 'published' ? 'published' : 'draft';
+    const { data, error } = await supabase
+      .from('workflows')
+      .update(patch)
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/workflows/:id', requireAuth, async (req, res) => {
+  try {
+    await supabase.from('workflows').delete()
+      .eq('id', req.params.id).eq('user_id', req.user.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Test-run manual: dispara o fluxo para um número de teste pelo WhatsApp do usuário
+app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async (req, res) => {
+  try {
+    const { phone, name } = req.body;
+    if (!phone) return res.status(400).json({ error: 'Informe um número de teste' });
+
+    const { data: wf, error } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+    if (error || !wf) return res.status(404).json({ error: 'Fluxo não encontrado' });
+
+    const wa = wpp.getStatus(req.user.id);
+    if (wa.status !== 'connected') {
+      return res.status(409).json({ error: 'WhatsApp não conectado. Conecte em Configurações.' });
+    }
+
+    const result = await workflowEngine.testRun(wf, req.user.id, phone, name);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 
 const PLANS = {
