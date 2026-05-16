@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import Topbar from "../../../components/dashboard/Topbar";
 import Modal from "../../../components/dashboard/Modal";
 import EmptyState from "../../../components/dashboard/EmptyState";
@@ -37,9 +38,42 @@ export default function Disparos() {
         subtitle="Envie sua mensagem para centenas de contatos"
         actions={<Button onClick={() => setOpen(true)}>+ Novo disparo</Button>}
       />
-      <div className="p-6 lg:p-8">
+      <div className="p-6 lg:p-8 space-y-6">
+        {!loading && list.length > 0 && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: "Disparos", value: list.length, tint: "#00FF88" },
+              { label: "Concluídos", value: list.filter((d) => d.status === "completed").length, tint: "#22D3EE" },
+              { label: "Em andamento", value: list.filter((d) => ["sending", "pending"].includes(d.status)).length, tint: "#FBBF24" },
+              { label: "Destinatários", value: list.reduce((a, d) => a + (d.recipients_count ?? d.total ?? 0), 0), tint: "#7C3AED" },
+            ].map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="glass p-4"
+              >
+                <div className="text-[11px] uppercase tracking-wide text-ink-300">{s.label}</div>
+                <div className="text-2xl font-bold mt-1.5" style={{ color: s.tint }}>
+                  {s.value.toLocaleString("pt-BR")}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
         {loading ? (
-          <div className="card p-12 flex justify-center"><div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          <div className="glass overflow-hidden">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-4 border-b border-white/[0.04] animate-pulse">
+                <div className="h-3 flex-1 bg-white/10 rounded" />
+                <div className="h-3 w-16 bg-white/10 rounded" />
+                <div className="h-5 w-20 bg-white/10 rounded-full" />
+                <div className="h-3 w-24 bg-white/10 rounded" />
+              </div>
+            ))}
+          </div>
         ) : list.length === 0 ? (
           <EmptyState
             icon="⚡"
@@ -48,30 +82,40 @@ export default function Disparos() {
             action={<Button onClick={() => setOpen(true)}>Criar primeiro disparo</Button>}
           />
         ) : (
-          <div className="card overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass overflow-hidden"
+          >
             <table className="w-full">
               <thead className="bg-white/[0.02] border-b border-white/[0.06]">
                 <tr className="text-left text-xs uppercase tracking-wider text-ink-500">
-                  <th className="px-5 py-3 font-medium">Mensagem</th>
-                  <th className="px-5 py-3 font-medium">Destinatários</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Data</th>
+                  <th className="px-5 py-3.5 font-medium">Mensagem</th>
+                  <th className="px-5 py-3.5 font-medium">Destinatários</th>
+                  <th className="px-5 py-3.5 font-medium">Status</th>
+                  <th className="px-5 py-3.5 font-medium">Data</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {list.map((d) => (
-                  <tr key={d.id} className="hover:bg-white/[0.02]">
-                    <td className="px-5 py-4 text-sm max-w-md truncate">{d.message || d.message_preview || "—"}</td>
+                {list.map((d, i) => (
+                  <motion.tr
+                    key={d.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.4) }}
+                    className="group hover:bg-white/[0.03] transition-colors"
+                  >
+                    <td className="px-5 py-4 text-sm max-w-md truncate group-hover:text-primary transition-colors">{d.message || d.message_preview || "—"}</td>
                     <td className="px-5 py-4 text-sm text-ink-300">{d.recipients_count ?? d.total ?? "—"}</td>
                     <td className="px-5 py-4 text-sm">
                       <Badge status={d.status} />
                     </td>
                     <td className="px-5 py-4 text-sm text-ink-500">{fmtDate(d.created_at)}</td>
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </motion.div>
         )}
       </div>
       <NewDispatchModal open={open} onClose={() => setOpen(false)} lists={lists} messages={messages} onCreated={load} />

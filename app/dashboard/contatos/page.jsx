@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import Topbar from "../../../components/dashboard/Topbar";
 import Modal from "../../../components/dashboard/Modal";
 import EmptyState from "../../../components/dashboard/EmptyState";
@@ -59,16 +60,29 @@ export default function Contatos() {
         {lists.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {lists.map((l) => (
-              <span key={l.id} className="card px-3 py-1.5 text-sm">
+              <motion.span
+                key={l.id}
+                whileHover={{ y: -2 }}
+                className="glass px-3.5 py-1.5 text-sm flex items-center gap-2"
+              >
+                <span className="size-1.5 rounded-full bg-primary" />
                 <span className="font-medium">{l.name}</span>
-                <span className="text-ink-500 ml-2">{l.contacts_count || 0}</span>
-              </span>
+                <span className="text-ink-500">{l.contacts_count || 0}</span>
+              </motion.span>
             ))}
           </div>
         )}
         <Input placeholder="Buscar por nome, telefone, e-mail..." value={q} onChange={(e) => setQ(e.target.value)} />
         {loading ? (
-          <div className="card p-12 flex justify-center"><div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+          <div className="glass overflow-hidden">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-white/[0.04] animate-pulse">
+                <div className="h-3 w-40 bg-white/10 rounded" />
+                <div className="h-3 w-28 bg-white/10 rounded" />
+                <div className="h-5 w-16 bg-white/10 rounded-full ml-auto" />
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon="👥"
@@ -77,32 +91,42 @@ export default function Contatos() {
             action={leads.length === 0 && <Button onClick={() => setOpenLead(true)}>Adicionar primeiro contato</Button>}
           />
         ) : (
-          <div className="card overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass overflow-hidden"
+          >
             <table className="w-full">
               <thead className="bg-white/[0.02] border-b border-white/[0.06]">
                 <tr className="text-left text-xs uppercase tracking-wider text-ink-500">
-                  <th className="px-5 py-3 font-medium">Nome</th>
-                  <th className="px-5 py-3 font-medium">Telefone</th>
-                  <th className="px-5 py-3 font-medium">Tag</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3" />
+                  <th className="px-5 py-3.5 font-medium">Nome</th>
+                  <th className="px-5 py-3.5 font-medium">Telefone</th>
+                  <th className="px-5 py-3.5 font-medium">Tag</th>
+                  <th className="px-5 py-3.5 font-medium">Status</th>
+                  <th className="px-5 py-3.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {filtered.map((l) => (
-                  <tr key={l.id} className="hover:bg-white/[0.02]">
-                    <td className="px-5 py-3.5 text-sm font-medium">{l.name || "—"}</td>
+                {filtered.map((l, i) => (
+                  <motion.tr
+                    key={l.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: Math.min(i * 0.02, 0.4) }}
+                    className="group hover:bg-white/[0.03] transition-colors"
+                  >
+                    <td className="px-5 py-3.5 text-sm font-medium group-hover:text-primary transition-colors">{l.name || "—"}</td>
                     <td className="px-5 py-3.5 text-sm text-ink-300">{l.phone || "—"}</td>
                     <td className="px-5 py-3.5 text-sm">{l.tag && <span className="inline-flex px-2.5 py-1 rounded-full text-xs bg-accent-purple/15 text-accent-purple border border-accent-purple/30">{l.tag}</span>}</td>
                     <td className="px-5 py-3.5 text-sm text-ink-300">{l.status || "Novo"}</td>
                     <td className="px-5 py-3.5 text-right">
-                      <button onClick={() => delLead(l.id)} className="text-ink-500 hover:text-red-400 text-sm">Remover</button>
+                      <button onClick={() => delLead(l.id)} className="text-ink-500 hover:text-red-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">Remover</button>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </motion.div>
         )}
       </div>
 
