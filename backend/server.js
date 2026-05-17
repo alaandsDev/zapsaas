@@ -1058,6 +1058,55 @@ app.get('/api/stats', requireAuth, async (req, res) => {
   }
 });
 
+// Insights reais p/ a dashboard: melhores horários (msgs recebidas) +
+// desempenho por canal (origem dos leads). Só dados reais do usuário.
+app.get('/api/dashboard/insights', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const [{ data: msgs }, { data: leadRows }] = await Promise.all([
+      supabase.from('chat_messages')
+        .select('timestamp')
+        .eq('user_id', uid).eq('direction', 'in')
+        .gte('timestamp', since.toISOString())
+        .order('timestamp', { ascending: false })
+        .limit(8000),
+      supabase.from('leads')
+        .select('source')
+        .eq('user_id', uid)
+        .limit(20000),
+    ]);
+
+    const hours = Array.from({ length: 24 }, (_, h) => ({
+      h: `${String(h).padStart(2, '0')}h`, value: 0,
+    }));
+    (msgs || []).forEach((m) => {
+      const d = new Date(m.timestamp);
+      if (!isNaN(d)) hours[d.getHours()].value++;
+    });
+
+    const chanMap = new Map();
+    (leadRows || []).forEach((l) => {
+      const s = (l.source || 'form');
+      chanMap.set(s, (chanMap.get(s) || 0) + 1);
+    });
+    const channels = [...chanMap.entries()]
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+
+    res.json({
+      hours,
+      channels,
+      hasData: (msgs?.length || 0) > 0 || channels.length > 0,
+    });
+  } catch (e) {
+    console.error('Insights error:', e);
+    res.status(500).json({ error: 'Erro ao buscar insights' });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // WHATSAPP CLOUD API (Meta direto)
 // ═══════════════════════════════════════════════════════════════
