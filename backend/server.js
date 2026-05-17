@@ -2946,6 +2946,8 @@ app.post('/api/lists', requireAuth, async (req, res) => {
   try {
     const { name, contacts } = req.body;
     if (!name || !contacts?.length) return res.status(400).json({ error: 'Nome e contatos são obrigatórios' });
+
+    // Salva a lista normalmente
     const { data, error } = await supabase.from('contact_lists').insert({
       name,
       contacts,
@@ -2953,7 +2955,50 @@ app.post('/api/lists', requireAuth, async (req, res) => {
       user_id: req.user.id
     }).select().single();
     if (error) throw error;
-    res.json(data);
+
+    // Sincroniza contatos da lista como leads (ignora duplicatas por telefone)
+    try {
+      // Busca telefones que já existem para esse usuário (evita duplicatas)
+      const phones = contacts.map(c => (c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '')).filter(Boolean);
+
+      const { data: existing } = await supabase
+        .from('leads')
+        .select('phone')
+        .eq('user_id', req.user.id)
+        .in('phone', phones);
+
+      const existingPhones = new Set((existing || []).map(l => l.phone));
+
+      const newLeads = contacts
+        .map(c => {
+          const phone = (c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '');
+          const name = c.name || c.nome || c.Name || c.Nome || phone;
+          return { phone, name };
+        })
+        .filter(c => c.phone && !existingPhones.has(c.phone))
+        .map(c => ({
+          name: c.name,
+          phone: c.phone,
+          source: 'import',
+          status: 'new',
+          interest: '',
+          user_id: req.user.id,
+        }));
+
+      if (newLeads.length > 0) {
+        // Insere em lotes de 500 para não estourar o limite do Supabase
+        const BATCH = 500;
+        for (let i = 0; i < newLeads.length; i += BATCH) {
+          await supabase.from('leads').insert(newLeads.slice(i, i + BATCH));
+        }
+      }
+
+      res.json({ ...data, leads_synced: newLeads.length });
+    } catch (syncErr) {
+      // Falha na sincronização não deve derrubar a criação da lista
+      console.error('Erro ao sincronizar leads:', syncErr.message);
+      res.json({ ...data, leads_synced: 0, sync_warning: syncErr.message });
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2980,6 +3025,61 @@ app.delete('/api/lists/:id', requireAuth, async (req, res) => {
   try {
     await supabase.from('contact_lists').delete().eq('id', req.params.id).eq('user_id', req.user.id);
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Sincronizar todas as listas existentes como leads (retroativo)
+app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Busca todas as listas do usuário
+    const { data: lists, error: listErr } = await supabase
+      .from('contact_lists')
+      .select('id, name, contacts')
+      .eq('user_id', userId);
+    if (listErr) throw listErr;
+
+    // Busca todos os telefones já existentes como lead
+    const { data: existingLeads } = await supabase
+      .from('leads')
+      .select('phone')
+      .eq('user_id', userId);
+    const existingPhones = new Set((existingLeads || []).map(l => l.phone));
+
+    let totalSynced = 0;
+
+    for (const list of (lists || [])) {
+      const contacts = Array.isArray(list.contacts) ? list.contacts : [];
+      const newLeads = contacts
+        .map(c => {
+          const phone = (c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '');
+          const name = c.name || c.nome || c.Name || c.Nome || phone;
+          return { phone, name };
+        })
+        .filter(c => c.phone && !existingPhones.has(c.phone))
+        .map(c => {
+          existingPhones.add(c.phone); // evita duplicata entre listas
+          return {
+            name: c.name,
+            phone: c.phone,
+            source: 'import',
+            status: 'new',
+            interest: '',
+            user_id: userId,
+          };
+        });
+
+      const BATCH = 500;
+      for (let i = 0; i < newLeads.length; i += BATCH) {
+        await supabase.from('leads').insert(newLeads.slice(i, i + BATCH));
+      }
+      totalSynced += newLeads.length;
+    }
+
+    res.json({ success: true, lists_processed: (lists || []).length, leads_synced: totalSynced });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

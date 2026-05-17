@@ -132,6 +132,22 @@ export default function LeadsPage() {
   const [openListView, setOpenListView] = useState(null);
   const [editLead, setEditLead] = useState(null);
   const [tagInput, setTagInput] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+
+  async function syncAllLists() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const result = await api("/api/lists/sync-all", { method: "POST" }).catch(() => null);
+      if (result) {
+        setSyncResult(result);
+        await load();
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function patchLead(id, patch) {
     const updated = await api(`/api/leads/${id}`, { method: "PATCH", body: patch }).catch(() => null);
@@ -231,6 +247,9 @@ export default function LeadsPage() {
         subtitle="Central operacional de relacionamento"
         actions={
           <>
+            <Button variant="ghost" onClick={syncAllLists} disabled={syncing}>
+              <Zap className="size-4" /> {syncing ? "Sincronizando…" : "Sincronizar Listas"}
+            </Button>
             <Button variant="ghost" onClick={() => setOpenImport(true)}>
               <Upload className="size-4" /> Importar
             </Button>
@@ -242,6 +261,20 @@ export default function LeadsPage() {
       />
 
       <div className="px-4 sm:px-6 py-5 space-y-5">
+
+        {/* Banner de resultado da sincronização */}
+        {syncResult && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm"
+            style={{ borderColor: "rgba(0,255,174,0.3)", background: "rgba(0,255,174,0.06)", color: "#00FFAE" }}
+          >
+            <span>
+              ✅ Sincronização concluída — <strong>{syncResult.leads_synced}</strong> novo{syncResult.leads_synced !== 1 ? "s lead" : " lead"}{syncResult.leads_synced !== 1 ? "s" : ""} importado{syncResult.leads_synced !== 1 ? "s" : ""} de {syncResult.lists_processed} lista{syncResult.lists_processed !== 1 ? "s" : ""}.
+            </span>
+            <button onClick={() => setSyncResult(null)} className="opacity-60 hover:opacity-100 transition-opacity">✕</button>
+          </motion.div>
+        )}
         {/* ── KPIs ── */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {kpis.map((k, i) => {
