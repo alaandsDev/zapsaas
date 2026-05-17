@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import {
   Users, MessageSquare, Zap, ArrowUpRight, Phone, ChevronRight,
-  Sparkles, Send, Radio, Activity,
+  Sparkles, Send, Radio, Activity, DollarSign,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Topbar from "../../components/dashboard/Topbar";
@@ -102,6 +102,7 @@ export default function DashboardHome() {
   const [chartData, setChartData] = useState([]);
   const [range, setRange] = useState(7);
   const [insights, setInsights] = useState(null);
+  const [revenue, setRevenue] = useState(null);
   const feedRef = useRef(null);
 
   useEffect(() => {
@@ -140,6 +141,7 @@ export default function DashboardHome() {
       setActivity(feed.slice(0, 12));
     }).finally(() => setLoading(false));
     api("/api/dashboard/insights").then(setInsights).catch(() => setInsights({ hours: [], channels: [], hasData: false }));
+    api("/api/sales/summary?days=7").then(setRevenue).catch(() => setRevenue({ total: 0 }));
   }, []);
 
   // SSE tempo real (mantido — funciona no backend da main)
@@ -180,6 +182,13 @@ export default function DashboardHome() {
     { label: "Mensagens Enviadas", value: stats.messagesSent ?? 0, delta: "+8%", icon: MessageSquare, color: CYAN },
     { label: "Campanhas Ativas", value: activeDispatches, delta: `${dispatches.length} total`, icon: Send, color: "#F59E0B" },
     { label: "Números Conectados", value: connectedSlots, delta: `de ${sessions.length}`, icon: Phone, color: "#22C55E" },
+    {
+      label: "Receita Gerada",
+      money: revenue?.total ?? 0,
+      delta: revenue?.deltaPct != null ? `${revenue.deltaPct >= 0 ? "+" : ""}${revenue.deltaPct}%` : "7d",
+      icon: DollarSign,
+      color: NEON,
+    },
   ];
 
   const chart = chartData.slice(0, range === 7 ? 7 : range);
@@ -266,7 +275,7 @@ export default function DashboardHome() {
         </motion.div>
 
         {/* ── KPIs ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {KPIs.map((k, i) => {
             const Icon = k.icon;
             return (
@@ -293,7 +302,10 @@ export default function DashboardHome() {
                   </div>
                   <div className="mt-4 text-[26px] font-bold tracking-tight leading-none"
                     style={{ color: k.color }}>
-                    {loading ? <Skel className="w-20 h-7" /> : <AnimatedNumber value={k.value} />}
+                    {loading ? <Skel className="w-20 h-7" />
+                      : k.money != null
+                        ? Number(k.money).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })
+                        : <AnimatedNumber value={k.value} />}
                   </div>
                   <p className="text-xs text-ink-400 mt-1.5">{k.label}</p>
                   <div className="mt-2 -mx-1 opacity-70 group-hover:opacity-100 transition-opacity">

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, MessageSquare, Users, Send, Phone,
   Zap, Link2, HelpCircle, Settings, ChevronLeft,
-  MessageCircle, Sparkles, Pin
+  MessageCircle, Sparkles, Pin, DollarSign
 } from "lucide-react";
 import { api } from "../../lib/api";
 
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/dashboard/conversas",  label: "Conversas",         Icon: MessageSquare },
   { href: "/dashboard/leads",      label: "Leads",             Icon: Users },
   { href: "/dashboard/disparos",   label: "Disparos",          Icon: Send },
+  { href: "/dashboard/vendas",     label: "Vendas",            Icon: DollarSign },
   { href: "/dashboard/workflow",   label: "Workflow",          Icon: Sparkles, highlight: true },
   { href: "/dashboard/conexoes",   label: "Conexões",          Icon: Link2 },
   { href: "/dashboard/wpp-oficial",label: "WhatsApp Oficial",  Icon: Phone },

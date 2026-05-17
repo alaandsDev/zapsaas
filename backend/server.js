@@ -1108,6 +1108,125 @@ app.get('/api/dashboard/insights', requireAuth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// VENDAS / RECEITA (Fase 1)
+// ═══════════════════════════════════════════════════════════════
+
+app.get('/api/sales', requireAuth, async (req, res) => {
+  try {
+    let qb = supabase.from('sales').select('*')
+      .eq('user_id', req.user.id)
+      .order('closed_at', { ascending: false })
+      .limit(500);
+    if (req.query.status) qb = qb.eq('status', req.query.status);
+    const { data, error } = await qb;
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/sales/summary', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30));
+    const now = new Date();
+    const start = new Date(now); start.setDate(now.getDate() - (days - 1)); start.setHours(0, 0, 0, 0);
+    const prevStart = new Date(start); prevStart.setDate(start.getDate() - days);
+
+    const { data: rows } = await supabase
+      .from('sales')
+      .select('amount, status, source, closed_at')
+      .eq('user_id', uid)
+      .eq('status', 'won')
+      .gte('closed_at', prevStart.toISOString())
+      .limit(20000);
+
+    const all = rows || [];
+    const inRange = all.filter((r) => new Date(r.closed_at) >= start);
+    const prev = all.filter((r) => {
+      const d = new Date(r.closed_at);
+      return d >= prevStart && d < start;
+    });
+    const sum = (a) => a.reduce((t, r) => t + Number(r.amount || 0), 0);
+    const total = sum(inRange);
+    const prevTotal = sum(prev);
+    const count = inRange.length;
+
+    const byDayMap = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      byDayMap[d.toISOString().slice(0, 10)] = {
+        d: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), v: 0,
+      };
+    }
+    const chanMap = new Map();
+    inRange.forEach((r) => {
+      const k = new Date(r.closed_at).toISOString().slice(0, 10);
+      if (byDayMap[k]) byDayMap[k].v += Number(r.amount || 0);
+      const s = r.source || 'manual';
+      chanMap.set(s, (chanMap.get(s) || 0) + Number(r.amount || 0));
+    });
+
+    res.json({
+      total,
+      count,
+      avgTicket: count ? Math.round((total / count) * 100) / 100 : 0,
+      prevTotal,
+      deltaPct: prevTotal > 0 ? Math.round(((total - prevTotal) / prevTotal) * 1000) / 10 : null,
+      byDay: Object.values(byDayMap),
+      byChannel: [...chanMap.entries()].map(([source, amount]) => ({ source, amount })),
+      days,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/sales', requireAuth, async (req, res) => {
+  try {
+    const { lead_id, title, amount, currency, status, source, note, closed_at, dispatch_id, workflow_id } = req.body;
+    const val = Number(amount);
+    if (!(val >= 0)) return res.status(400).json({ error: 'Valor inválido' });
+    const { data, error } = await supabase.from('sales').insert({
+      user_id: req.user.id,
+      lead_id: lead_id || null,
+      title: title || '',
+      amount: val,
+      currency: currency || 'BRL',
+      status: ['won', 'pending', 'lost'].includes(status) ? status : 'won',
+      source: ['manual', 'campaign', 'flow', 'integration'].includes(source) ? source : 'manual',
+      note: note || '',
+      dispatch_id: dispatch_id || null,
+      workflow_id: workflow_id || null,
+      closed_at: closed_at ? new Date(closed_at).toISOString() : new Date().toISOString(),
+    }).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/sales/:id', requireAuth, async (req, res) => {
+  try {
+    const allowed = ['title', 'amount', 'currency', 'status', 'source', 'note', 'closed_at', 'lead_id'];
+    const patch = {};
+    for (const k of allowed) if (req.body[k] !== undefined) patch[k] = req.body[k];
+    if (patch.amount !== undefined) patch.amount = Number(patch.amount) || 0;
+    if (patch.closed_at) patch.closed_at = new Date(patch.closed_at).toISOString();
+    const { data, error } = await supabase.from('sales').update(patch)
+      .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/sales/:id', requireAuth, async (req, res) => {
+  try {
+    await supabase.from('sales').delete()
+      .eq('id', req.params.id).eq('user_id', req.user.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════════
 // WHATSAPP CLOUD API (Meta direto)
 // ═══════════════════════════════════════════════════════════════
 

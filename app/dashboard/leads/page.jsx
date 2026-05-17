@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Users, UserPlus, TrendingUp, Target, Activity,
   Plus, Upload, X, Tag as TagIcon, List as ListIcon, ChevronRight,
-  Phone, MessageSquare, Zap, StickyNote, Pencil, Trash2,
+  Phone, MessageSquare, Zap, StickyNote, Pencil, Trash2, DollarSign,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
 import Modal from "../../../components/dashboard/Modal";
@@ -509,7 +509,23 @@ export default function LeadsPage() {
                           />
                         </div>
 
-                        <div className="pt-2 flex gap-2">
+                        <button
+                          onClick={async () => {
+                            const raw = window.prompt(`Valor da venda para ${selected.name || "este lead"} (R$):`);
+                            if (raw == null) return;
+                            const amount = Number(String(raw).replace(/[^\d.,]/g, "").replace(",", "."));
+                            if (!(amount > 0)) { alert("Valor inválido"); return; }
+                            try {
+                              await api("/api/sales", { method: "POST", body: { lead_id: selected.id, amount, title: `Venda · ${selected.name || selected.phone}`, source: "manual", status: "won" } });
+                              alert(`Venda de ${amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} registrada.`);
+                            } catch (e) { alert(e.message || "Falha ao registrar venda"); }
+                          }}
+                          className="w-full mt-1 mb-1 flex items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold py-2 hover:bg-primary/15 transition-colors"
+                        >
+                          <DollarSign className="size-3.5" /> Registrar venda
+                        </button>
+
+                        <div className="pt-1 flex gap-2">
                           <Button variant="ghost" className="flex-1 !py-2 text-xs" onClick={() => setEditLead(selected)}>
                             <Pencil className="size-3.5" /> Editar
                           </Button>
