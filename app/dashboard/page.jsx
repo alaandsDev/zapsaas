@@ -10,6 +10,7 @@ import {
   Activity, Radio, Phone, Play, Pause, ChevronRight,
   Sparkles, Target, BarChart2, Send
 } from "lucide-react";
+import { motion } from "framer-motion";
 import Topbar from "../../components/dashboard/Topbar";
 import { api, getUser, API_URL, getToken } from "../../lib/api";
 
@@ -230,28 +231,41 @@ export default function DashboardHome() {
           {KPIs.map((k, i) => {
             const Icon = k.icon;
             return (
-              <div key={i} className="kpi-card animate-fade-in" style={{ animationDelay: `${i * 60}ms` }}>
-                <div className="flex items-center justify-between">
-                  <div className="size-10 rounded-xl flex items-center justify-center border"
-                    style={{ background: k.bg, borderColor: k.border }}>
-                    <Icon className="size-5" style={{ color: k.color }} />
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05, type: "spring", stiffness: 320, damping: 26 }}
+                whileHover={{ y: -3 }}
+                className="kpi-card group relative overflow-hidden"
+              >
+                <div
+                  className="absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                  style={{ boxShadow: `inset 0 0 0 1px ${k.color}55, 0 0 32px -10px ${k.color}66` }}
+                />
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <div className="size-10 rounded-xl flex items-center justify-center border transition-transform group-hover:scale-110"
+                      style={{ background: k.bg, borderColor: k.border }}>
+                      <Icon className="size-5" style={{ color: k.color }} />
+                    </div>
+                    <span className="text-[11px] font-semibold flex items-center gap-0.5"
+                      style={{ color: k.positive ? "#22C55E" : "#EF4444" }}>
+                      <ArrowUpRight className="size-3" />
+                      {k.delta}
+                    </span>
                   </div>
-                  <span className="text-[11px] font-semibold flex items-center gap-0.5"
-                    style={{ color: k.positive ? "#22C55E" : "#EF4444" }}>
-                    <ArrowUpRight className="size-3" />
-                    {k.delta}
-                  </span>
-                </div>
-                <div>
-                  <div className="text-[28px] font-bold tracking-tight leading-none"
-                    style={{ color: k.color }}>
-                    {loading
-                      ? <Skeleton className="w-16 h-7" />
-                      : <AnimatedNumber value={k.value} />}
+                  <div>
+                    <div className="text-[28px] font-bold tracking-tight leading-none mt-3"
+                      style={{ color: k.color }}>
+                      {loading
+                        ? <Skeleton className="w-16 h-7" />
+                        : <AnimatedNumber value={k.value} />}
+                    </div>
+                    <p className="text-xs font-medium text-ink-300 mt-1.5">{k.label}</p>
                   </div>
-                  <p className="text-xs font-medium text-ink-300 mt-1.5">{k.label}</p>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -260,7 +274,7 @@ export default function DashboardHome() {
         <div className="grid lg:grid-cols-[1fr_380px] gap-4">
 
           {/* Gráfico de performance */}
-          <div className="card p-5 animate-fade-in" style={{ animationDelay: "200ms" }}>
+          <div className="glass p-5 animate-fade-in" style={{ animationDelay: "200ms" }}>
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="font-semibold">Performance da Semana</h3>
@@ -304,7 +318,7 @@ export default function DashboardHome() {
           </div>
 
           {/* Feed de atividade */}
-          <div className="card p-5 animate-fade-in flex flex-col" style={{ animationDelay: "260ms" }}>
+          <div className="glass p-5 animate-fade-in flex flex-col" style={{ animationDelay: "260ms" }}>
             <div className="flex items-center justify-between mb-4 shrink-0">
               <div className="flex items-center gap-2.5">
                 <span className="live-dot" />
@@ -357,7 +371,7 @@ export default function DashboardHome() {
         <div className="grid lg:grid-cols-3 gap-4">
 
           {/* Números */}
-          <div className="card p-5 animate-fade-in" style={{ animationDelay: "320ms" }}>
+          <div className="glass p-5 animate-fade-in" style={{ animationDelay: "320ms" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Números WhatsApp</h3>
               <Link href="/dashboard/conexoes" className="text-[11px] text-primary hover:underline flex items-center gap-0.5">
@@ -391,7 +405,7 @@ export default function DashboardHome() {
           </div>
 
           {/* Campanhas */}
-          <div className="card p-5 animate-fade-in" style={{ animationDelay: "380ms" }}>
+          <div className="glass p-5 animate-fade-in" style={{ animationDelay: "380ms" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Campanhas Recentes</h3>
               <Link href="/dashboard/disparos" className="text-[11px] text-primary hover:underline flex items-center gap-0.5">
@@ -437,7 +451,7 @@ export default function DashboardHome() {
 
           {/* Ações rápidas + IA */}
           <div className="space-y-3">
-            <div className="card p-5 animate-fade-in" style={{ animationDelay: "440ms" }}>
+            <div className="glass p-5 animate-fade-in" style={{ animationDelay: "440ms" }}>
               <h3 className="font-semibold text-sm mb-3">Ações Rápidas</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
