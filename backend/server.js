@@ -1181,11 +1181,89 @@ app.get('/api/sales/summary', requireAuth, async (req, res) => {
   }
 });
 
+// Receita & conversão por campanha/fluxo (atribuição real).
+// ROI puro precisaria de custo da campanha (não rastreado) — por isso
+// expomos receita atribuída + taxa de conversão, que são dados reais.
+app.get('/api/sales/roi', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30));
+    const start = new Date(); start.setDate(start.getDate() - (days - 1)); start.setHours(0, 0, 0, 0);
+
+    const [{ data: sales }, { data: dispatches }, { data: workflows }] = await Promise.all([
+      supabase.from('sales')
+        .select('amount, status, dispatch_id, workflow_id, closed_at')
+        .eq('user_id', uid).eq('status', 'won')
+        .gte('closed_at', start.toISOString()).limit(20000),
+      supabase.from('dispatches')
+        .select('id, message_title, total, created_at')
+        .eq('user_id', uid).order('created_at', { ascending: false }).limit(200),
+      supabase.from('workflows')
+        .select('id, name')
+        .eq('user_id', uid).limit(200),
+    ]);
+
+    const dMap = new Map((dispatches || []).map((d) => [d.id, d]));
+    const wMap = new Map((workflows || []).map((w) => [w.id, w]));
+    const acc = new Map(); // key -> agg
+
+    (sales || []).forEach((s) => {
+      const amt = Number(s.amount || 0);
+      if (s.dispatch_id && dMap.has(s.dispatch_id)) {
+        const d = dMap.get(s.dispatch_id);
+        const k = `c:${d.id}`;
+        const a = acc.get(k) || { kind: 'campaign', id: d.id, name: d.message_title || 'Campanha', recipients: d.total || 0, revenue: 0, count: 0 };
+        a.revenue += amt; a.count++; acc.set(k, a);
+      } else if (s.workflow_id && wMap.has(s.workflow_id)) {
+        const w = wMap.get(s.workflow_id);
+        const k = `f:${w.id}`;
+        const a = acc.get(k) || { kind: 'flow', id: w.id, name: w.name || 'Fluxo', recipients: 0, revenue: 0, count: 0 };
+        a.revenue += amt; a.count++; acc.set(k, a);
+      } else {
+        const a = acc.get('none') || { kind: 'none', id: null, name: 'Sem atribuição', recipients: 0, revenue: 0, count: 0 };
+        a.revenue += amt; a.count++; acc.set('none', a);
+      }
+    });
+
+    const rows = [...acc.values()].map((a) => ({
+      ...a,
+      avgTicket: a.count ? Math.round((a.revenue / a.count) * 100) / 100 : 0,
+      convRate: a.recipients ? Math.round((a.count / a.recipients) * 1000) / 10 : null,
+    })).sort((x, y) => y.revenue - x.revenue);
+
+    res.json({ days, rows, totalRevenue: rows.reduce((t, r) => t + r.revenue, 0) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/sales', requireAuth, async (req, res) => {
   try {
-    const { lead_id, title, amount, currency, status, source, note, closed_at, dispatch_id, workflow_id } = req.body;
+    const { lead_id, title, amount, currency, status, note, closed_at, workflow_id } = req.body;
+    let { source, dispatch_id } = req.body;
     const val = Number(amount);
     if (!(val >= 0)) return res.status(400).json({ error: 'Valor inválido' });
+
+    // Atribuição automática (best-effort): se não veio campanha/fluxo mas
+    // tem lead, vincula à campanha mais recente que mirou esse lead.
+    if (!dispatch_id && !workflow_id && lead_id) {
+      try {
+        const { data: ds } = await supabase
+          .from('dispatches')
+          .select('id, items, created_at')
+          .eq('user_id', req.user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        const hit = (ds || []).find((d) =>
+          Array.isArray(d.items) && d.items.some((it) => it.contactId === lead_id)
+        );
+        if (hit) {
+          dispatch_id = hit.id;
+          if (!source) source = 'campaign';
+        }
+      } catch {}
+    }
+
     const { data, error } = await supabase.from('sales').insert({
       user_id: req.user.id,
       lead_id: lead_id || null,
@@ -1206,7 +1284,7 @@ app.post('/api/sales', requireAuth, async (req, res) => {
 
 app.patch('/api/sales/:id', requireAuth, async (req, res) => {
   try {
-    const allowed = ['title', 'amount', 'currency', 'status', 'source', 'note', 'closed_at', 'lead_id'];
+    const allowed = ['title', 'amount', 'currency', 'status', 'source', 'note', 'closed_at', 'lead_id', 'dispatch_id', 'workflow_id'];
     const patch = {};
     for (const k of allowed) if (req.body[k] !== undefined) patch[k] = req.body[k];
     if (patch.amount !== undefined) patch.amount = Number(patch.amount) || 0;

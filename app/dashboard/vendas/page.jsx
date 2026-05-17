@@ -48,14 +48,22 @@ export default function VendasPage() {
   const [summary, setSummary] = useState(null);
   const [sales, setSales] = useState(null);
   const [leads, setLeads] = useState([]);
+  const [roi, setRoi] = useState(null);
+  const [dispatches, setDispatches] = useState([]);
+  const [workflows, setWorkflows] = useState([]);
   const [modal, setModal] = useState(null); // null | {} | sale
 
   const load = () => {
     api(`/api/sales/summary?days=${days}`).then(setSummary).catch(() => setSummary({}));
+    api(`/api/sales/roi?days=${days}`).then(setRoi).catch(() => setRoi({ rows: [] }));
     api("/api/sales").then((s) => setSales(Array.isArray(s) ? s : [])).catch(() => setSales([]));
   };
   useEffect(() => { load(); }, [days]);
-  useEffect(() => { api("/api/leads").then((l) => setLeads(Array.isArray(l) ? l : [])).catch(() => {}); }, []);
+  useEffect(() => {
+    api("/api/leads").then((l) => setLeads(Array.isArray(l) ? l : [])).catch(() => {});
+    api("/api/dispatches").then((d) => setDispatches(Array.isArray(d) ? d : d?.data || [])).catch(() => {});
+    api("/api/workflows").then((w) => setWorkflows(Array.isArray(w) ? w : [])).catch(() => {});
+  }, []);
 
   const leadName = useMemo(() => {
     const m = new Map(leads.map((l) => [l.id, l.name || l.phone]));
@@ -154,6 +162,56 @@ export default function VendasPage() {
           </div>
         </motion.div>
 
+        {/* Receita por campanha/fluxo (atribuição real) */}
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border border-white/[0.06] overflow-hidden"
+          style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
+          <div className="px-5 py-4 border-b border-white/[0.06]">
+            <div className="font-semibold text-sm">Receita por campanha / fluxo</div>
+            <div className="text-xs text-ink-500 mt-0.5">Atribuição real das vendas ganhas no período</div>
+          </div>
+          {!roi ? (
+            <div className="p-5 space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-9 bg-white/[0.04] rounded-lg animate-pulse" />)}</div>
+          ) : !roi.rows?.length ? (
+            <div className="py-12 text-center text-xs text-ink-500">Sem vendas atribuídas neste período</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-white/[0.02] text-[11px] uppercase tracking-wider text-ink-500">
+                  <tr className="text-left">
+                    <th className="px-5 py-2.5 font-medium">Origem</th>
+                    <th className="px-3 py-2.5 font-medium">Tipo</th>
+                    <th className="px-3 py-2.5 font-medium text-right">Destinatários</th>
+                    <th className="px-3 py-2.5 font-medium text-right">Vendas</th>
+                    <th className="px-3 py-2.5 font-medium text-right">Conversão</th>
+                    <th className="px-3 py-2.5 font-medium text-right">Ticket</th>
+                    <th className="px-5 py-2.5 font-medium text-right">Receita</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {roi.rows.map((r) => {
+                    const tint = r.kind === "campaign" ? "#00D1FF" : r.kind === "flow" ? "#7C3AED" : "#64748B";
+                    const tlabel = r.kind === "campaign" ? "Campanha" : r.kind === "flow" ? "Fluxo" : "—";
+                    return (
+                      <tr key={`${r.kind}-${r.id}`} className="hover:bg-white/[0.02]">
+                        <td className="px-5 py-3 font-medium truncate max-w-[220px]">{r.name}</td>
+                        <td className="px-3 py-3">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border" style={{ background: `${tint}1a`, color: tint, borderColor: `${tint}40` }}>{tlabel}</span>
+                        </td>
+                        <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.recipients ? r.recipients.toLocaleString("pt-BR") : "—"}</td>
+                        <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.count}</td>
+                        <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.convRate != null ? `${r.convRate}%` : "—"}</td>
+                        <td className="px-3 py-3 text-right text-ink-400 tabular-nums">{brl(r.avgTicket)}</td>
+                        <td className="px-5 py-3 text-right font-bold tabular-nums" style={{ color: NEON }}>{brl(r.revenue)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </motion.div>
+
         {/* Lista */}
         <div className="rounded-2xl border border-white/[0.06] overflow-hidden"
           style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
@@ -205,14 +263,14 @@ export default function VendasPage() {
 
       <AnimatePresence>
         {modal && (
-          <SaleModal sale={modal.id ? modal : null} leads={leads} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
+          <SaleModal sale={modal.id ? modal : null} leads={leads} dispatches={dispatches} workflows={workflows} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />
         )}
       </AnimatePresence>
     </>
   );
 }
 
-function SaleModal({ sale, leads, onClose, onSaved }) {
+function SaleModal({ sale, leads, dispatches = [], workflows = [], onClose, onSaved }) {
   const [form, setForm] = useState({
     title: sale?.title || "",
     amount: sale?.amount ?? "",
@@ -221,6 +279,7 @@ function SaleModal({ sale, leads, onClose, onSaved }) {
     lead_id: sale?.lead_id || "",
     note: sale?.note || "",
     closed_at: (sale?.closed_at || new Date().toISOString()).slice(0, 10),
+    attribution: sale?.dispatch_id ? `c:${sale.dispatch_id}` : sale?.workflow_id ? `f:${sale.workflow_id}` : "",
   });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -228,7 +287,11 @@ function SaleModal({ sale, leads, onClose, onSaved }) {
   async function submit(e) {
     e.preventDefault(); setErr(""); setLoading(true);
     try {
-      const body = { ...form, amount: Number(form.amount), lead_id: form.lead_id || null };
+      const { attribution, ...rest } = form;
+      const body = { ...rest, amount: Number(form.amount), lead_id: form.lead_id || null };
+      if (attribution.startsWith("c:")) { body.dispatch_id = attribution.slice(2); body.workflow_id = null; if (form.source === "manual") body.source = "campaign"; }
+      else if (attribution.startsWith("f:")) { body.workflow_id = attribution.slice(2); body.dispatch_id = null; if (form.source === "manual") body.source = "flow"; }
+      else { body.dispatch_id = null; body.workflow_id = null; }
       if (sale?.id) await api(`/api/sales/${sale.id}`, { method: "PATCH", body });
       else await api("/api/sales", { method: "POST", body });
       onSaved();
@@ -259,6 +322,21 @@ function SaleModal({ sale, leads, onClose, onSaved }) {
           <Select value={form.lead_id} onChange={(e) => setForm({ ...form, lead_id: e.target.value })}>
             <option value="">— Nenhum —</option>
             {leads.map((l) => <option key={l.id} value={l.id}>{l.name || l.phone}</option>)}
+          </Select>
+        </Field>
+        <Field label="Atribuir a campanha/fluxo (opcional)" hint="Origem da venda — gera o ROI por campanha. Em branco = atribuição automática se houver lead.">
+          <Select value={form.attribution} onChange={(e) => setForm({ ...form, attribution: e.target.value })}>
+            <option value="">— Automático / nenhum —</option>
+            {dispatches.length > 0 && (
+              <optgroup label="Campanhas">
+                {dispatches.map((d) => <option key={d.id} value={`c:${d.id}`}>{d.message_title || "Campanha"}</option>)}
+              </optgroup>
+            )}
+            {workflows.length > 0 && (
+              <optgroup label="Fluxos">
+                {workflows.map((w) => <option key={w.id} value={`f:${w.id}`}>{w.name || "Fluxo"}</option>)}
+              </optgroup>
+            )}
           </Select>
         </Field>
         <Field label="Observação"><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="min-h-[70px]" /></Field>
