@@ -1,5 +1,5 @@
 export default function Hero({
-  eyebrow = "Sistema de Vendas Automáticas 24h",
+  eyebrow = "Conversational Revenue OS · AI-first",
   title,
   highlight,
   subtitle,
@@ -52,8 +52,8 @@ export default function Hero({
         {metrics && (
           <div className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {metrics.map((m, i) => (
-              <div key={i} className="card p-5">
-                <div className="text-2xl font-bold text-ink-100">{m.value}</div>
+              <div key={i} className="glass p-5 transition-transform hover:-translate-y-1">
+                <div className="text-xl font-bold gradient-text">{m.value}</div>
                 <div className="text-sm text-ink-300 mt-1">{m.label}</div>
               </div>
             ))}
@@ -82,8 +82,8 @@ function LiveCounter() {
       <div className="text-ink-300">
         <span className="text-primary font-semibold inline-flex items-center gap-1.5">
           <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-          27 negócios
-        </span> ativaram disparos hoje
+          27 operações
+        </span> ativas agora na Wayvo
       </div>
     </div>
   );
@@ -104,7 +104,7 @@ function ProductMockup() {
             </div>
           </div>
           <div className="text-[10px] text-ink-500 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-semibold">
-            ⚡ Auto
+            ✨ IA ativa
           </div>
         </div>
 
@@ -116,7 +116,7 @@ function ProductMockup() {
           <Bubble side="out" delay="1.6s">Manda PIX pra wayvo@... Já reservei o último kit pro seu nome 🚀</Bubble>
           <div className="flex justify-center mt-3 animate-fade-in" style={{ animationDelay: "2.2s" }}>
             <div className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
-              ✓ Venda fechada em 47s
+              ✓ Convertido pela IA em 47s
             </div>
           </div>
         </div>
@@ -129,7 +129,7 @@ function ProductMockup() {
             📈
           </div>
           <div>
-            <div className="text-xs text-ink-400">Vendas hoje</div>
+            <div className="text-xs text-ink-400">Receita atribuída hoje</div>
             <div className="text-xl font-bold text-primary">+R$ 12.847</div>
           </div>
         </div>

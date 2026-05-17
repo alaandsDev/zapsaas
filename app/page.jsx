@@ -2,15 +2,15 @@ import Navbar from "../components/Navbar";
 import JsonLd from "../components/JsonLd";
 
 export const metadata = {
-  title: "Wayvo — Sistema de Vendas Automáticas pelo WhatsApp 24h",
+  title: "Wayvo — Conversational Revenue OS para WhatsApp",
   description:
-    "Transforme seu WhatsApp em uma máquina de vendas automática. Disparos em massa, chatbot 24/7 e automações. Plano grátis pra começar hoje.",
+    "Plataforma operacional AI-first para WhatsApp: CRM conversacional, automação inteligente e revenue ops com copiloto de IA. Comece grátis.",
   alternates: { canonical: "/" },
   openGraph: {
     url: "https://zapflow.vercel.app/",
-    title: "Wayvo — Vendas Automáticas pelo WhatsApp 24h",
+    title: "Wayvo — Conversational Revenue OS para WhatsApp",
     description:
-      "Disparos em massa, chatbot e automações. Venda todos os dias no automático.",
+      "CRM conversacional, automação com IA e revenue ops numa só plataforma operacional.",
   },
 };
 import Hero from "../components/Hero";
@@ -89,41 +89,44 @@ export default function Home() {
       />
       <Navbar />
       <Hero
-        title="Transforme seu WhatsApp em uma"
-        highlight="máquina de vendas automática"
-        subtitle="Venda todos os dias, responda clientes na hora e nunca mais perca uma oportunidade. O Wayvo trabalha por você 24 horas por dia — enquanto você cuida do que importa."
+        eyebrow="Conversational Revenue OS · AI-first"
+        title="O sistema operacional da sua"
+        highlight="operação de receita no WhatsApp"
+        subtitle="Wayvo unifica CRM conversacional, automação inteligente e revenue ops — com um copiloto de IA que lê sua operação e recomenda a próxima ação, em tempo real."
+        primaryCTA={{ label: "Começar agora", href: "/register" }}
+        secondaryCTA={{ label: "Ver a plataforma", href: "#como-funciona" }}
         metrics={[
-          { value: "+37", label: "vendas em 7 dias (média)" },
-          { value: "24h", label: "vendendo no automático" },
-          { value: "5min", label: "para ativar" },
-          { value: "0", label: "linhas de código" },
+          { value: "AI-first", label: "copiloto operacional embutido" },
+          { value: "Tempo real", label: "conversas, leads e receita" },
+          { value: "Revenue Ops", label: "atribuição e ROI por campanha" },
+          { value: "5 min", label: "para colocar em operação" },
         ]}
       />
       <Benefits
-        title="Negócios que ativam o Wayvo vendem mais — todo santo dia"
-        subtitle="Não é ferramenta. É um sistema completo pronto pra colocar dinheiro no seu caixa."
+        title="Não é um disparador. É a infraestrutura de comunicação do seu negócio."
+        subtitle="Uma plataforma operacional que transforma cada conversa em receita previsível."
         items={[
-          { icon: "💰", title: "Venda todos os dias no automático", desc: "Seu WhatsApp passa a faturar mesmo quando você está dormindo, no almoço ou de folga." },
-          { icon: "🎯", title: "Nunca perca um cliente", desc: "Cada lead recebe a mensagem certa no momento certo. Sem cliente esquecido, sem dinheiro na mesa." },
-          { icon: "📈", title: "Fale com centenas de contatos", desc: "Reative sua base, traga clientes antigos de volta e converta lista parada em venda real." },
-          { icon: "🚀", title: "Aumente seu faturamento", desc: "Mais conversas = mais vendas. Donos de negócio reportam até 3x mais faturamento no primeiro mês." },
+          { icon: "🧠", title: "Copiloto de IA operacional", desc: "A IA lê sua operação, prioriza leads quentes e recomenda a próxima ação — em todas as telas." },
+          { icon: "💬", title: "CRM conversacional", desc: "Cada conversa com contexto comercial: score do lead, histórico, automações e receita atribuída." },
+          { icon: "⚙️", title: "Automação que opera por você", desc: "Workflows visuais que qualificam, respondem e recuperam leads sem você tocar no celular." },
+          { icon: "📊", title: "Revenue Ops de verdade", desc: "Atribuição de receita por campanha e fluxo. Saiba exatamente o que gera caixa." },
         ]}
       />
       <HowItWorks
         steps={[
-          { title: "Conecte seu WhatsApp", desc: "Em 30 segundos você liga seu número ao Wayvo. Sem chip novo, sem app paralelo." },
-          { title: "Ative o sistema", desc: "Escolha um template pronto ou personalize a mensagem. Tudo direto no painel, sem código." },
-          { title: "Comece a vender", desc: "O sistema dispara, organiza e responde. Você só acompanha as vendas chegando." },
+          { title: "Conecte sua infraestrutura", desc: "Ligue seus canais em segundos — número próprio ou API oficial Meta. Sem chip novo, sem fricção." },
+          { title: "Ative a operação", desc: "Use workflows prontos ou deixe a IA montar o fluxo. Campanhas, automações e CRM num só lugar." },
+          { title: "Escale com inteligência", desc: "O copiloto monitora saúde, timing e receita — e te diz onde agir para crescer." },
         ]}
       />
       <BeforeAfter />
       <Features
-        title="Tudo que você precisa pra vender mais — em um único lugar"
+        title="Uma plataforma operacional completa — não um conjunto de ferramentas soltas"
         items={[
-          { icon: "⚡", title: "Disparos personalizados", desc: "Mensagens com nome, oferta e link. Cada cliente sente que recebeu uma mensagem só pra ele." },
-          { icon: "📊", title: "Relatórios em tempo real", desc: "Acompanhe entregas, respostas e conversões direto no painel. Saiba exatamente o que está dando dinheiro." },
-          { icon: "🗂️", title: "Listas inteligentes", desc: "Importe, segmente e organize seus contatos. Mande a mensagem certa pra pessoa certa." },
-          { icon: "🛡️", title: "Conta protegida", desc: "Cadência otimizada, intervalos inteligentes e boas práticas pra manter seu número saudável." },
+          { icon: "🧠", title: "Wayvo AI Copilot", desc: "Insights priorizados, score de leads, melhor horário e alertas de saúde — gerados dos seus dados reais." },
+          { icon: "🔀", title: "Workflow Builder", desc: "Editor visual de automações com IA que monta o fluxo. Qualificação, follow-up e recuperação no automático." },
+          { icon: "📈", title: "Revenue analytics", desc: "Receita atribuída, ROI por campanha e funil real. Decisões com base em caixa, não em achismo." },
+          { icon: "🛡️", title: "Engine de estabilidade", desc: "Balanceamento inteligente e distribuição operacional entre canais para entrega consistente." },
         ]}
       />
       <SocialProof
