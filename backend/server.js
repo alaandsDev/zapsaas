@@ -2959,7 +2959,7 @@ app.post('/api/lists', requireAuth, async (req, res) => {
     // Sincroniza contatos da lista como leads (ignora duplicatas por telefone)
     try {
       // Busca telefones que já existem para esse usuário (evita duplicatas)
-      const phones = contacts.map(c => (c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '')).filter(Boolean);
+      const phones = contacts.map(c => (c.NUMERO || c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '')).filter(Boolean);
 
       const { data: existing } = await supabase
         .from('leads')
@@ -2971,8 +2971,8 @@ app.post('/api/lists', requireAuth, async (req, res) => {
 
       const newLeads = contacts
         .map(c => {
-          const phone = (c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '');
-          const name = c.name || c.nome || c.Name || c.Nome || phone;
+          const phone = (c.NUMERO || c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '');
+          const name = c.NOME || c.name || c.nome || c.Name || c.Nome || phone;
           return { phone, name };
         })
         .filter(c => c.phone && !existingPhones.has(c.phone))
@@ -3055,8 +3055,8 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
       const contacts = Array.isArray(list.contacts) ? list.contacts : [];
       const newLeads = contacts
         .map(c => {
-          const phone = (c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '');
-          const name = c.name || c.nome || c.Name || c.Nome || phone;
+          const phone = (c.NUMERO || c.phone || c.telefone || c.número || c.numero || '').toString().replace(/\D/g, '');
+          const name = c.NOME || c.name || c.nome || c.Name || c.Nome || phone;
           return { phone, name };
         })
         .filter(c => c.phone && !existingPhones.has(c.phone))
