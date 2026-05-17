@@ -171,17 +171,21 @@ export default function LeadsPage() {
 
   const kpis = useMemo(() => {
     const total = leads.length;
-    const novos = leads.filter((l) => l.status === "new").length;
+    const since7d  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000);
+    const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // Leads Novos: criados nos últimos 7 dias
+    const novos = leads.filter((l) => l.created_at && new Date(l.created_at) >= since7d).length;
     const conv = leads.filter((l) => l.status === "converted").length;
     const respond = leads.filter((l) => l.status === "contacted" || l.status === "converted").length;
     const taxa = total ? Math.round((respond / total) * 1000) / 10 : 0;
-    const ativos = leads.filter((l) => l.status !== "converted").length;
+    // Leads Ativos: tiveram interação nos últimos 30 dias
+    const ativos = leads.filter((l) => l.last_interaction_at && new Date(l.last_interaction_at) >= since30d).length;
     return [
       { label: "Leads Totais", value: total, suffix: "", icon: Users, color: "#00FF88" },
-      { label: "Leads Novos", value: novos, suffix: "", icon: UserPlus, color: "#3B82F6" },
+      { label: "Leads Novos", value: novos, suffix: "", icon: UserPlus, color: "#3B82F6", tooltip: "Criados nos últimos 7 dias" },
       { label: "Taxa de Resposta", value: taxa, suffix: "%", icon: TrendingUp, color: "#7C3AED" },
       { label: "Conversões", value: conv, suffix: "", icon: Target, color: "#F59E0B" },
-      { label: "Leads Ativos", value: ativos, suffix: "", icon: Activity, color: "#00FF88" },
+      { label: "Leads Ativos", value: ativos, suffix: "", icon: Activity, color: "#00FF88", tooltip: "Com interação nos últimos 30 dias" },
     ];
   }, [leads]);
 
@@ -208,6 +212,10 @@ export default function LeadsPage() {
     if (seg.type === "status") out = out.filter((l) => l.status === seg.value);
     if (seg.type === "source") out = out.filter((l) => (l.source || "form") === seg.value);
     if (seg.type === "tag") out = out.filter((l) => (l.tags || []).includes(seg.value));
+    if (seg.type === "inactive") {
+      const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      out = out.filter((l) => !l.last_interaction_at || new Date(l.last_interaction_at) < since30d);
+    }
     const term = q.toLowerCase().trim();
     if (term) out = out.filter((l) => [l.name, l.phone, l.interest, l.source].filter(Boolean).join(" ").toLowerCase().includes(term));
     return out;
@@ -322,6 +330,13 @@ export default function LeadsPage() {
                     onClick={() => setSeg({ type: "status", value: k })}
                     dot={s.color} label={s.label} count={statusCounts[k]} />
                 ))}
+                <RailItem
+                  active={seg.type === "inactive"}
+                  onClick={() => setSeg({ type: "inactive", value: null })}
+                  dot="#64748B"
+                  label="Inativos (sem contato +30d)"
+                  count={leads.filter((l) => !l.last_interaction_at || new Date(l.last_interaction_at) < new Date(Date.now() - 30*24*60*60*1000)).length}
+                />
               </div>
             </div>
 
