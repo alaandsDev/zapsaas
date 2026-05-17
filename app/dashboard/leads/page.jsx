@@ -44,6 +44,39 @@ function relTime(iso) {
   return `há ${Math.floor(s / 86400)}d`;
 }
 
+// Lead score heurístico (0-100) sobre campos reais do lead.
+function leadScore(l) {
+  let s = 35;
+  if (l.status === "converted") s += 45;
+  else if (l.status === "contacted") s += 18;
+  if (l.interest) s += 12;
+  if ((l.tags || []).length) s += Math.min(12, l.tags.length * 6);
+  const ts = l.last_interaction_at || l.created_at || l.createdAt;
+  if (ts) {
+    const days = (Date.now() - new Date(ts).getTime()) / 86400000;
+    if (days <= 1) s += 18; else if (days <= 7) s += 10; else if (days > 30) s -= 12;
+  }
+  s = Math.max(5, Math.min(99, Math.round(s)));
+  const band = s >= 75 ? { label: "Quente", color: "#EF4444" }
+    : s >= 50 ? { label: "Morno", color: "#F59E0B" }
+    : { label: "Frio", color: "#64748B" };
+  return { score: s, ...band };
+}
+
+function aiSummary(l) {
+  const sc = leadScore(l);
+  const recency = l.last_interaction_at || l.created_at;
+  const days = recency ? Math.floor((Date.now() - new Date(recency).getTime()) / 86400000) : null;
+  const parts = [];
+  parts.push(`Lead ${sc.label.toLowerCase()} (score ${sc.score}).`);
+  if (l.status === "converted") parts.push("Já convertido — bom alvo para upsell.");
+  else if (sc.score >= 75) parts.push("Alta intenção: priorize contato imediato.");
+  else if (days != null && days > 14) parts.push("Sem interação recente: vale um follow-up ou fluxo de reativação.");
+  else parts.push("Acompanhe e nutra com conteúdo relevante.");
+  if (l.interest) parts.push(`Interesse declarado: ${l.interest}.`);
+  return parts.join(" ");
+}
+
 function AnimatedNumber({ value = 0, suffix = "" }) {
   const [n, setN] = useState(0);
   const raf = useRef(null);
@@ -350,6 +383,7 @@ export default function LeadsPage() {
                 <AnimatePresence initial={false}>
                   {filtered.map((l, i) => {
                     const s = STATUS[l.status] || { label: l.status || "—", color: "#94A3B8" };
+                    const sc = leadScore(l);
                     const isSel = selected?.id === l.id;
                     return (
                       <motion.button
@@ -386,7 +420,17 @@ export default function LeadsPage() {
                             {l.interest ? <span className="text-ink-600"> · {l.interest}</span> : null}
                           </div>
                         </div>
-                        <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                        <div
+                          className="hidden sm:flex flex-col items-center justify-center shrink-0 w-12"
+                          title={`Lead score ${sc.score} · ${sc.label}`}
+                        >
+                          <span className="text-sm font-bold tabular-nums leading-none" style={{ color: sc.color }}>{sc.score}</span>
+                          <span className="text-[9px] mt-0.5" style={{ color: sc.color }}>{sc.label}</span>
+                          <div className="mt-1 h-1 w-9 rounded-full bg-white/[0.06] overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${sc.score}%`, background: sc.color }} />
+                          </div>
+                        </div>
+                        <div className="hidden md:flex flex-col items-end gap-1 shrink-0">
                           <span className="text-[10px] px-2 py-0.5 rounded-full border text-ink-400 border-white/10 bg-white/[0.02]">
                             {SOURCE_LABEL[l.source] || l.source || "Formulário"}
                           </span>
@@ -466,6 +510,22 @@ export default function LeadsPage() {
                   <div className="pt-4">
                     {tab === "resumo" && (
                       <div className="space-y-3 text-sm">
+                        {(() => {
+                          const sc = leadScore(selected);
+                          return (
+                            <div className="rounded-xl border border-secondary/25 p-3"
+                              style={{ background: "linear-gradient(120deg, rgba(124,58,237,0.10), rgba(255,255,255,0.02))" }}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[11px] font-semibold text-secondary uppercase tracking-wide">Wayvo AI · resumo</span>
+                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                                  style={{ background: `${sc.color}1a`, color: sc.color }}>
+                                  {sc.label} · {sc.score}
+                                </span>
+                              </div>
+                              <p className="text-[12px] text-ink-300 leading-relaxed">{aiSummary(selected)}</p>
+                            </div>
+                          );
+                        })()}
                         {[
                           ["Origem", SOURCE_LABEL[selected.source] || selected.source || "Formulário"],
                           ["Status", (STATUS[selected.status]?.label) || selected.status || "—"],

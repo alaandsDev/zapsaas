@@ -644,15 +644,29 @@ export default function DisparosPage() {
                 const sent = d.sent || 0;
                 const failed = d.failed || 0;
                 const pct = total ? Math.round(((sent + failed) / total) * 100) : 0;
+                const delivered = sent + failed;
+                const okRate = delivered ? sent / delivered : (total ? 1 : 0);
+                const hScore = Math.round(okRate * 100);
+                const hColor = hScore >= 85 ? "#00FF88" : hScore >= 60 ? "#F59E0B" : "#EF4444";
+                const hLabel = hScore >= 85 ? "Saudável" : hScore >= 60 ? "Atenção" : "Crítico";
                 const s = STATUS[d.status] || { label: d.status || "—", cls: "bg-white/5 text-ink-300 border-white/10" };
                 return (
                   <button key={d.id} onClick={() => setDetailOpen(d)}
                     className="text-left rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:border-primary/30 hover:bg-white/[0.04] transition-colors">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-medium truncate">{d.message_title || d.messageTitle || "Disparo"}</div>
+                      <div className="text-sm font-medium truncate">{d.message_title || d.messageTitle || "Campanha"}</div>
                       <span className={`shrink-0 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${s.cls}`}>{s.label}</span>
                     </div>
-                    <div className="text-[11px] text-ink-500 mt-1">{fmtDate(d.created_at || d.createdAt)} · {total} contatos</div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {total > 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                          title={`Health score ${hScore}`}
+                          style={{ background: `${hColor}1a`, color: hColor, border: `1px solid ${hColor}40` }}>
+                          ◉ {hLabel} · {hScore}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-ink-500">{fmtDate(d.created_at || d.createdAt)} · {total} contatos</span>
+                    </div>
                     <div className="mt-2 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "linear-gradient(90deg,#00FF88,#00D1FF)" }} />
                     </div>
