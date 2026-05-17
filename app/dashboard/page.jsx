@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import {
   Users, MessageSquare, Zap, ArrowUpRight, Phone, ChevronRight,
-  Send, Radio, DollarSign,
+  Sparkles, Send, Radio, DollarSign,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Topbar from "../../components/dashboard/Topbar";
