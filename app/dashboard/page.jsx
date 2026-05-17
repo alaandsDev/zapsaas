@@ -2,12 +2,12 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import {
   Users, MessageSquare, Zap, ArrowUpRight, Phone, ChevronRight,
-  Sparkles, Send, Radio, Activity, DollarSign,
+  Send, Radio, DollarSign,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Topbar from "../../components/dashboard/Topbar";
@@ -539,8 +539,8 @@ export default function DashboardHome() {
           </motion.div>
         </div>
 
-        {/* ── Funil + Campanhas + Insight ── */}
-        <div className="grid lg:grid-cols-3 gap-5">
+        {/* ── Funil + Campanhas ── */}
+        <div className="grid lg:grid-cols-2 gap-5">
           <motion.div
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
             className="rounded-2xl border border-white/[0.06] p-5"
@@ -607,116 +607,10 @@ export default function DashboardHome() {
             )}
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
-            className="rounded-2xl border p-5 relative overflow-hidden"
-            style={{ borderColor: "rgba(124,58,237,0.3)", background: "linear-gradient(135deg, rgba(124,58,237,0.1), #0B1120)" }}
-          >
-            <div className="flex items-start gap-3">
-              <div className="size-9 rounded-xl bg-secondary/20 border border-secondary/30 flex items-center justify-center shrink-0">
-                <Sparkles className="size-4 text-secondary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "#A78BFA" }}>IA Insights</p>
-                <p className="text-xs text-ink-300 leading-relaxed">
-                  {activeDispatches > 0
-                    ? `Você tem ${activeDispatches} campanha ativa. Adicionar follow-up pode elevar a conversão.`
-                    : connectedSlots > 0
-                      ? "Números conectados. Crie uma automação de boas-vindas para novos contatos."
-                      : "Conecte um número WhatsApp para capturar leads automaticamente."}
-                </p>
-                <Link href="/dashboard/workflow" className="text-[11px] font-semibold mt-2.5 inline-flex items-center gap-1 hover:underline" style={{ color: "#A78BFA" }}>
-                  Abrir Workflow <ChevronRight className="size-3" />
-                </Link>
-              </div>
-            </div>
-            <Activity className="absolute -bottom-4 -right-4 size-24 text-secondary/10" />
-          </motion.div>
+
         </div>
 
-        {/* ── Desempenho por Canal + Melhores Horários (dados reais) ── */}
-        <div className="grid lg:grid-cols-2 gap-5">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
-            className="rounded-2xl border border-white/[0.06] p-5"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}
-          >
-            <h3 className="font-semibold text-sm">Desempenho por Canal</h3>
-            <p className="text-xs text-ink-500 mt-0.5 mb-4">Origem real dos seus leads</p>
-            {!insights ? (
-              <Skel className="w-full h-44" />
-            ) : channels.length === 0 ? (
-              <div className="py-12 text-center text-xs text-ink-500">Sem leads para exibir ainda</div>
-            ) : (
-              <div className="flex items-center gap-6">
-                <div className="w-40 h-40 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={channels} dataKey="value" nameKey="name" innerRadius={48} outerRadius={70} paddingAngle={3} stroke="none">
-                        {channels.map((c, i) => <Cell key={i} fill={c.color} />)}
-                      </Pie>
-                      <Tooltip content={<CHART_TOOLTIP />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex-1 space-y-2 min-w-0">
-                  {channels.map((c) => (
-                    <div key={c.name} className="flex items-center gap-2 text-xs">
-                      <span className="size-2.5 rounded-full shrink-0" style={{ background: c.color }} />
-                      <span className="text-ink-300 flex-1 truncate">{c.name}</span>
-                      <span className="font-semibold tabular-nums" style={{ color: c.color }}>{c.pct}%</span>
-                      <span className="text-ink-600 tabular-nums">({c.value.toLocaleString("pt-BR")})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}
-            className="rounded-2xl border border-white/[0.06] p-5"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-sm">Melhores Horários</h3>
-                <p className="text-xs text-ink-500 mt-0.5">Mensagens recebidas por hora (30d)</p>
-              </div>
-              {bestHour && bestHour.value > 0 && (
-                <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${NEON}1a`, color: NEON }}>
-                  pico {bestHour.h}
-                </span>
-              )}
-            </div>
-            {!insights ? (
-              <Skel className="w-full h-40 mt-4" />
-            ) : !insights.hasData ? (
-              <div className="py-12 text-center text-xs text-ink-500">Sem mensagens recebidas ainda</div>
-            ) : (
-              <div className="mt-4 flex items-end gap-[3px] h-40">
-                {(insights.hours || []).map((h, i) => (
-                  <div key={i} className="flex-1 group relative flex flex-col justify-end">
-                    <div
-                      className="rounded-t transition-all"
-                      style={{
-                        height: `${Math.max(4, (h.value / maxHour) * 100)}%`,
-                        background: `linear-gradient(180deg, ${NEON}, ${CYAN}55)`,
-                        opacity: h.value ? 1 : 0.18,
-                      }}
-                    />
-                    <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-ink-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      {h.h}: {h.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex justify-between text-[9px] text-ink-600 mt-1.5">
-              <span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>23h</span>
-            </div>
-          </motion.div>
-        </div>
       </div>
     </>
   );
