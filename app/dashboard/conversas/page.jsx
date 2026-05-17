@@ -1,8 +1,13 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search, Send as SendIcon, Phone, Copy, ChevronDown, MessageSquare,
+  Check, CheckCheck, Clock, X,
+} from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
-import { Input, Button } from "../../../components/ui/Field";
+import { Button } from "../../../components/ui/Field";
 import EmptyState from "../../../components/dashboard/EmptyState";
 import { api, API_URL, getToken } from "../../../lib/api";
 
@@ -63,6 +68,8 @@ export default function Conversas() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("todas");
+  const [copied, setCopied] = useState(false);
   const msgsEndRef = useRef(null);
 
   const connectedSessions = useMemo(
@@ -70,7 +77,6 @@ export default function Conversas() {
     [sessions]
   );
 
-  // Carregar sessões
   const loadSessions = useCallback(async () => {
     try {
       const list = await api("/api/whatsapp/sessions");
@@ -79,13 +85,12 @@ export default function Conversas() {
       if (conn.length) {
         const slot = conn[0].slot;
         setActiveSlot(slot);
-        return slot; // retorna o slot para uso imediato
+        return slot;
       }
     } catch {}
     return null;
   }, []);
 
-  // Carregar chats da slot ativa
   const loadChats = useCallback(async (slotOverride) => {
     const slot = slotOverride ?? activeSlot;
     if (!slot) return;
@@ -95,7 +100,6 @@ export default function Conversas() {
     } catch {}
   }, [activeSlot]);
 
-  // Carregar mensagens do chat ativo
   const loadMsgs = useCallback(async () => {
     if (!activeChat?.id) return;
     try {
@@ -107,8 +111,8 @@ export default function Conversas() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const slot = await loadSessions(); // aguarda e pega o slot diretamente
-      if (slot) await loadChats(slot);   // carrega chats imediatamente sem depender do state
+      const slot = await loadSessions();
+      if (slot) await loadChats(slot);
       setLoading(false);
     })();
   }, []);
@@ -120,10 +124,8 @@ export default function Conversas() {
     loadChats(activeSlot);
   }, [activeSlot]);
 
-  // Carrega mensagens ao trocar de chat
   useEffect(() => { if (activeChat?.id) loadMsgs(); }, [activeChat?.id, loadMsgs]);
 
-  // SSE — recebe novas mensagens em tempo real
   const activeChatRef = useRef(null);
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
@@ -137,12 +139,10 @@ export default function Conversas() {
     es.addEventListener("message", (e) => {
       try {
         const data = JSON.parse(e.data);
-        loadChats(activeSlot);  // passa slot atual
-        // Se a mensagem é do chat aberto, anexa direto
+        loadChats(activeSlot);
         const cur = activeChatRef.current;
         if (cur?.id === data.chatId) {
           setMsgs((prev) => {
-            // Evita duplicar se a mensagem já veio do envio otimista local
             if (data.direction === "out" && prev.some((m) => m.text === data.text && Math.abs(new Date(m.timestamp) - new Date(data.timestamp)) < 5000)) {
               return prev;
             }
@@ -165,7 +165,6 @@ export default function Conversas() {
     return () => { try { es.close(); } catch {} };
   }, [loadChats]);
 
-  // Polling fallback (caso SSE falhe ou rede instável)
   useEffect(() => {
     if (!activeSlot) return;
     const i = setInterval(() => {
@@ -175,25 +174,29 @@ export default function Conversas() {
     return () => clearInterval(i);
   }, [activeSlot, loadChats, loadMsgs]);
 
-  // Auto scroll
   useEffect(() => {
     msgsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs.length, activeChat?.id]);
 
+  const unreadCount = useMemo(() => chats.filter((c) => c.unread > 0).length, [chats]);
+
   const filteredChats = useMemo(() => {
+    let out = chats;
+    if (tab === "naolidas") out = out.filter((c) => c.unread > 0);
     const term = q.toLowerCase().trim();
-    if (!term) return chats;
-    return chats.filter((c) =>
-      [c.name, c.phone, c.last_message].filter(Boolean).join(" ").toLowerCase().includes(term)
-    );
-  }, [q, chats]);
+    if (term) {
+      out = out.filter((c) =>
+        [c.name, c.phone, c.last_message].filter(Boolean).join(" ").toLowerCase().includes(term)
+      );
+    }
+    return out;
+  }, [q, chats, tab]);
 
   async function send() {
     if (!draft.trim() || !activeChat || sending) return;
     const text = draft.trim();
     setDraft("");
     setSending(true);
-    // Otimista
     const tempId = `tmp_${Date.now()}`;
     setMsgs((m) => [...m, {
       id: tempId, direction: "out", type: "text", text,
@@ -204,19 +207,39 @@ export default function Conversas() {
         method: "POST",
         body: { slot: activeSlot, phone: activeChat.phone, message: text }
       });
-      // Recarrega na próxima rodada de poll; aqui só atualiza status local
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "sent" } : msg));
     } catch (e) {
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
     } finally { setSending(false); }
   }
 
+  function copyPhone() {
+    if (!activeChat?.phone) return;
+    navigator.clipboard?.writeText(`+${activeChat.phone}`).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
   if (loading) {
     return (
       <>
-        <Topbar title="Conversas" subtitle="Suas conversas pelo WhatsApp" />
-        <div className="p-12 flex justify-center">
-          <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <Topbar title="Conversas" subtitle="Atendimento e conversas em tempo real" />
+        <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] xl:grid-cols-[340px_1fr_320px]">
+          <div className="border-r border-white/[0.06] p-4 space-y-3">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div key={i} className="flex gap-3 animate-pulse">
+                <div className="size-11 rounded-full bg-white/[0.05]" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-3 w-2/3 bg-white/[0.05] rounded" />
+                  <div className="h-2.5 w-4/5 bg-white/[0.05] rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:flex items-center justify-center text-ink-600">
+            <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
         </div>
       </>
     );
@@ -225,7 +248,7 @@ export default function Conversas() {
   if (!connectedSessions.length) {
     return (
       <>
-        <Topbar title="Conversas" subtitle="Suas conversas pelo WhatsApp" />
+        <Topbar title="Conversas" subtitle="Atendimento e conversas em tempo real" />
         <div className="p-6 lg:p-8">
           <EmptyState
             icon="📵"
@@ -238,40 +261,71 @@ export default function Conversas() {
     );
   }
 
+  const TABS = [
+    { k: "todas", label: "Todas", count: chats.length },
+    { k: "naolidas", label: "Não lidas", count: unreadCount },
+  ];
+
   return (
     <>
-      <Topbar title="Conversas" subtitle="Espelha o WhatsApp Web em tempo real" />
+      <Topbar title="Conversas" subtitle="Atendimento e conversas em tempo real" />
 
-      {/* Tabs por sessão (1 aba por número conectado) */}
-      {connectedSessions.length > 1 && (
-        <div className="px-4 lg:px-6 pt-3 flex gap-2 border-b border-white/[0.06] bg-bg/40">
-          {connectedSessions.map((s) => (
-            <button
-              key={s.slot}
-              onClick={() => setActiveSlot(s.slot)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                activeSlot === s.slot
-                  ? "border-primary text-primary"
-                  : "border-transparent text-ink-400 hover:text-ink-200"
-              }`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="size-2 rounded-full bg-primary" />
-                Número {s.slot}
-                {s.phone && <span className="text-xs text-ink-500">+{s.phone}</span>}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] xl:grid-cols-[340px_1fr_320px] overflow-hidden">
 
-      <div className="h-[calc(100vh-4rem-3rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] overflow-hidden">
-        {/* Lista de conversas */}
-        <aside className="border-r border-white/[0.06] bg-bg/40 flex flex-col min-h-0">
-          <div className="p-3 border-b border-white/[0.06]">
-            <Input placeholder="🔍 Buscar conversa..." value={q} onChange={(e) => setQ(e.target.value)} />
+        {/* ── LISTA ── */}
+        <aside className="border-r border-white/[0.06] flex flex-col min-h-0"
+          style={{ background: "linear-gradient(180deg, #0B1120, #0F172A)" }}>
+          <div className="px-4 pt-4 pb-3">
+            <h2 className="text-lg font-bold">Conversas</h2>
+            <p className="text-xs text-ink-500">Atendimento em tempo real</p>
           </div>
-          <div className="flex-1 overflow-y-auto">
+
+          <div className="px-3 flex items-center gap-1 border-b border-white/[0.06]">
+            {TABS.map((t) => (
+              <button
+                key={t.k}
+                onClick={() => setTab(t.k)}
+                className={`relative px-3 py-2.5 text-[13px] font-medium transition-colors ${
+                  tab === t.k ? "text-primary" : "text-ink-400 hover:text-ink-200"
+                }`}
+              >
+                {t.label}
+                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${
+                  tab === t.k ? "bg-primary/15 text-primary" : "bg-white/[0.05] text-ink-500"
+                }`}>{t.count}</span>
+                {tab === t.k && (
+                  <motion.span layoutId="conv-tab" className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-primary" />
+                )}
+              </button>
+            ))}
+            {connectedSessions.length > 1 && (
+              <div className="ml-auto pr-1">
+                <select
+                  value={activeSlot || ""}
+                  onChange={(e) => setActiveSlot(Number(e.target.value))}
+                  className="bg-white/[0.04] border border-white/10 rounded-lg text-[11px] px-2 py-1.5 outline-none"
+                >
+                  {connectedSessions.map((s) => (
+                    <option key={s.slot} value={s.slot}>Nº {s.slot}{s.phone ? ` · +${s.phone}` : ""}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="p-3">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-500 group-focus-within:text-primary transition-colors" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar conversas..."
+                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] pl-9 pr-3 py-2 text-sm outline-none focus:border-primary/50 focus:shadow-[0_0_22px_-10px_rgba(0,255,136,0.5)] transition-all placeholder:text-ink-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-2 pb-2">
             {!filteredChats.length ? (
               <div className="p-8 text-center text-sm text-ink-500">
                 {q ? "Nenhuma conversa encontrada" : "Aguardando mensagens — assim que alguém te mandar algo, aparece aqui."}
@@ -282,8 +336,8 @@ export default function Conversas() {
                 <button
                   key={c.id}
                   onClick={() => setActiveChat(c)}
-                  className={`w-full text-left px-4 py-3 border-b border-white/[0.04] flex items-center gap-3 transition-colors ${
-                    isActive ? "bg-primary/[0.06]" : "hover:bg-white/[0.02]"
+                  className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors mb-0.5 ${
+                    isActive ? "bg-primary/[0.08] border border-primary/20" : "border border-transparent hover:bg-white/[0.03]"
                   }`}
                 >
                   <Avatar src={c.profile_pic_url} name={c.name || c.phone} size={44} />
@@ -307,39 +361,40 @@ export default function Conversas() {
           </div>
         </aside>
 
-        {/* Chat ativo */}
-        <section className="flex flex-col bg-card/30 min-h-0">
+        {/* ── CHAT ── */}
+        <section className="flex flex-col min-h-0" style={{ background: "#0B1120" }}>
           {!activeChat ? (
             <div className="flex-1 flex items-center justify-center p-8 text-center">
               <div>
-                <div className="text-6xl mb-3 opacity-30">💬</div>
+                <MessageSquare className="size-12 mx-auto mb-3 text-ink-700" />
                 <h3 className="font-semibold">Selecione uma conversa</h3>
                 <p className="text-sm text-ink-500 mt-1">Suas mensagens aparecem aqui em tempo real</p>
               </div>
             </div>
           ) : (
             <>
-              {/* Header do chat */}
-              <div className="h-16 border-b border-white/[0.06] flex items-center px-5 gap-3 bg-bg/30">
+              <div className="h-16 border-b border-white/[0.06] flex items-center px-5 gap-3 backdrop-blur-xl bg-white/[0.02]">
                 <Avatar src={activeChat.profile_pic_url} name={activeChat.name || activeChat.phone} size={40} />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{activeChat.name || `+${activeChat.phone}`}</div>
-                  <div className="text-xs text-ink-500 truncate">+{activeChat.phone}</div>
+                  <div className="font-semibold text-sm truncate">{activeChat.name || `+${activeChat.phone}`}</div>
+                  <div className="text-[11px] text-ink-500 flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-primary" /> +{activeChat.phone}
+                  </div>
                 </div>
               </div>
 
-              {/* Mensagens */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1"
+                style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)", backgroundSize: "22px 22px" }}>
                 {!msgs.length ? (
                   <div className="text-center text-sm text-ink-500 my-12">
                     Sem mensagens ainda. Mande a primeira 👇
                   </div>
                 ) : (
                   msgs.map((m, i) => {
-                    // Não renderiza balão se não tem nada útil pra mostrar
                     if (!m.text && !m.media_url && (m.type === "other" || !m.type)) return null;
                     const prev = msgs[i - 1];
                     const showDay = !prev || new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString();
+                    const out = m.direction === "out";
                     return (
                       <div key={m.id || m.wa_id || i}>
                         {showDay && (
@@ -349,13 +404,15 @@ export default function Conversas() {
                             </span>
                           </div>
                         )}
-                        <div
-                          className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
-                            m.direction === "out"
-                              ? "ml-auto bg-primary/15 border border-primary/20 rounded-br-sm"
-                              : "bg-card2 border border-white/10 rounded-bl-sm"
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`max-w-[72%] px-3 py-2 rounded-2xl text-sm shadow-sm ${
+                            out
+                              ? "ml-auto rounded-br-sm text-ink-50"
+                              : "rounded-bl-sm bg-[#1b2536] border border-white/[0.06]"
                           }`}
-                          style={{ wordBreak: "break-word" }}
+                          style={out ? { background: "linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,209,255,0.12))", border: "1px solid rgba(0,255,136,0.25)" } : undefined}
                         >
                           {m.media_url && m.type === "image" && (
                             <a href={m.media_url} target="_blank" rel="noopener noreferrer">
@@ -378,19 +435,18 @@ export default function Conversas() {
                           {!m.media_url && m.type !== "text" && m.type !== "other" && (
                             <div className="text-xs text-ink-400 italic">📎 {m.type} (sem prévia)</div>
                           )}
-                          {m.text && <div>{m.text}</div>}
+                          {m.text && <div style={{ wordBreak: "break-word" }}>{m.text}</div>}
                           <div className="text-[10px] text-ink-500 mt-1 text-right flex items-center justify-end gap-1">
                             {fmtTime(m.timestamp)}
-                            {m.direction === "out" && (
-                              <span className={m.status === "failed" ? "text-red-400" : m.status === "read" ? "text-primary" : ""}>
-                                {m.status === "failed" ? "✕"
-                                  : m.status === "pending" ? "⌛"
-                                  : m.status === "read" ? "✓✓"
-                                  : "✓"}
-                              </span>
+                            {out && (
+                              m.status === "failed" ? <X className="size-3 text-red-400" />
+                                : m.status === "pending" ? <Clock className="size-3" />
+                                : m.status === "read" ? <CheckCheck className="size-3 text-primary" />
+                                : m.status === "sent" ? <Check className="size-3" />
+                                : <CheckCheck className="size-3" />
                             )}
                           </div>
-                        </div>
+                        </motion.div>
                       </div>
                     );
                   })
@@ -398,30 +454,91 @@ export default function Conversas() {
                 <div ref={msgsEndRef} />
               </div>
 
-              {/* Input */}
-              <div className="border-t border-white/[0.06] p-3 bg-bg/40">
+              <div className="border-t border-white/[0.06] p-3 bg-white/[0.02]">
                 <div className="flex gap-2 items-end">
                   <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                    placeholder="Digite uma mensagem..."
+                    placeholder="Digite sua mensagem..."
                     rows={1}
-                    className="flex-1 rounded-xl bg-bg/60 border border-white/10 px-4 py-2.5 text-sm outline-none focus:border-primary/60 resize-none"
+                    className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
                   />
                   <button
                     onClick={send}
                     disabled={!draft.trim() || sending}
-                    className="size-10 rounded-full bg-primary text-bg flex items-center justify-center disabled:opacity-50 hover:scale-105 transition-transform"
+                    className="size-10 rounded-xl flex items-center justify-center text-bg disabled:opacity-50 hover:scale-105 transition-transform"
+                    style={{ background: "linear-gradient(135deg, #00FF88, #00D1FF)" }}
                     aria-label="Enviar"
                   >
-                    {sending ? "⌛" : "➤"}
+                    {sending ? <Clock className="size-4" /> : <SendIcon className="size-4" />}
                   </button>
                 </div>
               </div>
             </>
           )}
         </section>
+
+        {/* ── DADOS DO CONTATO ── */}
+        <aside className="hidden xl:flex flex-col border-l border-white/[0.06] min-h-0 overflow-y-auto"
+          style={{ background: "linear-gradient(180deg, #0B1120, #0F172A)" }}>
+          {!activeChat ? (
+            <div className="flex-1 flex items-center justify-center text-center p-6">
+              <p className="text-xs text-ink-600">Selecione uma conversa para ver os dados do contato</p>
+            </div>
+          ) : (
+            <div className="p-5 space-y-5">
+              <div className="text-sm font-semibold text-ink-300">Dados do contato</div>
+              <div className="text-center">
+                <div className="inline-block">
+                  <Avatar src={activeChat.profile_pic_url} name={activeChat.name || activeChat.phone} size={72} />
+                </div>
+                <div className="mt-3 font-bold">{activeChat.name || `+${activeChat.phone}`}</div>
+                <div className="text-[11px] text-primary flex items-center justify-center gap-1 mt-0.5">
+                  <span className="size-1.5 rounded-full bg-primary" /> WhatsApp
+                </div>
+              </div>
+
+              <button
+                onClick={copyPhone}
+                className="w-full flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 hover:border-primary/30 transition-colors group"
+              >
+                <span className="size-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                  <Phone className="size-4 text-primary" />
+                </span>
+                <span className="flex-1 text-left text-sm tabular-nums">+{activeChat.phone}</span>
+                {copied ? <Check className="size-4 text-primary" /> : <Copy className="size-4 text-ink-500 group-hover:text-ink-200" />}
+              </button>
+
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Informações</div>
+                <div className="space-y-2.5 text-sm">
+                  {[
+                    ["Último contato", fmtTime(activeChat.last_message_at) || "—"],
+                    ["Não lidas", String(activeChat.unread || 0)],
+                    ["Número", `Nº ${activeSlot}`],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between gap-3">
+                      <span className="text-ink-500 text-xs">{k}</span>
+                      <span className="text-ink-100 text-xs font-medium">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Link
+                href="/dashboard/leads"
+                className="block text-center text-xs font-semibold text-primary border border-primary/30 rounded-xl py-2.5 hover:bg-primary/10 transition-colors"
+              >
+                Ver no CRM de Leads
+              </Link>
+
+              <p className="text-[10px] text-ink-600 leading-relaxed">
+                Tags, notas e automações por contato ficam na tela de <Link href="/dashboard/leads" className="text-primary">Leads</Link>, vinculadas ao mesmo número.
+              </p>
+            </div>
+          )}
+        </aside>
       </div>
     </>
   );
