@@ -227,6 +227,38 @@ export default function DashboardHome() {
     [insights]
   );
 
+  // Saúde operacional (heurística sobre dados reais)
+  const health = useMemo(() => {
+    const dlist = dispatches.filter((d) => (d.total || 0) > 0);
+    const deliv = dlist.length
+      ? dlist.reduce((a, d) => a + (d.sent || 0) / Math.max(d.total, 1), 0) / dlist.length
+      : (connectedSlots > 0 ? 0.9 : 0);
+    const chOk = connectedSlots > 0 ? 1 : 0;
+    const revOk = (revenue?.total || 0) > 0 ? 1 : 0.6;
+    const score = Math.round((deliv * 0.55 + chOk * 0.3 + revOk * 0.15) * 100);
+    const label = score >= 80 ? "Operação estável" : score >= 55 ? "Operação saudável" : "Requer atenção";
+    const tint = score >= 80 ? "#00FF88" : score >= 55 ? "#22D3EE" : "#F59E0B";
+    return { score, label, tint };
+  }, [dispatches, connectedSlots, revenue]);
+
+  const aiStrip = useMemo(() => {
+    const items = [];
+    if (bestHour && bestHour.value > 0)
+      items.push({ tint: "#22D3EE", title: "Melhor horário", text: `Pico de respostas ~${bestHour.h}. Agende campanhas nessa janela.` });
+    const last = dispatches[0];
+    if (last && (last.total || 0) > 0) {
+      const r = Math.round(((last.sent || 0) / Math.max(last.total, 1)) * 100);
+      if (r < 70) items.push({ tint: "#F59E0B", title: "Campanha fraca", text: `"${(last.message_title || "Última campanha").slice(0, 22)}" entregou ${r}%.` });
+    }
+    if ((stats.newLeads || 0) > 0)
+      items.push({ tint: "#EF4444", title: "Leads quentes", text: `${stats.newLeads} lead(s) novo(s) — priorize o atendimento agora.` });
+    if (items.length < 3)
+      items.push({ tint: "#7C3AED", title: "Revenue ops", text: "Fluxo de follow-up recupera leads sem resposta." });
+    return items.slice(0, 3);
+  }, [bestHour, dispatches, stats]);
+
+  const openCopilot = () => window.dispatchEvent(new CustomEvent("wayvo:open-copilot"));
+
   return (
     <>
       <Topbar title="Dashboard" subtitle="Central operacional WhatsApp" />
@@ -272,6 +304,73 @@ export default function DashboardHome() {
               </Link>
             </div>
           </div>
+        </motion.div>
+
+        {/* ── Saúde operacional + IA ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+          className="grid lg:grid-cols-[300px_1fr] gap-4"
+        >
+          <div className="rounded-2xl border border-white/[0.06] p-5 flex items-center gap-5"
+            style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
+            <div className="relative size-[84px] shrink-0">
+              <svg viewBox="0 0 100 100" className="size-full -rotate-90">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="9" />
+                <motion.circle
+                  cx="50" cy="50" r="42" fill="none" stroke={health.tint} strokeWidth="9" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 42}
+                  initial={{ strokeDashoffset: 2 * Math.PI * 42 }}
+                  animate={{ strokeDashoffset: 2 * Math.PI * 42 * (1 - (loading ? 0 : health.score) / 100) }}
+                  transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-bold tabular-nums" style={{ color: health.tint }}>
+                  {loading ? "—" : health.score}
+                </span>
+                <span className="text-[9px] text-ink-500">/100</span>
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-ink-500">Saúde operacional</div>
+              <div className="text-base font-bold mt-0.5" style={{ color: health.tint }}>{health.label}</div>
+              <div className="text-[11px] text-ink-500 mt-1">
+                {connectedSlots} canal(is) · entrega e estabilidade monitoradas
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={openCopilot}
+            className="group rounded-2xl border border-secondary/25 p-5 text-left transition-colors hover:border-secondary/45"
+            style={{ background: "linear-gradient(120deg, rgba(124,58,237,0.10), #0B1120 60%)" }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="size-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}>
+                  <Sparkles className="size-3.5 text-white" />
+                </span>
+                <span className="text-sm font-semibold">Wayvo AI · insights</span>
+              </div>
+              <span className="text-[11px] text-secondary flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                Abrir copiloto <ChevronRight className="size-3.5" />
+              </span>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-2.5">
+              {(loading ? Array.from({ length: 3 }) : aiStrip).map((it, i) => (
+                <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                  {loading ? (
+                    <div className="h-10 animate-pulse" />
+                  ) : (
+                    <>
+                      <div className="text-[12px] font-semibold" style={{ color: it.tint }}>{it.title}</div>
+                      <div className="text-[11px] text-ink-400 mt-1 leading-snug">{it.text}</div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </button>
         </motion.div>
 
         {/* ── KPIs ── */}
