@@ -254,7 +254,7 @@ export default function Conversas() {
             icon="📵"
             title="Nenhum WhatsApp conectado"
             desc="Conecte um número em Conexões para ver suas conversas em tempo real."
-            action={<Link href="/dashboard/conexoes"><Button>Ir para Conexões</Button></Link>}
+            action={<Link href="/dashboard/canais"><Button>Ir para Conexões</Button></Link>}
           />
         </div>
       </>

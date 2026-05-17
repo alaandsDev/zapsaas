@@ -53,7 +53,7 @@ export default function Topbar({ title, subtitle, actions }) {
                   <p className="text-sm font-semibold truncate">{user?.name || "Conta"}</p>
                   <p className="text-[11px] text-ink-500 truncate mt-0.5">{user?.email}</p>
                 </div>
-                <a href="/dashboard/minha-conta"
+                <a href="/dashboard/workspace"
                   className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-ink-300 hover:text-ink-100 hover:bg-white/[0.04] transition-colors">
                   <Settings className="size-4" />
                   Minha Conta

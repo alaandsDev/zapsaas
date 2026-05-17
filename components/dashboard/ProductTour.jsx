@@ -5,7 +5,7 @@ const KEY = "zapflow_tour_done_v1";
 
 const STEPS = [
   {
-    selector: 'a[href="/dashboard/conexoes"]',
+    selector: 'a[href="/dashboard/canais"]',
     placement: "right",
     title: "1. Comece por aqui",
     body: "Conecte seu WhatsApp em 30 segundos via QR Code. Sem chip novo, sem app paralelo.",
@@ -17,7 +17,7 @@ const STEPS = [
     body: "Suba um Excel/CSV ou cadastre na mão. A gente limpa duplicatas pra você automaticamente.",
   },
   {
-    selector: 'a[href="/dashboard/disparos"]',
+    selector: 'a[href="/dashboard/campanhas"]',
     placement: "right",
     title: "3. Dispare e venda",
     body: "Mensagem personalizada com nome do cliente, mídia, agendamento — tudo em 2 cliques.",

@@ -261,7 +261,7 @@ export default function DashboardHome() {
               </p>
             </div>
             <div className="flex gap-2.5 flex-wrap">
-              <Link href="/dashboard/disparos"
+              <Link href="/dashboard/campanhas"
                 className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-sm text-bg transition-all hover:scale-[1.02]"
                 style={{ background: `linear-gradient(135deg, ${NEON}, ${CYAN})`, boxShadow: `0 8px 30px -8px ${NEON}80` }}>
                 <Send className="size-4" /> Novo Disparo
@@ -478,7 +478,7 @@ export default function DashboardHome() {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm">Campanhas Recentes</h3>
-              <Link href="/dashboard/disparos" className="text-[11px] hover:underline flex items-center gap-0.5" style={{ color: NEON }}>
+              <Link href="/dashboard/campanhas" className="text-[11px] hover:underline flex items-center gap-0.5" style={{ color: NEON }}>
                 Ver todas <ChevronRight className="size-3" />
               </Link>
             </div>

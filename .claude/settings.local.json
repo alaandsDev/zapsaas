@@ -25,7 +25,12 @@
       "Bash(sed -i 's/ANTES DO ZAPFLOW/ANTES DO WAYVO/; s/COM O ZAPFLOW/COM O WAYVO/' components/BeforeAfter.jsx)",
       "Bash(sed -i 's/zapflow@/wayvo@/' components/Hero.jsx)",
       "Bash(sed -i 's/\"zapflow\",/\"wayvo\",/' app/layout.jsx)",
-      "Bash(sed -i 's/zapflow_meu_token_123/wayvo_meu_token_123/' app/dashboard/wpp-oficial/page.jsx)"
+      "Bash(sed -i 's/zapflow_meu_token_123/wayvo_meu_token_123/' app/dashboard/wpp-oficial/page.jsx)",
+      "Bash(mv \"public/wayvo-icon.png.png\" \"public/wayvo-icon.png\")",
+      "Bash(identify public/wayvo-icon.png)",
+      "Bash(python -c \"from PIL import Image; im=Image.open\\('public/wayvo-icon.png'\\); print\\(im.size, im.mode\\)\")",
+      "Bash(git stash *)",
+      "Bash(git mv *)"
     ]
   }
 }

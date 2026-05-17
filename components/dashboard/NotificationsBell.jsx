@@ -10,7 +10,7 @@ const NOTIFS = [
   { id: "v118", date: "2026-05-09", icon: "🎉", title: "Visual high-ticket", desc: "Comparativo de planos, garantia 7 dias e antes/depois.", href: "/changelog" },
   { id: "v117", date: "2026-05-08", icon: "✨", title: "FAQ + Empty states ricos", desc: "Skeletons, FAQ e testimonials com métrica.", href: "/changelog" },
   { id: "v116", date: "2026-05-07", icon: "💬", title: "Conversas em tempo real", desc: "Espelho do WhatsApp Web com SSE e mídia funcional.", href: "/dashboard/conversas" },
-  { id: "v115", date: "2026-05-06", icon: "📊", title: "Relatório de disparos + Excel", desc: "Cards clicáveis e export pra Excel com 2 sheets.", href: "/dashboard/disparos" },
+  { id: "v115", date: "2026-05-06", icon: "📊", title: "Relatório de disparos + Excel", desc: "Cards clicáveis e export pra Excel com 2 sheets.", href: "/dashboard/campanhas" },
   { id: "v114", date: "2026-05-05", icon: "🚀", title: "Sidebar premium + sem dup. msg", desc: "Hover expand estilo Linear e fim das mensagens duplicadas.", href: "/changelog" },
 ];
 
