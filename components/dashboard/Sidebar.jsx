@@ -16,6 +16,7 @@ const NAV = [
   { href: "/dashboard/disparos",   label: "Disparos",          Icon: Send },
   { href: "/dashboard/sms",        label: "SMS",               Icon: MessageCircle },
   { href: "/dashboard/automacao",  label: "Automação",         Icon: Zap, highlight: true },
+  { href: "/dashboard/workflow",   label: "Workflow",          Icon: Sparkles },
   { href: "/dashboard/conexoes",   label: "Conexões",          Icon: Link2 },
   { href: "/dashboard/wpp-oficial",label: "WhatsApp Oficial",  Icon: Phone },
   { href: "/dashboard/suporte",    label: "Suporte",           Icon: HelpCircle },

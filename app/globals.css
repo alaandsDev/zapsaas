@@ -170,3 +170,23 @@ html[data-theme="light"] .border-ink-700\/60,
 html[data-theme="light"] .border-white\/\[0\.06\],
 html[data-theme="light"] .border-white\/10 { border-color: #E2E8F0 !important; }
 html[data-theme="light"] .bg-ink-800\/60 { background-color: #F1F5F9 !important; }
+
+/* React Flow premium theme (Workflow Builder) */
+.react-flow__attribution { display: none !important; }
+.rf-canvas .react-flow__background { background: transparent; }
+.rf-canvas .react-flow__edge-path {
+  stroke-width: 2;
+  filter: drop-shadow(0 0 5px rgba(0,255,136,0.45));
+}
+.rf-canvas .react-flow__edge.selected .react-flow__edge-path { stroke: #00FF88; }
+.rf-canvas .react-flow__handle {
+  width: 10px; height: 10px;
+  background: #0B1020;
+  border: 2px solid rgba(255,255,255,0.4);
+  transition: all .15s ease;
+}
+.rf-canvas .react-flow__handle:hover { border-color: #00FF88; box-shadow: 0 0 0 4px rgba(0,255,136,0.2); }
+.rf-canvas .react-flow__controls { background: rgba(15,22,40,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; backdrop-filter: blur(8px); }
+.rf-canvas .react-flow__controls-button { background: transparent; border: none; color: #94A3B8; }
+.rf-canvas .react-flow__controls-button:hover { background: rgba(255,255,255,0.06); color: #00FF88; }
+.rf-canvas .react-flow__controls-button svg { fill: currentColor; }
