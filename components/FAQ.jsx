@@ -4,7 +4,7 @@ import { useState } from "react";
 const FAQS = [
   {
     q: "Vou ser banido se mandar disparo em massa?",
-    a: "Não, se respeitar boas práticas. O ZapFlow tem cadência inteligente, intervalos randomizados e modo round-robin com até 2 chips alternando — o WhatsApp não bate como spam. Mais de 200 contas ativas há +6 meses sem ban.",
+    a: "Não, se respeitar boas práticas. O Wayvo tem cadência inteligente, intervalos randomizados e modo round-robin com até 2 chips alternando — o WhatsApp não bate como spam. Mais de 200 contas ativas há +6 meses sem ban.",
   },
   {
     q: "Funciona com meu WhatsApp atual ou preciso comprar chip novo?",
@@ -32,7 +32,7 @@ const FAQS = [
   },
   {
     q: "Posso enviar mídia (imagem, vídeo, áudio, PDF)?",
-    a: "Sim. O ZapFlow suporta imagens, vídeos, áudios e documentos em qualquer disparo. Útil pra catálogo, panfletos, áudios personalizados e PDFs de orçamento.",
+    a: "Sim. O Wayvo suporta imagens, vídeos, áudios e documentos em qualquer disparo. Útil pra catálogo, panfletos, áudios personalizados e PDFs de orçamento.",
   },
 ];
 

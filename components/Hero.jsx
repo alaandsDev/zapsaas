@@ -113,7 +113,7 @@ function ProductMockup() {
           <Bubble side="in" delay="0">Tem promoção hoje?</Bubble>
           <Bubble side="out" delay=".4s">Oi Maria! 👋 Hoje só pra você: 40% off no kit completo. Garante o seu?</Bubble>
           <Bubble side="in" delay="1.2s">Quero! Como pago?</Bubble>
-          <Bubble side="out" delay="1.6s">Manda PIX pra zapflow@... Já reservei o último kit pro seu nome 🚀</Bubble>
+          <Bubble side="out" delay="1.6s">Manda PIX pra wayvo@... Já reservei o último kit pro seu nome 🚀</Bubble>
           <div className="flex justify-center mt-3 animate-fade-in" style={{ animationDelay: "2.2s" }}>
             <div className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
               ✓ Venda fechada em 47s

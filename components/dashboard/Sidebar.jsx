@@ -70,7 +70,7 @@ export default function Sidebar() {
               <div className="size-7 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
                 <Zap className="size-4 text-bg" />
               </div>
-              <span className="font-black text-base tracking-tight whitespace-nowrap">ZapFlow</span>
+              <span className="font-black text-base tracking-tight whitespace-nowrap">Wayvo</span>
             </Link>
           )}
           <button

@@ -2,13 +2,13 @@ import Navbar from "../components/Navbar";
 import JsonLd from "../components/JsonLd";
 
 export const metadata = {
-  title: "ZapFlow — Sistema de Vendas Automáticas pelo WhatsApp 24h",
+  title: "Wayvo — Sistema de Vendas Automáticas pelo WhatsApp 24h",
   description:
     "Transforme seu WhatsApp em uma máquina de vendas automática. Disparos em massa, chatbot 24/7 e automações. Plano grátis pra começar hoje.",
   alternates: { canonical: "/" },
   openGraph: {
     url: "https://zapflow.vercel.app/",
-    title: "ZapFlow — Vendas Automáticas pelo WhatsApp 24h",
+    title: "Wayvo — Vendas Automáticas pelo WhatsApp 24h",
     description:
       "Disparos em massa, chatbot e automações. Venda todos os dias no automático.",
   },
@@ -31,7 +31,7 @@ export default function Home() {
         data={{
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
-          name: "ZapFlow",
+          name: "Wayvo",
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description:
@@ -54,7 +54,7 @@ export default function Home() {
           mainEntity: [
             {
               "@type": "Question",
-              name: "O ZapFlow funciona com meu WhatsApp atual?",
+              name: "O Wayvo funciona com meu WhatsApp atual?",
               acceptedAnswer: {
                 "@type": "Answer",
                 text: "Sim. Você conecta seu próprio número em 30 segundos via QR Code, sem trocar de chip nem usar app paralelo.",
@@ -73,7 +73,7 @@ export default function Home() {
               name: "Posso fazer disparo em massa pelo WhatsApp?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "Sim. O ZapFlow envia campanhas com mensagens personalizadas (nome, oferta, link) com cadência inteligente para manter seu número saudável.",
+                text: "Sim. O Wayvo envia campanhas com mensagens personalizadas (nome, oferta, link) com cadência inteligente para manter seu número saudável.",
               },
             },
             {
@@ -81,7 +81,7 @@ export default function Home() {
               name: "Funciona pra clínicas, delivery, imobiliária e ótica?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "Sim. O ZapFlow tem fluxos prontos para clínicas (agendamento), delivery (recorrência), imobiliárias (follow-up) e óticas (reativação).",
+                text: "Sim. O Wayvo tem fluxos prontos para clínicas (agendamento), delivery (recorrência), imobiliárias (follow-up) e óticas (reativação).",
               },
             },
           ],
@@ -91,7 +91,7 @@ export default function Home() {
       <Hero
         title="Transforme seu WhatsApp em uma"
         highlight="máquina de vendas automática"
-        subtitle="Venda todos os dias, responda clientes na hora e nunca mais perca uma oportunidade. O ZapFlow trabalha por você 24 horas por dia — enquanto você cuida do que importa."
+        subtitle="Venda todos os dias, responda clientes na hora e nunca mais perca uma oportunidade. O Wayvo trabalha por você 24 horas por dia — enquanto você cuida do que importa."
         metrics={[
           { value: "+37", label: "vendas em 7 dias (média)" },
           { value: "24h", label: "vendendo no automático" },
@@ -100,7 +100,7 @@ export default function Home() {
         ]}
       />
       <Benefits
-        title="Negócios que ativam o ZapFlow vendem mais — todo santo dia"
+        title="Negócios que ativam o Wayvo vendem mais — todo santo dia"
         subtitle="Não é ferramenta. É um sistema completo pronto pra colocar dinheiro no seu caixa."
         items={[
           { icon: "💰", title: "Venda todos os dias no automático", desc: "Seu WhatsApp passa a faturar mesmo quando você está dormindo, no almoço ou de folga." },
@@ -111,7 +111,7 @@ export default function Home() {
       />
       <HowItWorks
         steps={[
-          { title: "Conecte seu WhatsApp", desc: "Em 30 segundos você liga seu número ao ZapFlow. Sem chip novo, sem app paralelo." },
+          { title: "Conecte seu WhatsApp", desc: "Em 30 segundos você liga seu número ao Wayvo. Sem chip novo, sem app paralelo." },
           { title: "Ative o sistema", desc: "Escolha um template pronto ou personalize a mensagem. Tudo direto no painel, sem código." },
           { title: "Comece a vender", desc: "O sistema dispara, organiza e responde. Você só acompanha as vendas chegando." },
         ]}
@@ -133,7 +133,7 @@ export default function Home() {
           { value: "98%", label: "de taxa de entrega das mensagens" },
         ]}
         testimonials={[
-          { name: "Marcelo S.", role: "Dono de ótica · Curitiba", result: "+R$ 11k em 5 dias", quote: "Coloquei o ZapFlow numa terça. Na sexta já tinha 11 vendas que vieram só do WhatsApp. Pago a mensalidade no primeiro cliente.", color: "#00FFB2" },
+          { name: "Marcelo S.", role: "Dono de ótica · Curitiba", result: "+R$ 11k em 5 dias", quote: "Coloquei o Wayvo numa terça. Na sexta já tinha 11 vendas que vieram só do WhatsApp. Pago a mensalidade no primeiro cliente.", color: "#00FFB2" },
           { name: "Camila R.", role: "Clínica de estética · Belo Horizonte", result: "Agenda 100% lotada", quote: "Minha agenda estava sempre com buracos. Hoje passo o dia atendendo. O sistema enche a agenda sozinho.", color: "#3B82F6" },
           { name: "Diego P.", role: "Hamburgueria · São Paulo", result: "Faturou 3x mais", quote: "Nos fins de semana fechados o sistema já bate o faturamento de uma terça inteira. Mudou meu jogo.", color: "#8B5CF6" },
         ]}

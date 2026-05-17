@@ -3,7 +3,7 @@ export default function Benefits({ title, subtitle, items }) {
     <section className="py-24 border-t border-white/[0.06]">
       <div className="container-x">
         <div className="max-w-2xl mb-14">
-          <div className="eyebrow mb-4">Por que ZapFlow</div>
+          <div className="eyebrow mb-4">Por que Wayvo</div>
           <h2 className="text-h2">{title}</h2>
           {subtitle && <p className="mt-4 text-ink-300 text-lg">{subtitle}</p>}
         </div>

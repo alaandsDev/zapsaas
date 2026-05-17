@@ -4,7 +4,7 @@ import JsonLd from "../../components/JsonLd";
 const URL = "https://zapflow.vercel.app/oticas";
 
 export const metadata = {
-  title: "ZapFlow para Óticas — Reative pacientes e venda mais",
+  title: "Wayvo para Óticas — Reative pacientes e venda mais",
   description:
     "Sistema de vendas automáticas pelo WhatsApp para óticas. Reative pacientes, aumente vendas de óculos, lentes e segundo par no automático.",
   keywords: [
@@ -18,7 +18,7 @@ export const metadata = {
   alternates: { canonical: "/oticas" },
   openGraph: {
     url: URL,
-    title: "ZapFlow para Óticas — Reative pacientes no automático",
+    title: "Wayvo para Óticas — Reative pacientes no automático",
     description:
       "Reative pacientes, venda segundo par e lentes pelo WhatsApp.",
   },
@@ -38,7 +38,7 @@ export default function Page() {
     <>
     <JsonLd data={BREADCRUMB} />
     <NicheLanding
-      eyebrow="ZapFlow para Óticas"
+      eyebrow="Wayvo para Óticas"
       heroTitle="Transforme pacientes da clínica em"
       heroHighlight="clientes na sua ótica automaticamente"
       heroSubtitle="Pare de depender só de quem entra na loja. Reative quem já passou pela clínica e venda óculos, lentes e segundo par — todos os dias, no automático."
@@ -51,8 +51,8 @@ export default function Page() {
         { icon: "🎯", title: "Promoções que dão resultado", desc: "Black Friday, Dia das Mães, Pais — campanhas prontas que disparam pra base toda em segundos." },
       ]}
       steps={[
-        { title: "Conecte o WhatsApp da ótica", desc: "Liga seu número ao ZapFlow em 30 segundos. Mantém o mesmo número que seus clientes já conhecem." },
-        { title: "Importe seus pacientes/clientes", desc: "Cole a lista da clínica, do sistema da ótica ou da agenda. ZapFlow organiza tudo automaticamente." },
+        { title: "Conecte o WhatsApp da ótica", desc: "Liga seu número ao Wayvo em 30 segundos. Mantém o mesmo número que seus clientes já conhecem." },
+        { title: "Importe seus pacientes/clientes", desc: "Cole a lista da clínica, do sistema da ótica ou da agenda. Wayvo organiza tudo automaticamente." },
         { title: "Ative a campanha e venda", desc: "Escolha o template (reativação, segundo par, troca de lente) e dispare. As vendas começam a chegar." },
       ]}
       stats={[
@@ -67,7 +67,7 @@ export default function Page() {
       ]}
       finalCTA={{
         title: "Sua base de pacientes vale ouro — está na hora de ativar",
-        subtitle: "Cada paciente esquecido é uma venda indo pro concorrente. Ative o ZapFlow e transforme sua agenda em faturamento previsível.",
+        subtitle: "Cada paciente esquecido é uma venda indo pro concorrente. Ative o Wayvo e transforme sua agenda em faturamento previsível.",
       }}
     />
     </>

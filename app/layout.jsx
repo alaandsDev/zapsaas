@@ -7,13 +7,13 @@ const SITE_URL = "https://zapflow.vercel.app";
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "ZapFlow — Sistema de Vendas Automáticas pelo WhatsApp 24h",
-    template: "%s | ZapFlow",
+    default: "Wayvo — Sistema de Vendas Automáticas pelo WhatsApp 24h",
+    template: "%s | Wayvo",
   },
   description:
     "Transforme seu WhatsApp em uma máquina de vendas automática. Disparos em massa, chatbot 24/7, automações e CRM. Plano grátis pra começar hoje.",
-  applicationName: "ZapFlow",
-  authors: [{ name: "ZapFlow" }],
+  applicationName: "Wayvo",
+  authors: [{ name: "Wayvo" }],
   generator: "Next.js",
   keywords: [
     "automação whatsapp",
@@ -26,7 +26,7 @@ export const metadata = {
     "envio em massa whatsapp",
     "follow up automático",
     "sistema de vendas whatsapp",
-    "zapflow",
+    "wayvo",
     "zap flow",
   ],
   referrer: "origin-when-cross-origin",
@@ -38,8 +38,8 @@ export const metadata = {
     type: "website",
     locale: "pt_BR",
     url: SITE_URL,
-    siteName: "ZapFlow",
-    title: "ZapFlow — Sistema de Vendas Automáticas pelo WhatsApp 24h",
+    siteName: "Wayvo",
+    title: "Wayvo — Sistema de Vendas Automáticas pelo WhatsApp 24h",
     description:
       "Venda todos os dias pelo WhatsApp no automático. Disparos em massa, chatbot e CRM. Plano Starter grátis. Pro por R$ 47/mês.",
     images: [
@@ -47,13 +47,13 @@ export const metadata = {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "ZapFlow — Sistema de Vendas Automáticas pelo WhatsApp",
+        alt: "Wayvo — Sistema de Vendas Automáticas pelo WhatsApp",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ZapFlow — Vendas Automáticas pelo WhatsApp 24h",
+    title: "Wayvo — Vendas Automáticas pelo WhatsApp 24h",
     description:
       "Disparos em massa, chatbot e automações. Comece grátis e venda todos os dias no automático.",
     images: ["/og.png"],
@@ -86,7 +86,7 @@ export const viewport = {
 const ORG_JSONLD = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "ZapFlow",
+  name: "Wayvo",
   url: SITE_URL,
   logo: `${SITE_URL}/favicon.svg`,
   sameAs: [],
@@ -97,7 +97,7 @@ const ORG_JSONLD = {
 const WEBSITE_JSONLD = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  name: "ZapFlow",
+  name: "Wayvo",
   url: SITE_URL,
   inLanguage: "pt-BR",
   potentialAction: {

@@ -222,7 +222,7 @@ function StatusBadge({ status, loading }) {
 function TestSendCard({ sessions }) {
   const connected = sessions.filter(s => s.status === "connected");
   const [phone, setPhone] = useState("");
-  const [message, setMessage] = useState("Olá! Teste do ZapFlow 🚀");
+  const [message, setMessage] = useState("Olá! Teste do Wayvo 🚀");
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
   const [loading, setLoading] = useState(false);

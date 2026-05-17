@@ -34,7 +34,7 @@ export default function Login() {
 
   return (
     <AuthShell
-      title="Entrar no ZapFlow"
+      title="Entrar no Wayvo"
       subtitle="Acesse seu painel e veja suas vendas chegando"
       footer={
         <>

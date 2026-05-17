@@ -1,7 +1,7 @@
 import Sidebar from "../../components/dashboard/Sidebar";
 import AuthGuard from "../../components/dashboard/AuthGuard";
 
-export const metadata = { title: "ZapFlow — Painel" };
+export const metadata = { title: "Wayvo — Painel" };
 
 export default function DashboardLayout({ children }) {
   return (

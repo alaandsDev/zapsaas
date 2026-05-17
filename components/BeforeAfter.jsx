@@ -25,7 +25,7 @@ export default function BeforeAfter() {
           </div>
           <h2 className="text-h2">A diferença é<br />gritante.</h2>
           <p className="mt-4 text-ink-300 text-lg">
-            Veja o que muda no seu dia-a-dia quando o ZapFlow assume o WhatsApp.
+            Veja o que muda no seu dia-a-dia quando o Wayvo assume o WhatsApp.
           </p>
         </div>
 
@@ -35,7 +35,7 @@ export default function BeforeAfter() {
             <div className="absolute -top-12 -right-12 size-40 rounded-full bg-red-500/5 blur-3xl pointer-events-none" />
             <div className="relative">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/25 text-red-300 text-xs font-bold mb-5">
-                <span>❌</span> ANTES DO ZAPFLOW
+                <span>❌</span> ANTES DO WAYVO
               </div>
               <h3 className="text-xl font-bold text-ink-200 mb-5">Você refém do WhatsApp</h3>
               <ul className="space-y-3">
@@ -56,7 +56,7 @@ export default function BeforeAfter() {
             <div className="absolute -top-12 -right-12 size-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
             <div className="relative">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold mb-5">
-                <span>✓</span> COM O ZAPFLOW
+                <span>✓</span> COM O WAYVO
               </div>
               <h3 className="text-xl font-bold mb-5">WhatsApp trabalhando por você</h3>
               <ul className="space-y-3">

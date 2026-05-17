@@ -58,7 +58,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-14 pt-8 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-4 text-xs text-ink-500">
-          <div>© {new Date().getFullYear()} ZapFlow. Todos os direitos reservados.</div>
+          <div>© {new Date().getFullYear()} Wayvo. Todos os direitos reservados.</div>
           <div className="flex items-center gap-5">
             <span className="inline-flex items-center gap-1.5">
               <svg className="size-3.5 text-primary" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4 5v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V5l-8-3z"/></svg>

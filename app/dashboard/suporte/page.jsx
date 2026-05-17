@@ -16,7 +16,7 @@ export default function SuportePage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10 space-y-6">
         <div className="card p-8 text-center">
           <div className="text-5xl mb-4">🆘</div>
-          <h2 className="text-xl font-bold">Suporte ZapFlow</h2>
+          <h2 className="text-xl font-bold">Suporte Wayvo</h2>
           <p className="text-sm text-ink-300 mt-2 max-w-md mx-auto">
             Precisa de ajuda? Entre em contato pelo e-mail ou WhatsApp abaixo. Respondemos em até 24h úteis.
           </p>
@@ -32,7 +32,7 @@ export default function SuportePage() {
               </div>
             </a>
             <a
-              href="https://wa.me/55?text=Olá! Preciso de suporte no ZapFlow."
+              href="https://wa.me/55?text=Olá! Preciso de suporte no Wayvo."
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-primary/30 transition-all text-left"

@@ -3,8 +3,8 @@ import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 
 export const metadata = {
-  title: "Changelog — Novidades do ZapFlow",
-  description: "Acompanhe as últimas atualizações, melhorias e novas funcionalidades do ZapFlow.",
+  title: "Changelog — Novidades do Wayvo",
+  description: "Acompanhe as últimas atualizações, melhorias e novas funcionalidades do Wayvo.",
   alternates: { canonical: "/changelog" },
 };
 

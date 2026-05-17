@@ -1,4 +1,4 @@
-// Node catalog for the ZapFlow visual workflow builder.
+// Node catalog for the Wayvo visual workflow builder.
 // Each entry drives color, glow, icon and default content.
 
 export const NODE_DEFS = {

@@ -25,7 +25,7 @@ export default function AuthShell({ title, subtitle, children, footer }) {
         <div className="absolute -top-40 -left-40 size-[500px] rounded-full bg-primary/20 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-40 -right-40 size-[500px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
 
-        <Link href="/" className="relative z-10 flex items-center gap-2" aria-label="ZapFlow">
+        <Link href="/" className="relative z-10 flex items-center gap-2" aria-label="Wayvo">
           <Logo size={32} />
         </Link>
 
@@ -56,13 +56,13 @@ export default function AuthShell({ title, subtitle, children, footer }) {
         </div>
 
         <div className="relative z-10 text-sm text-ink-400">
-          © {new Date().getFullYear()} ZapFlow · Todos os direitos reservados
+          © {new Date().getFullYear()} Wayvo · Todos os direitos reservados
         </div>
       </div>
 
       {/* LADO DIREITO — formulário */}
       <div className="flex items-center justify-center px-6 py-12 relative">
-        <Link href="/" className="lg:hidden absolute top-6 left-6 flex items-center gap-2" aria-label="ZapFlow">
+        <Link href="/" className="lg:hidden absolute top-6 left-6 flex items-center gap-2" aria-label="Wayvo">
           <Logo size={28} />
         </Link>
         <div className="w-full max-w-md">

@@ -19,7 +19,7 @@ const STEPS = [
           <p className="font-semibold text-ink-100">No painel, clique em:</p>
           <p>1. <b>"Meus apps"</b> → <b>"Criar app"</b></p>
           <p>2. Escolha <b>"Business"</b> como tipo do app</p>
-          <p>3. Dê um nome (ex: <b>ZapFlow Bot</b>) e clique em <b>Criar app</b></p>
+          <p>3. Dê um nome (ex: <b>Wayvo Bot</b>) e clique em <b>Criar app</b></p>
         </div>
       </div>
     ),
@@ -68,7 +68,7 @@ const STEPS = [
         <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-2">
           <p>No <a href="https://business.facebook.com" target="_blank" className="text-primary underline">Meta Business Suite</a>:</p>
           <p>1. <b>Configurações</b> → <b>Usuários</b> → <b>Usuários do sistema</b></p>
-          <p>2. Clique em <b>"Adicionar"</b> → nome: <b>ZapFlow</b> → função: <b>Admin</b></p>
+          <p>2. Clique em <b>"Adicionar"</b> → nome: <b>Wayvo</b> → função: <b>Admin</b></p>
           <p>3. Clique em <b>"Gerar novo token"</b></p>
           <p>4. Selecione seu app → marque <b>whatsapp_business_messaging</b> e <b>whatsapp_business_management</b></p>
           <p>5. Clique em <b>"Gerar token"</b> e copie — esse token <b>não expira</b></p>
@@ -310,7 +310,7 @@ export default function WppOficialPage() {
                 <Input
                   value={verifyToken}
                   onChange={e => setVerifyToken(e.target.value)}
-                  placeholder="Ex: zapflow_meu_token_123"
+                  placeholder="Ex: wayvo_meu_token_123"
                   required
                 />
               </Field>

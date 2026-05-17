@@ -30,7 +30,7 @@ export default function WhatsappPreview({ nodes }) {
             Z
           </div>
           <div className="min-w-0">
-            <div className="text-[12.5px] font-semibold text-white truncate">ZapFlow Bot</div>
+            <div className="text-[12.5px] font-semibold text-white truncate">Wayvo Bot</div>
             <div className="text-[10px] text-emerald-400 flex items-center gap-1">
               <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /> online
             </div>

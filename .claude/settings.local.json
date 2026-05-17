@@ -1,11 +1,31 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git reset *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(node -c backend/workflow-engine.js)",
+      "Bash(node -c backend/server.js)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node -c backend/realtime.js)",
+      "Bash(node -c backend/whatsapp.js)",
+      "Bash(git commit -q -m ' *)",
       "Bash(git push *)",
       "Bash(git fetch *)",
-      "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git rev-list *)",
+      "Bash(git ls-tree *)",
+      "Bash(git show *)",
+      "Bash(grep -nA40 \"app.get\\('/api/stats'\")",
+      "Bash(git checkout *)",
+      "Bash(grep -nA14 \"CREATE TABLE IF NOT EXISTS leads\")",
+      "Bash(grep -nA16 \"CREATE TABLE IF NOT EXISTS leads\")",
+      "Bash(git pull *)",
+      "Bash(grep -n \"api\\(\\\\\"/api/dashboard/insights\\\\\"\\)\\\\|const KPIs = \\\\|grid grid-cols-2 lg:grid-cols-4 gap-4\\\\|AnimatedNumber value={k.value}\\\\|const \\\\[insights, setInsights\\\\]\" app/dashboard/page.jsx)",
+      "Bash(grep -nA16 \"CREATE TABLE IF NOT EXISTS dispatches\")",
+      "Bash(sed -i 's/ANTES DO ZAPFLOW/ANTES DO WAYVO/; s/COM O ZAPFLOW/COM O WAYVO/' components/BeforeAfter.jsx)",
+      "Bash(sed -i 's/zapflow@/wayvo@/' components/Hero.jsx)",
+      "Bash(sed -i 's/\"zapflow\",/\"wayvo\",/' app/layout.jsx)",
+      "Bash(sed -i 's/zapflow_meu_token_123/wayvo_meu_token_123/' app/dashboard/wpp-oficial/page.jsx)"
     ]
   }
 }

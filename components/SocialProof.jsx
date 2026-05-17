@@ -24,7 +24,7 @@ export default function SocialProof({ stats, testimonials }) {
             <span className="size-1.5 rounded-full bg-primary animate-pulse" />
             O que os clientes dizem
           </div>
-          <h2 className="text-h2">Histórias reais de quem<br />vende mais com o ZapFlow</h2>
+          <h2 className="text-h2">Histórias reais de quem<br />vende mais com o Wayvo</h2>
         </div>
 
         {/* Testimonials com métrica concreta */}
