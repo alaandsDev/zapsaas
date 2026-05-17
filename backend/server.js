@@ -2319,6 +2319,25 @@ wpp.on('message', async (evt) => {
       type: evt.type, text: evt.text,
       media_url: mediaUrl, mime_type: evt.mimeType, timestamp: ts,
     });
+
+    // Quando o cliente responde (mensagem de entrada), atualiza lead:
+    // - status: new → contacted (não regride se já for converted)
+    // - last_interaction_at: agora
+    if (!evt.fromMe && evt.phone) {
+      const phone = evt.phone.replace(/\D/g, '');
+      supabase.from('leads')
+        .select('id, status')
+        .eq('user_id', userId)
+        .eq('phone', phone)
+        .single()
+        .then(({ data: lead }) => {
+          if (!lead) return;
+          const patch = { last_interaction_at: new Date().toISOString() };
+          if (lead.status === 'new') patch.status = 'contacted';
+          return supabase.from('leads').update(patch).eq('id', lead.id);
+        })
+        .catch(e => console.error('[chat] erro ao atualizar lead:', e.message));
+    }
   } catch (e) {
     console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');
   }
