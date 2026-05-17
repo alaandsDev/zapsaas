@@ -815,6 +815,26 @@ app.post('/api/dispatches/:id/cancel', requireAuth, async (req, res) => {
   }
 });
 
+// Atualiza last_interaction_at dos leads que receberam o disparo
+async function updateLeadsInteraction(contacts, userId) {
+  try {
+    const phones = [...new Set(contacts.map(c => (c.phone || '').replace(/\D/g, '')).filter(Boolean))];
+    if (!phones.length) return;
+    // Atualiza em lotes de 100 para não estourar o limite do Supabase
+    const now = new Date().toISOString();
+    const BATCH = 100;
+    for (let i = 0; i < phones.length; i += BATCH) {
+      await supabase.from('leads')
+        .update({ last_interaction_at: now })
+        .eq('user_id', userId)
+        .in('phone', phones.slice(i, i + BATCH));
+    }
+    console.log(`[dispatch] last_interaction_at atualizado para ${phones.length} leads`);
+  } catch (e) {
+    console.error('[dispatch] Erro ao atualizar last_interaction_at:', e.message);
+  }
+}
+
 async function executeRealDispatch(dispatchId, userId) {
   const { data: dispatch } = await supabase.from('dispatches').select('*').eq('id', dispatchId).single();
   if (!dispatch) return;
@@ -918,6 +938,10 @@ async function executeRealDispatch(dispatchId, userId) {
     completed_at: new Date().toISOString()
   }).eq('id', dispatchId);
 
+  // Atualiza last_interaction_at dos leads que receberam o disparo
+  const sentContacts = contacts.filter((_, i) => results[i]?.status === 'sent');
+  await updateLeadsInteraction(sentContacts, userId);
+
   console.log(`[dispatch] ${dispatchId} concluído: ${sent} enviados, ${failed} falhas (${sessions.length} sessão(ões) usada(s))`);
 }
 
@@ -942,6 +966,11 @@ async function simulateSending(dispatchId) {
         status: 'completed',
         completed_at: new Date().toISOString()
       }).eq('id', dispatchId);
+      // Atualiza last_interaction_at dos leads que receberam o disparo
+      const sentContacts = dispatch.items
+        .filter((_, i) => items[i]?.status === 'sent')
+        .map(i => ({ phone: i.contactPhone }));
+      await updateLeadsInteraction(sentContacts, dispatch.user_id);
       return;
     }
 
@@ -1372,6 +1401,10 @@ async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
     items: updatedItems,
     completed_at: new Date().toISOString()
   }).eq('id', dispatchId);
+
+  // Atualiza last_interaction_at dos leads que receberam o disparo
+  const sentContacts = contacts.filter((_, i) => updatedItems[i]?.status === 'sent');
+  await updateLeadsInteraction(sentContacts, userId);
 
   console.log(`[cloud] Dispatch ${dispatchId} concluído: ${sent} enviados, ${failed} falhas`);
 }
