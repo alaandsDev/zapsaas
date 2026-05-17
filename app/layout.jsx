@@ -71,9 +71,9 @@ export const metadata = {
   },
   category: "business",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
+    icon: "/wayvo-icon.png",
+    shortcut: "/wayvo-icon.png",
+    apple: "/wayvo-icon.png",
   },
 };
 
@@ -88,7 +88,7 @@ const ORG_JSONLD = {
   "@type": "Organization",
   name: "Wayvo",
   url: SITE_URL,
-  logo: `${SITE_URL}/favicon.svg`,
+  logo: `${SITE_URL}/wayvo-icon.png`,
   sameAs: [],
   description:
     "Sistema de vendas automáticas pelo WhatsApp: disparos em massa, chatbot 24/7, automações e CRM.",

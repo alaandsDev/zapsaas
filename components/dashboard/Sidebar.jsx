@@ -67,9 +67,8 @@ export default function Sidebar() {
         <div className={`h-16 flex items-center border-b border-ink-700/60 gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
           {expanded && (
             <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
-              <div className="size-7 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
-                <Zap className="size-4 text-bg" />
-              </div>
+              <img src="/wayvo-icon.png" alt="Wayvo" width={28} height={28}
+                className="size-7 object-contain shrink-0 select-none" draggable={false} />
               <span className="font-black text-base tracking-tight whitespace-nowrap">Wayvo</span>
             </Link>
           )}
