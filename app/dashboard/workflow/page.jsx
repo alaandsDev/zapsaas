@@ -77,11 +77,87 @@ function Builder() {
   const [wfName, setWfName] = useState("Meu primeiro fluxo");
   const [busy, setBusy] = useState(null); // 'save' | 'publish' | 'test'
   const [toast, setToast] = useState(null); // { kind, msg }
+  const [aiOpen, setAiOpen] = useState(false);
 
   const flash = useCallback((kind, msg) => {
     setToast({ kind, msg });
     setTimeout(() => setToast(null), 3500);
   }, []);
+
+  const AI_TEMPLATES = [
+    {
+      key: "recuperacao",
+      label: "Recuperação de leads",
+      desc: "Reengaja quem parou de responder",
+      build: () => {
+        const N = [
+          { kind: "trigger", title: "Lead sem resposta", body: "Sem interação há 24h" },
+          { kind: "delay", title: "Aguardar 24h", body: "24 horas" },
+          { kind: "message", title: "Reengajar", body: "Oi {nome}! Vi que você demonstrou interesse 👀 Ainda posso te ajudar?" },
+          { kind: "condition", title: "Respondeu?", body: "Sim / Não" },
+          { kind: "ia", title: "Qualificar resposta", body: "Entenda a objeção e ofereça a melhor solução." },
+          { kind: "tag", title: "Marcar perdido", body: "tag: frio" },
+        ];
+        return graph(N, [[0,1],[1,2],[2,3],[3,4],[3,5]]);
+      },
+    },
+    {
+      key: "boasvindas",
+      label: "Boas-vindas",
+      desc: "Recebe e qualifica novos leads",
+      build: () => {
+        const N = [
+          { kind: "trigger", title: "Novo lead", body: "Primeiro contato" },
+          { kind: "message", title: "Boas-vindas", body: "Olá {nome}! 👋 Que bom te ver por aqui." },
+          { kind: "delay", title: "Aguardar 10min", body: "10 minutos" },
+          { kind: "ia", title: "Entender necessidade", body: "Pergunte o objetivo e responda com a melhor oferta." },
+          { kind: "tag", title: "Classificar", body: "tag: novo" },
+        ];
+        return graph(N, [[0,1],[1,2],[2,3],[3,4]]);
+      },
+    },
+    {
+      key: "qualificacao",
+      label: "Qualificação comercial",
+      desc: "Separa quente de frio automaticamente",
+      build: () => {
+        const N = [
+          { kind: "trigger", title: "Lead recebido", body: "Entrou no funil" },
+          { kind: "ia", title: "Diagnóstico IA", body: "Identifique intenção e urgência da compra." },
+          { kind: "condition", title: "Lead quente?", body: "Score alto?" },
+          { kind: "message", title: "Acelerar venda", body: "{nome}, consigo uma condição especial pra você fechar hoje 🚀" },
+          { kind: "tag", title: "Nutrir", body: "tag: morno" },
+        ];
+        return graph(N, [[0,1],[1,2],[2,3],[2,4]]);
+      },
+    },
+  ];
+
+  function graph(defs, links) {
+    const ns = defs.map((d, i) => ({
+      id: `ai${Date.now()}_${i}`,
+      type: "zap",
+      position: { x: 60 + (i % 3) * 300, y: 80 + Math.floor(i / 3) * 220 + (i % 2) * 60 },
+      data: d,
+    }));
+    const es = links.map(([a, b]) => ({
+      id: `aie_${ns[a].id}_${ns[b].id}`,
+      source: ns[a].id,
+      target: ns[b].id,
+      ...edgeOptions,
+    }));
+    return { ns, es };
+  }
+
+  function genFlow(tpl) {
+    const { ns, es } = tpl.build();
+    setNodes(ns);
+    setEdges(es);
+    setSelectedId(null);
+    setAiOpen(false);
+    setWfName(`IA · ${tpl.label}`);
+    flash("ok", `Fluxo "${tpl.label}" gerado pela IA ✨`);
+  }
 
   useEffect(() => {
     api("/api/workflows")
@@ -196,6 +272,42 @@ function Builder() {
               onChange={(e) => setWfName(e.target.value)}
               className="hidden md:block w-48 rounded-lg bg-bg/60 border border-white/10 px-3 py-2 text-sm outline-none focus:border-primary/60"
             />
+            <div className="relative">
+              <button
+                onClick={() => setAiOpen((v) => !v)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
+                style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}
+              >
+                <span>✨</span> Gerar com IA
+              </button>
+              <AnimatePresence>
+                {aiOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setAiOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-white/[0.08] p-2"
+                      style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)", boxShadow: "0 24px 60px -20px rgba(0,0,0,0.8)" }}
+                    >
+                      <div className="px-3 py-2 text-[11px] uppercase tracking-wider text-ink-500">IA monta o fluxo</div>
+                      {AI_TEMPLATES.map((t) => (
+                        <button
+                          key={t.key}
+                          onClick={() => genFlow(t)}
+                          className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-white/[0.05] transition-colors"
+                        >
+                          <div className="text-[13px] font-semibold text-ink-50">{t.label}</div>
+                          <div className="text-[11px] text-ink-500">{t.desc}</div>
+                        </button>
+                      ))}
+                      <div className="px-3 py-1.5 text-[10px] text-ink-600">Substitui o canvas atual pelo fluxo gerado.</div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
             <Button variant="ghost" loading={busy === "test"} onClick={testRun} className="!py-2 !px-3 text-sm">
               Testar fluxo
             </Button>
