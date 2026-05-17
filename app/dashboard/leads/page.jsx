@@ -61,8 +61,20 @@ function AnimatedNumber({ value = 0, suffix = "" }) {
   return <span>{isFloat ? n.toFixed(1) : Math.round(n).toLocaleString("pt-BR")}{suffix}</span>;
 }
 
-function Avatar({ name, size = 40 }) {
+function Avatar({ name, url, size = 40 }) {
+  const [err, setErr] = useState(false);
   const initial = (name || "?").trim()[0]?.toUpperCase() || "?";
+  if (url && !err) {
+    return (
+      <img
+        src={url}
+        alt=""
+        onError={() => setErr(true)}
+        style={{ width: size, height: size }}
+        className="rounded-full object-cover bg-bg2 shrink-0"
+      />
+    );
+  }
   return (
     <div
       style={{ width: size, height: size, fontSize: size * 0.4 }}
@@ -86,6 +98,14 @@ export default function LeadsPage() {
   const [openImport, setOpenImport] = useState(false);
   const [openListView, setOpenListView] = useState(null);
   const [editLead, setEditLead] = useState(null);
+  const [tagInput, setTagInput] = useState("");
+
+  async function patchLead(id, patch) {
+    const updated = await api(`/api/leads/${id}`, { method: "PATCH", body: patch }).catch(() => null);
+    if (!updated) return;
+    setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, ...updated } : l)));
+    setSelected((s) => (s && s.id === id ? { ...s, ...updated } : s));
+  }
 
   async function load() {
     setLoading(true);
@@ -122,6 +142,12 @@ export default function LeadsPage() {
     return [...m.entries()];
   }, [leads]);
 
+  const allTags = useMemo(() => {
+    const m = new Map();
+    leads.forEach((l) => (l.tags || []).forEach((t) => m.set(t, (m.get(t) || 0) + 1)));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [leads]);
+
   const statusCounts = useMemo(() => ({
     new: leads.filter((l) => l.status === "new").length,
     contacted: leads.filter((l) => l.status === "contacted").length,
@@ -132,6 +158,7 @@ export default function LeadsPage() {
     let out = leads;
     if (seg.type === "status") out = out.filter((l) => l.status === seg.value);
     if (seg.type === "source") out = out.filter((l) => (l.source || "form") === seg.value);
+    if (seg.type === "tag") out = out.filter((l) => (l.tags || []).includes(seg.value));
     const term = q.toLowerCase().trim();
     if (term) out = out.filter((l) => [l.name, l.phone, l.interest, l.source].filter(Boolean).join(" ").toLowerCase().includes(term));
     return out;
@@ -245,6 +272,19 @@ export default function LeadsPage() {
               </div>
             )}
 
+            {allTags.length > 0 && (
+              <div>
+                <div className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-500">Tags</div>
+                <div className="space-y-1">
+                  {allTags.map(([t, c]) => (
+                    <RailItem key={t} active={seg.type === "tag" && seg.value === t}
+                      onClick={() => setSeg({ type: "tag", value: t })}
+                      dot="#7C3AED" label={t} count={c} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <div className="px-2 mb-1.5 flex items-center justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Listas</span>
@@ -325,9 +365,9 @@ export default function LeadsPage() {
                             ? "bg-primary/[0.06] border-primary/30 shadow-[0_0_24px_-12px_rgba(0,255,136,0.6)]"
                             : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.14] hover:bg-white/[0.04]"}`}
                       >
-                        <Avatar name={l.name} size={42} />
+                        <Avatar name={l.name} url={l.avatar_url} size={42} />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm truncate">{l.name || "Sem nome"}</span>
                             <span
                               className="text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0"
@@ -335,6 +375,11 @@ export default function LeadsPage() {
                             >
                               {s.label}
                             </span>
+                            {(l.tags || []).slice(0, 3).map((t) => (
+                              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0" style={chip("#7C3AED")}>
+                                {t}
+                              </span>
+                            ))}
                           </div>
                           <div className="text-xs text-ink-500 mt-0.5 truncate">
                             {l.phone || "—"}
@@ -345,7 +390,7 @@ export default function LeadsPage() {
                           <span className="text-[10px] px-2 py-0.5 rounded-full border text-ink-400 border-white/10 bg-white/[0.02]">
                             {SOURCE_LABEL[l.source] || l.source || "Formulário"}
                           </span>
-                          <span className="text-[10px] text-ink-600">{relTime(l.created_at || l.createdAt)}</span>
+                          <span className="text-[10px] text-ink-600">{relTime(l.last_interaction_at || l.created_at || l.createdAt)}</span>
                         </div>
                         <ChevronRight className="size-4 text-ink-600 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
                       </motion.button>
@@ -370,7 +415,7 @@ export default function LeadsPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                      <Avatar name={selected.name} size={48} />
+                      <Avatar name={selected.name} url={selected.avatar_url} size={48} />
                       <div className="min-w-0">
                         <div className="font-bold truncate">{selected.name || "Sem nome"}</div>
                         <div className="text-xs text-ink-500">{selected.phone || "—"}</div>
@@ -426,13 +471,44 @@ export default function LeadsPage() {
                           ["Status", (STATUS[selected.status]?.label) || selected.status || "—"],
                           ["Interesse", selected.interest || "—"],
                           ["Entrada", fmtDate(selected.created_at || selected.createdAt)],
-                          ["Última interação", relTime(selected.created_at || selected.createdAt)],
+                          ["Última interação", relTime(selected.last_interaction_at || selected.created_at || selected.createdAt)],
                         ].map(([k, v]) => (
                           <div key={k} className="flex items-center justify-between gap-3">
                             <span className="text-ink-500 text-xs">{k}</span>
                             <span className="text-ink-100 text-xs font-medium text-right truncate">{v}</span>
                           </div>
                         ))}
+
+                        <div>
+                          <div className="text-ink-500 text-xs mb-1.5">Tags</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(selected.tags || []).map((t) => (
+                              <span key={t} className="text-[11px] px-2 py-0.5 rounded-full border font-medium flex items-center gap-1" style={chip("#7C3AED")}>
+                                {t}
+                                <button
+                                  onClick={() => patchLead(selected.id, { tags: (selected.tags || []).filter((x) => x !== t) })}
+                                  className="hover:text-white"
+                                >
+                                  <X className="size-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <input
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              const v = tagInput.trim();
+                              if (e.key === "Enter" && v) {
+                                patchLead(selected.id, { tags: [...new Set([...(selected.tags || []), v])] });
+                                setTagInput("");
+                              }
+                            }}
+                            placeholder="+ adicionar tag (Enter)"
+                            className="mt-2 w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2.5 py-1.5 text-xs outline-none focus:border-primary/50"
+                          />
+                        </div>
+
                         <div className="pt-2 flex gap-2">
                           <Button variant="ghost" className="flex-1 !py-2 text-xs" onClick={() => setEditLead(selected)}>
                             <Pencil className="size-3.5" /> Editar
@@ -454,9 +530,21 @@ export default function LeadsPage() {
                         href="/dashboard/workflow" cta="Criar fluxo" />
                     )}
                     {tab === "notas" && (
-                      <div className="text-xs text-ink-500">
-                        <StickyNote className="size-7 mx-auto mb-2 text-ink-600" />
-                        <p className="text-center">Notas internas por lead em breve.</p>
+                      <div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-ink-500 mb-2">
+                          <StickyNote className="size-3.5" /> Notas internas (não enviadas ao cliente)
+                        </div>
+                        <textarea
+                          key={selected.id}
+                          defaultValue={selected.notes || ""}
+                          onBlur={(e) => {
+                            if (e.target.value !== (selected.notes || "")) {
+                              patchLead(selected.id, { notes: e.target.value });
+                            }
+                          }}
+                          placeholder="Anotações da equipe sobre este lead..."
+                          className="w-full min-h-[140px] rounded-xl bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs outline-none focus:border-primary/50 resize-none"
+                        />
                       </div>
                     )}
                   </div>

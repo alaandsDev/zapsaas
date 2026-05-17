@@ -592,10 +592,11 @@ app.post('/api/leads', async (req, res) => {
 
 app.patch('/api/leads/:id', requireAuth, async (req, res) => {
   try {
-    const allowed = ['name', 'phone', 'interest', 'status'];
+    const allowed = ['name', 'phone', 'interest', 'status', 'tags', 'notes', 'avatar_url', 'last_interaction_at'];
     const updates = Object.fromEntries(
       Object.entries(req.body).filter(([k]) => allowed.includes(k))
     );
+    updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('leads')
@@ -1960,6 +1961,12 @@ wpp.on('message', async (evt) => {
     const ts = evt.timestamp ? new Date(evt.timestamp).toISOString() : new Date().toISOString();
     const previewLabels = { image: '📷 Foto', audio: '🎵 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🌟 Figurinha' };
     const lastMsg = evt.text || previewLabels[evt.type] || '';
+
+    // CRM: marca última interação do lead (best-effort, não bloqueia o chat)
+    supabase.from('leads')
+      .update({ last_interaction_at: ts })
+      .eq('user_id', userId).eq('phone', evt.phone)
+      .then(() => {}, () => {});
 
     const { data: existing } = await supabase
       .from('chats').select('id, unread, profile_pic_url, profile_pic_refreshed_at')
