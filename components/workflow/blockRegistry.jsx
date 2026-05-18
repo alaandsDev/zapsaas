@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BLOCK_META } from "./blockMeta";
+import { api } from "../../lib/api";
 
 /* ─────────────────────────────────────────────
    SHARED UI PRIMITIVES
@@ -633,6 +634,54 @@ function redirectSummary(data) {
 }
 
 /* ─────────────────────────────────────────────
+   IR PARA FLUXO (goto)
+───────────────────────────────────────────── */
+function GotoEditor({ data, onChange }) {
+  const set = (p) => onChange({ ...data, ...p });
+  const [flows, setFlows] = useState(null);
+  useEffect(() => {
+    api("/api/workflows").then((l) => setFlows(Array.isArray(l) ? l : [])).catch(() => setFlows([]));
+  }, []);
+  return (
+    <div className="space-y-4">
+      <F label="Fluxo de destino" hint="A conversa continua no fluxo escolhido. Evite apontar para o próprio fluxo.">
+        {flows === null ? (
+          <div className="text-[12px] text-ink-500">Carregando fluxos…</div>
+        ) : flows.length === 0 ? (
+          <div className="text-[12px] text-ink-500">Nenhum outro fluxo criado ainda.</div>
+        ) : (
+          <Sel
+            value={data.targetFlowId || ""}
+            onChange={(e) => {
+              const f = flows.find((x) => x.id === e.target.value);
+              set({ targetFlowId: e.target.value, targetFlowName: f?.name || "" });
+            }}
+          >
+            <option value="">Selecione um fluxo…</option>
+            {flows.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}{f.is_entry ? " (entrada)" : ""}{f.enabled === false ? " — inativo" : ""}
+              </option>
+            ))}
+          </Sel>
+        )}
+      </F>
+    </div>
+  );
+}
+function GotoPreview({ data }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#2DD4BF]/25 bg-[#2DD4BF]/05">
+      <span className="text-base">→</span>
+      <div>
+        <div className="text-[11px] text-ink-400">Continuar no fluxo:</div>
+        <div className="text-[12px] font-semibold text-[#2DD4BF]">{data.targetFlowName || "Não definido"}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    BLOCK REGISTRY
 ───────────────────────────────────────────── */
 // BLOCK_REGISTRY merges pure metadata from blockMeta with JSX editors/previews
@@ -648,6 +697,7 @@ const EDITORS = {
   ia:        { Editor: IAEditor,        Preview: IAPreview        },
   tag:       { Editor: TagEditor,       Preview: TagPreview       },
   redirect:  { Editor: RedirectEditor,  Preview: RedirectPreview  },
+  goto:      { Editor: GotoEditor,      Preview: GotoPreview      },
 };
 
 export const BLOCK_REGISTRY = Object.fromEntries(

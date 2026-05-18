@@ -1,12 +1,16 @@
-// ZapFlow workflow execution engine.
+// Wayvo workflow execution engine.
 // Traverses a saved flow (nodes + edges) from the trigger node and
-// executes each node. Used by the manual "Testar fluxo" run for now;
+// executes each block. Used by the manual "Testar fluxo" run for now;
 // the real incoming-message trigger is a separate future phase.
+//
+// Schema-aware: lê os campos estruturados dos blocos (text, prompt,
+// url, options, amount/unit...). Suporta o bloco "goto" (Ir para fluxo).
 
 const wpp = require('./whatsapp');
 
-const MAX_STEPS = 60;
-const TEST_DELAY_CAP_MS = 1500; // delays are capped during a manual test run
+const MAX_STEPS = 80;          // total de blocos executados (anti-loop global)
+const MAX_FLOW_JUMPS = 5;      // quantos "Ir para fluxo" encadeados
+const TEST_DELAY_CAP_MS = 1500;
 
 function applyVars(text, vars) {
   return String(text || '')
@@ -16,103 +20,146 @@ function applyVars(text, vars) {
 }
 
 function outgoing(edges, nodeId) {
-  return edges.filter((e) => e.source === nodeId).map((e) => e.target);
+  return (edges || []).filter((e) => e.source === nodeId).map((e) => e.target);
 }
 
-// Runs the flow for a single contact. `sendText` is injected so tests/real
-// runs can share the traversal logic. Returns a step log.
-async function runFlow({ nodes, edges }, { phone, name, sendText }) {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const start =
-    nodes.find((n) => n.data?.kind === 'trigger') || nodes[0];
-  if (!start) return { ok: false, error: 'Fluxo sem nó inicial', log: [] };
+function findStart(nodes) {
+  return nodes.find((n) => n.data?.kind === 'trigger') || nodes[0];
+}
 
+async function runFlow(workflow, { phone, name, sendText, loadFlow }) {
   const vars = { name: name || '', phone };
   const log = [];
-  const visited = new Set();
-  const queue = [start.id];
-  let steps = 0;
+  const ctx = { steps: 0, jumps: 0, visitedFlows: new Set() };
 
-  while (queue.length && steps < MAX_STEPS) {
-    const id = queue.shift();
-    if (visited.has(id)) continue;
-    visited.add(id);
-    steps++;
-
-    const node = byId.get(id);
-    if (!node) continue;
-    const kind = node.data?.kind;
-    const body = applyVars(node.data?.body, vars);
-    const title = node.data?.title || kind;
-
-    try {
-      switch (kind) {
-        case 'trigger':
-          log.push({ node: id, kind, status: 'ok', info: 'Fluxo iniciado' });
-          break;
-
-        case 'message':
-        case 'ia':
-          if (body.trim()) {
-            await sendText(phone, body);
-            log.push({ node: id, kind, status: 'sent', info: body.slice(0, 60) });
-          } else {
-            log.push({ node: id, kind, status: 'skipped', info: 'sem conteúdo' });
-          }
-          break;
-
-        case 'image':
-        case 'audio':
-        case 'video': {
-          const tag = { image: '[Imagem]', audio: '[Áudio]', video: '[Vídeo]' }[kind];
-          await sendText(phone, `${tag} ${body}`.trim());
-          log.push({ node: id, kind, status: 'sent', info: tag });
-          break;
-        }
-
-        case 'choice':
-          if (body.trim()) await sendText(phone, body);
-          log.push({ node: id, kind, status: 'ok', info: 'opções enviadas' });
-          break;
-
-        case 'delay': {
-          await new Promise((r) => setTimeout(r, TEST_DELAY_CAP_MS));
-          log.push({ node: id, kind, status: 'ok', info: `aguardou (${title})` });
-          break;
-        }
-
-        case 'condition':
-          log.push({ node: id, kind, status: 'ok', info: 'condição avaliada (ramo padrão)' });
-          break;
-
-        case 'tag':
-        case 'webhook':
-        case 'api':
-        case 'redirect':
-          log.push({ node: id, kind, status: 'ok', info: `${title} (simulado no teste)` });
-          break;
-
-        default:
-          log.push({ node: id, kind: kind || 'unknown', status: 'skipped', info: 'tipo desconhecido' });
+  async function walk(flow, flowId) {
+    if (!flow) return;
+    if (flowId) {
+      if (ctx.visitedFlows.has(flowId)) {
+        log.push({ kind: 'goto', status: 'skipped', info: 'fluxo já visitado (loop evitado)' });
+        return;
       }
-    } catch (e) {
-      log.push({ node: id, kind, status: 'error', info: e.message });
+      ctx.visitedFlows.add(flowId);
     }
+    const nodes = flow.nodes || [];
+    const edges = flow.edges || [];
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const start = findStart(nodes);
+    if (!start) { log.push({ kind: 'flow', status: 'error', info: 'Fluxo sem nó inicial' }); return; }
 
-    for (const next of outgoing(edges, id)) {
-      if (!visited.has(next)) queue.push(next);
+    const visited = new Set();
+    const queue = [start.id];
+
+    while (queue.length && ctx.steps < MAX_STEPS) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      ctx.steps++;
+
+      const node = byId.get(id);
+      if (!node) continue;
+      const d = node.data || {};
+      const kind = d.kind;
+
+      try {
+        switch (kind) {
+          case 'trigger':
+            log.push({ node: id, kind, status: 'ok', info: 'Fluxo iniciado' });
+            break;
+
+          case 'message': {
+            const t = applyVars(d.text ?? d.body, vars);
+            if (t.trim()) { await sendText(phone, t); log.push({ node: id, kind, status: 'sent', info: t.slice(0, 60) }); }
+            else log.push({ node: id, kind, status: 'skipped', info: 'sem texto' });
+            break;
+          }
+
+          case 'ia': {
+            const t = applyVars(d.prompt ?? d.body, vars);
+            if (t.trim()) { await sendText(phone, t); log.push({ node: id, kind, status: 'sent', info: 'resposta IA (simulada)' }); }
+            else log.push({ node: id, kind, status: 'skipped', info: 'sem instrução' });
+            break;
+          }
+
+          case 'image':
+          case 'video': {
+            const cap = applyVars(d.caption, vars);
+            const tag = kind === 'image' ? '[Imagem]' : '[Vídeo]';
+            await sendText(phone, `${tag}${d.url ? ' ' + d.url : ''}${cap ? ' — ' + cap : ''}`.trim());
+            log.push({ node: id, kind, status: 'sent', info: tag });
+            break;
+          }
+
+          case 'audio':
+            await sendText(phone, `[Áudio]${d.url ? ' ' + d.url : ''}`.trim());
+            log.push({ node: id, kind, status: 'sent', info: '[Áudio]' });
+            break;
+
+          case 'choice': {
+            const q = applyVars(d.question ?? d.body, vars);
+            const opts = (d.options || []).filter((o) => String(o).trim());
+            const txt = [q, ...opts.map((o, i) => `${i + 1}. ${o}`)].filter(Boolean).join('\n');
+            if (txt.trim()) await sendText(phone, txt);
+            log.push({ node: id, kind, status: 'ok', info: `${opts.length} opções` });
+            break;
+          }
+
+          case 'delay':
+            await new Promise((r) => setTimeout(r, TEST_DELAY_CAP_MS));
+            log.push({ node: id, kind, status: 'ok', info: `aguardou ${d.amount || 1} ${d.unit || 'minutes'}` });
+            break;
+
+          case 'condition':
+            log.push({ node: id, kind, status: 'ok', info: 'condição avaliada (ramo padrão)' });
+            break;
+
+          case 'goto': {
+            if (!loadFlow || !d.targetFlowId) {
+              log.push({ node: id, kind, status: 'skipped', info: 'fluxo de destino não configurado' });
+              break;
+            }
+            if (ctx.jumps >= MAX_FLOW_JUMPS) {
+              log.push({ node: id, kind, status: 'skipped', info: 'limite de saltos entre fluxos atingido' });
+              break;
+            }
+            ctx.jumps++;
+            const target = await loadFlow(d.targetFlowId);
+            if (!target) { log.push({ node: id, kind, status: 'error', info: 'fluxo de destino não encontrado' }); break; }
+            log.push({ node: id, kind, status: 'ok', info: `→ ${target.name || 'fluxo'}` });
+            await walk(target, target.id || d.targetFlowId);
+            break; // o fluxo destino assume a continuação
+          }
+
+          case 'tag':
+          case 'webhook':
+          case 'api':
+          case 'redirect':
+            log.push({ node: id, kind, status: 'ok', info: `${kind} (simulado no teste)` });
+            break;
+
+          default:
+            log.push({ node: id, kind: kind || 'unknown', status: 'skipped', info: 'tipo desconhecido' });
+        }
+      } catch (e) {
+        log.push({ node: id, kind, status: 'error', info: e.message });
+      }
+
+      for (const next of outgoing(edges, id)) {
+        if (!visited.has(next)) queue.push(next);
+      }
     }
   }
 
-  return { ok: true, steps, log };
+  await walk(workflow, workflow.id || null);
+  return { ok: true, steps: ctx.steps, log };
 }
 
-// Manual test run: sends through the user's connected WhatsApp session.
-async function testRun(workflow, userId, phone, name) {
-  const sendText = (to, text) => wpp.sendMessage(userId, to, text);
+// Manual test run: envia pela sessão WhatsApp conectada.
+async function testRun(workflow, sessionKey, phone, name, loadFlow) {
+  const sendText = (to, text) => wpp.sendMessage(sessionKey, to, text);
   return runFlow(
-    { nodes: workflow.nodes || [], edges: workflow.edges || [] },
-    { phone, name, sendText }
+    { id: workflow.id, nodes: workflow.nodes || [], edges: workflow.edges || [] },
+    { phone, name, sendText, loadFlow }
   );
 }
 

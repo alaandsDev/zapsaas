@@ -1640,7 +1640,7 @@ app.get('/api/workflows', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('workflows')
-      .select('id, name, status, updated_at')
+      .select('id, name, status, enabled, is_entry, updated_at')
       .eq('user_id', req.user.id)
       .order('updated_at', { ascending: false });
     if (error) throw error;
@@ -1674,12 +1674,21 @@ app.post('/api/workflows', requireAuth, async (req, res) => {
 
 app.put('/api/workflows/:id', requireAuth, async (req, res) => {
   try {
-    const { name, nodes, edges, status } = req.body;
+    const { name, nodes, edges, status, enabled, is_entry } = req.body;
     const patch = { updated_at: new Date().toISOString() };
     if (name !== undefined) patch.name = name;
     if (nodes !== undefined) patch.nodes = nodes;
     if (edges !== undefined) patch.edges = edges;
     if (status !== undefined) patch.status = status === 'published' ? 'published' : 'draft';
+    if (enabled !== undefined) patch.enabled = !!enabled;
+    if (is_entry !== undefined) patch.is_entry = !!is_entry;
+    // Apenas 1 fluxo de entrada por usuário
+    if (is_entry === true) {
+      await supabase.from('workflows')
+        .update({ is_entry: false })
+        .eq('user_id', req.user.id)
+        .neq('id', req.params.id);
+    }
     const { data, error } = await supabase.from('workflows').update(patch)
       .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
     if (error) throw error;
@@ -1707,7 +1716,14 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
     if (!connected.length) {
       return res.status(409).json({ error: 'Nenhum canal WhatsApp conectado. Conecte em Canais.' });
     }
-    const result = await workflowEngine.testRun(wf, connected[0].key, phone, name);
+    // Resolver para o bloco "Ir para fluxo" (carrega outro fluxo do usuário)
+    const loadFlow = async (flowId) => {
+      const { data } = await supabase.from('workflows')
+        .select('id, name, nodes, edges')
+        .eq('id', flowId).eq('user_id', req.user.id).single();
+      return data || null;
+    };
+    const result = await workflowEngine.testRun(wf, connected[0].key, phone, name, loadFlow);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

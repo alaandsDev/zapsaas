@@ -108,6 +108,13 @@ export const BLOCK_META = {
       return `↪ ${dests[d.destType || "agent"] || "Destino"}: ${d.destValue || "Não configurado"}`;
     },
   },
+  goto: {
+    label: "Ir para fluxo",
+    color: "#2DD4BF",
+    defaultData: { targetFlowId: "", targetFlowName: "" },
+    validate: (d) => (!d.targetFlowId ? "Selecione o fluxo de destino" : null),
+    summary: (d) => (d.targetFlowName ? `→ ${d.targetFlowName}` : "Fluxo de destino não definido"),
+  },
 };
 
 export function validateWorkflow(nodes) {

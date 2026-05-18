@@ -93,6 +93,13 @@ export const NODE_DEFS = {
     icon: "M5 12h14m-7-7l7 7-7 7",
     group: "Ações",
   },
+  goto: {
+    label: "Ir para fluxo",
+    desc: "Encaminha para outro fluxo",
+    color: "#2DD4BF",
+    icon: "M4 12h12M12 6l6 6-6 6M4 6v12",
+    group: "Ações",
+  },
 };
 
 export const NODE_GROUPS = [...new Set(Object.values(NODE_DEFS).map((n) => n.group))];

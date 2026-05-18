@@ -78,6 +78,14 @@ function Builder() {
   const [busy, setBusy] = useState(null); // 'save' | 'publish' | 'test'
   const [toast, setToast] = useState(null); // { kind, msg }
   const [aiOpen, setAiOpen] = useState(false);
+  const [flows, setFlows] = useState([]);
+  const [flowsOpen, setFlowsOpen] = useState(false);
+
+  const loadFlows = useCallback(() => {
+    return api("/api/workflows")
+      .then((l) => { const arr = Array.isArray(l) ? l : []; setFlows(arr); return arr; })
+      .catch(() => []);
+  }, []);
 
   const flash = useCallback((kind, msg) => {
     setToast({ kind, msg });
@@ -174,7 +182,7 @@ function Builder() {
   }
 
   useEffect(() => {
-    api("/api/workflows")
+    loadFlows()
       .then(async (list) => {
         if (!list?.length) return;
         const full = await api(`/api/workflows/${list[0].id}`);
@@ -184,7 +192,54 @@ function Builder() {
         if (full.edges) setEdges(full.edges);
       })
       .catch(() => {});
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, loadFlows]);
+
+  const openFlow = useCallback(async (id) => {
+    setFlowsOpen(false);
+    if (id === wfId) return;
+    try {
+      const full = await api(`/api/workflows/${id}`);
+      setWfId(full.id);
+      setWfName(full.name || "Fluxo");
+      setNodes(full.nodes?.length ? full.nodes : []);
+      setEdges(full.edges || []);
+      setSelectedId(null);
+      flash("ok", `Fluxo "${full.name}" aberto`);
+    } catch (e) {
+      flash("err", "Falha ao abrir fluxo");
+    }
+  }, [wfId, setNodes, setEdges, flash]);
+
+  const newFlow = useCallback(() => {
+    setFlowsOpen(false);
+    setWfId(null);
+    setWfName("Novo fluxo");
+    setNodes([{ id: "n1", type: "zap", position: { x: 80, y: 200 }, data: { kind: "trigger", triggerType: "new_conversation", description: "" } }]);
+    setEdges([]);
+    setSelectedId(null);
+    flash("ok", "Novo fluxo — salve para persistir");
+  }, [setNodes, setEdges, flash]);
+
+  const patchFlow = useCallback(async (id, body, e) => {
+    e?.stopPropagation();
+    try {
+      await api(`/api/workflows/${id}`, { method: "PUT", body });
+      await loadFlows();
+    } catch (err) { flash("err", err.message || "Falha ao atualizar fluxo"); }
+  }, [loadFlows, flash]);
+
+  const delFlow = useCallback(async (id, e) => {
+    e?.stopPropagation();
+    if (!window.confirm("Excluir este fluxo? Esta ação não pode ser desfeita.")) return;
+    try {
+      await api(`/api/workflows/${id}`, { method: "DELETE" });
+      const arr = await loadFlows();
+      if (id === wfId) {
+        if (arr.length) openFlow(arr[0].id); else newFlow();
+      }
+      flash("ok", "Fluxo excluído");
+    } catch (err) { flash("err", "Falha ao excluir"); }
+  }, [wfId, loadFlows, openFlow, newFlow, flash]);
 
   const persist = useCallback(
     async (status) => {
@@ -207,6 +262,7 @@ function Builder() {
           setWfId(saved.id);
         }
         flash("ok", status === "published" ? "Fluxo publicado ✓" : "Fluxo salvo ✓");
+        loadFlows();
         return saved;
       } catch (e) {
         flash("err", e.message || "Falha ao salvar");
@@ -215,7 +271,7 @@ function Builder() {
         setBusy(null);
       }
     },
-    [wfId, wfName, nodes, edges, flash]
+    [wfId, wfName, nodes, edges, flash, loadFlows]
   );
 
   const testRun = useCallback(async () => {
@@ -292,8 +348,74 @@ function Builder() {
             <input
               value={wfName}
               onChange={(e) => setWfName(e.target.value)}
-              className="hidden md:block w-48 rounded-lg bg-bg/60 border border-white/10 px-3 py-2 text-sm outline-none focus:border-primary/60"
+              className="hidden md:block w-44 rounded-lg bg-bg/60 border border-white/10 px-3 py-2 text-sm outline-none focus:border-primary/60"
             />
+            <div className="relative">
+              <button
+                onClick={() => setFlowsOpen((v) => !v)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium border border-white/10 text-ink-200 hover:bg-white/[0.06] transition-colors"
+              >
+                <span>🗂️</span> Fluxos <span className="text-ink-500">({flows.length})</span>
+              </button>
+              <AnimatePresence>
+                {flowsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-[60]" onClick={() => setFlowsOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      className="fixed right-4 top-[68px] z-[61] w-80 rounded-2xl border border-white/[0.08] p-2 max-h-[70vh] overflow-y-auto"
+                      style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)", boxShadow: "0 24px 60px -20px rgba(0,0,0,0.8)" }}
+                    >
+                      <div className="flex items-center justify-between px-2 py-1.5">
+                        <span className="text-[11px] uppercase tracking-wider text-ink-500">Meus fluxos</span>
+                        <button onClick={newFlow} className="text-[12px] font-semibold text-primary hover:underline">+ Novo</button>
+                      </div>
+                      {flows.length === 0 && (
+                        <div className="px-3 py-4 text-[12px] text-ink-500">Nenhum fluxo salvo ainda.</div>
+                      )}
+                      {flows.map((f) => {
+                        const cur = f.id === wfId;
+                        return (
+                          <div
+                            key={f.id}
+                            onClick={() => openFlow(f.id)}
+                            className={`group rounded-xl px-2.5 py-2 cursor-pointer transition-colors ${cur ? "bg-primary/10 border border-primary/25" : "hover:bg-white/[0.05] border border-transparent"}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`size-1.5 rounded-full ${f.enabled === false ? "bg-ink-600" : "bg-primary"}`} />
+                              <span className="text-[13px] font-medium text-ink-50 truncate flex-1">{f.name || "Sem nome"}</span>
+                              {f.is_entry && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">ENTRADA</span>}
+                              {f.enabled === false && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.06] text-ink-500">INATIVO</span>}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={(e) => patchFlow(f.id, { enabled: !(f.enabled !== false) }, e)}
+                                className="text-[11px] px-2 py-0.5 rounded-md border border-white/10 text-ink-300 hover:text-ink-100">
+                                {f.enabled === false ? "Ativar" : "Desativar"}
+                              </button>
+                              {!f.is_entry && (
+                                <button onClick={(e) => patchFlow(f.id, { is_entry: true }, e)}
+                                  className="text-[11px] px-2 py-0.5 rounded-md border border-primary/30 text-primary hover:bg-primary/10">
+                                  Definir entrada
+                                </button>
+                              )}
+                              <button onClick={(e) => delFlow(f.id, e)}
+                                className="text-[11px] px-2 py-0.5 rounded-md border border-red-500/30 text-red-400 hover:bg-red-500/10 ml-auto">
+                                Excluir
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="px-2 py-1.5 text-[10px] text-ink-600">
+                        O fluxo de <b>entrada</b> inicia conversas novas. Os demais são alcançados via bloco "Ir para fluxo".
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
             <div className="relative">
               <button
                 onClick={() => setAiOpen((v) => !v)}
