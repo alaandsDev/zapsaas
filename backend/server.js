@@ -1432,7 +1432,7 @@ app.delete('/api/sales/:id', requireAuth, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 async function getCloudConfig(userId) {
-  const { data } = await supabase.from('whatsapp_cloud_configs').select('*').eq('user_id', userId).single();
+  const { data } = await supabase.from('whatsapp_cloud_configs').select('*').eq('user_id', userId).order('updated_at', { ascending: false }).limit(1).maybeSingle();
   return data;
 }
 
@@ -1571,12 +1571,9 @@ app.post('/api/wpp-cloud/config', requireAuth, async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    const existing = await getCloudConfig(req.user.id);
-    if (existing) {
-      await supabase.from('whatsapp_cloud_configs').update(payload).eq('user_id', req.user.id);
-    } else {
-      await supabase.from('whatsapp_cloud_configs').insert(payload);
-    }
+    // Upsert garante que nunca cria duplicata por user_id
+    await supabase.from('whatsapp_cloud_configs')
+      .upsert(payload, { onConflict: 'user_id' });
 
     // Invalida cache imediatamente para o webhook funcionar na hora
     _vtCache.set(webhook_verify_token, true);
