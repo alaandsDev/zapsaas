@@ -17,7 +17,7 @@ const STEPS = [
   { n: 2, t: "Adicionar produto WhatsApp", d: 'No app: "Adicionar produto" → WhatsApp → "Configurar" → associe a uma conta do Business Manager.' },
   { n: 3, t: "Obter Phone Number ID + WABA ID", d: 'WhatsApp → Introdução: copie o Phone Number ID, o WABA ID e o token de acesso.' },
   { n: 4, t: "System User permanente (recomendado)", d: 'Business Suite → Usuários do sistema → Adicionar (Admin) → gerar token com whatsapp_business_messaging e management (não expira).' },
-  { n: 5, t: "Configurar Webhook", d: 'WhatsApp → Configuração → Webhooks: cole a URL do webhook e o mesmo Verify Token do formulário; ative o campo "messages".' },
+  { n: 5, t: "Configurar Webhook no Meta", d: 'SOMENTE após salvar as credenciais aqui: WhatsApp → Configuração → Webhooks → cole a URL do Webhook e o Verify Token que você definiu no formulário; ative o campo "messages".' },
   { n: 6, t: "Salvar credenciais", d: 'Preencha o formulário de Credenciais e clique em "Salvar e validar" — verificamos com a Meta em tempo real.' },
 ];
 
@@ -109,6 +109,15 @@ export default function CanalOficialPage() {
   const [verify, setVerify] = useState(null); // {ok, display_phone, verified_name, quality_rating}
   const [testingConn, setTestingConn] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
+
+  const copyVerifyToken = () => {
+    const token = verifyToken.trim();
+    if (!token) return;
+    navigator.clipboard?.writeText(token).then(() => {
+      setCopiedToken(true); setTimeout(() => setCopiedToken(false), 1500);
+    });
+  };
 
   const [testTo, setTestTo] = useState("");
   const [testTemplate, setTestTemplate] = useState("");
@@ -338,6 +347,20 @@ export default function CanalOficialPage() {
               )}
             </section>
 
+            {/* BANNER: ordem de configuração */}
+            {!config && (
+              <section className="rounded-2xl border border-[#FBBF24]/30 bg-[#FBBF24]/05 px-5 py-4 flex gap-3">
+                <span className="text-xl shrink-0">⚠️</span>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-[#FBBF24]">Configure aqui primeiro, depois vá ao Meta</p>
+                  <p className="text-xs text-ink-400 leading-relaxed">
+                    Preencha o formulário abaixo e clique em <strong className="text-ink-200">Salvar e validar</strong>.<br />
+                    Só depois acesse o painel do Meta → WhatsApp → Configuração → Webhooks e cole a URL e o Verify Token que você definiu.
+                  </p>
+                </div>
+              </section>
+            )}
+
             {/* 4. CREDENCIAIS */}
             <section className="glass p-5">
               <div className="flex items-center justify-between mb-4">
@@ -383,8 +406,16 @@ export default function CanalOficialPage() {
                     placeholder={config?.has_token ? "•••••••• (cole novamente para atualizar)" : "EAAxxxxxx…"} />
                 </Field>
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <Field label="Webhook Verify Token *" hint="String que você define">
-                    <Input value={verifyToken} onChange={(e) => setVerifyToken(e.target.value)} placeholder="wayvo_meu_token_123" required />
+                  <Field label="Webhook Verify Token *" hint="Defina qualquer string — use este mesmo valor no painel do Meta">
+                    <div className="flex gap-2">
+                      <Input value={verifyToken} onChange={(e) => setVerifyToken(e.target.value)} placeholder="meu_token_secreto_123" required className="flex-1" />
+                      <button type="button" onClick={copyVerifyToken} disabled={!verifyToken.trim()}
+                        title="Copiar token para usar no Meta"
+                        className="px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-ink-300 text-xs shrink-0 inline-flex items-center gap-1.5 disabled:opacity-40">
+                        {copiedToken ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+                        {copiedToken ? "Copiado" : "Copiar"}
+                      </button>
+                    </div>
                   </Field>
                   <Field label="App Secret (opcional)" hint="Valida HMAC do webhook">
                     <Input type="password" value={appSecret} onChange={(e) => setAppSecret(e.target.value)}
