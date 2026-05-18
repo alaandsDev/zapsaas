@@ -1527,6 +1527,9 @@ app.get('/api/wpp-cloud/verify-token', requireAuth, async (req, res) => {
 
 app.get('/api/wpp-cloud/config', requireAuth, async (req, res) => {
   try {
+    const { data: rawData, error: rawError } = await supabase
+      .from('whatsapp_cloud_configs').select('*').eq('user_id', req.user.id);
+    console.log('[config] user_id:', req.user.id, '| rows:', rawData?.length, '| error:', rawError?.message);
     const c = await getCloudConfig(req.user.id);
     if (!c) return res.json(null);
     res.json({
