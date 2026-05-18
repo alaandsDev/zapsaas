@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { BLOCK_META } from "./blockMeta";
 
 /* ─────────────────────────────────────────────
    SHARED UI PRIMITIVES
@@ -634,115 +635,27 @@ function redirectSummary(data) {
 /* ─────────────────────────────────────────────
    BLOCK REGISTRY
 ───────────────────────────────────────────── */
-export const BLOCK_REGISTRY = {
-  trigger: {
-    label: "Gatilho",
-    color: "#00FF88",
-    defaultData: { triggerType: "new_conversation", description: "" },
-    Editor: TriggerEditor,
-    Preview: TriggerPreview,
-    summary: triggerSummary,
-    validate: (d) => null,
-  },
-  message: {
-    label: "Mensagem",
-    color: "#22D3EE",
-    defaultData: { text: "" },
-    Editor: MessageEditor,
-    Preview: MessagePreview,
-    summary: messageSummary,
-    validate: (d) => (!d.text?.trim() ? "Texto da mensagem é obrigatório" : null),
-  },
-  image: {
-    label: "Imagem",
-    color: "#F472B6",
-    defaultData: { url: "", caption: "" },
-    Editor: ImageEditor,
-    Preview: ImagePreview,
-    summary: imageSummary,
-    validate: (d) => (!d.url?.trim() ? "URL da imagem é obrigatória" : null),
-  },
-  audio: {
-    label: "Áudio",
-    color: "#A78BFA",
-    defaultData: { url: "", duration: "" },
-    Editor: AudioEditor,
-    Preview: AudioPreview,
-    summary: audioSummary,
-    validate: (d) => (!d.url?.trim() ? "URL do áudio é obrigatória" : null),
-  },
-  video: {
-    label: "Vídeo",
-    color: "#FB7185",
-    defaultData: { url: "", caption: "" },
-    Editor: VideoEditor,
-    Preview: VideoPreview,
-    summary: videoSummary,
-    validate: (d) => (!d.url?.trim() ? "URL do vídeo é obrigatória" : null),
-  },
-  delay: {
-    label: "Delay",
-    color: "#FBBF24",
-    defaultData: { amount: 1, unit: "minutes" },
-    Editor: DelayEditor,
-    Preview: DelayPreview,
-    summary: delaySummary,
-    validate: (d) => (!d.amount || d.amount < 1 ? "Informe um tempo válido" : null),
-  },
-  condition: {
-    label: "Condição",
-    color: "#34D399",
-    defaultData: { field: "message_contains", operator: "contains", value: "" },
-    Editor: ConditionEditor,
-    Preview: ConditionPreview,
-    summary: conditionSummary,
-    validate: (d) => {
-      if (!["exists", "not_exists"].includes(d.operator) && !d.value?.trim())
-        return "Informe o valor da condição";
-      return null;
-    },
-  },
-  choice: {
-    label: "Escolha",
-    color: "#38BDF8",
-    defaultData: { question: "", options: ["", ""] },
-    Editor: ChoiceEditor,
-    Preview: ChoicePreview,
-    summary: choiceSummary,
-    validate: (d) => {
-      const valid = (d.options || []).filter((o) => o.trim());
-      if (valid.length < 2) return "Adicione pelo menos 2 opções";
-      return null;
-    },
-  },
-  ia: {
-    label: "IA",
-    color: "#7C3AED",
-    defaultData: { prompt: "", goal: "qualify_lead", tone: "friendly" },
-    Editor: IAEditor,
-    Preview: IAPreview,
-    summary: iaSummary,
-    validate: (d) => (!d.prompt?.trim() ? "Instrução da IA é obrigatória" : null),
-  },
-  tag: {
-    label: "Tag",
-    color: "#F59E0B",
-    defaultData: { action: "add", tags: [] },
-    Editor: TagEditor,
-    Preview: TagPreview,
-    summary: tagSummary,
-    validate: (d) => (!(d.tags || []).length ? "Adicione pelo menos uma tag" : null),
-  },
-  redirect: {
-    label: "Redirecionar",
-    color: "#F87171",
-    defaultData: { destType: "agent", destValue: "", message: "" },
-    Editor: RedirectEditor,
-    Preview: RedirectPreview,
-    summary: redirectSummary,
-    validate: (d) => (!d.destValue?.trim() ? "Informe o destino do redirecionamento" : null),
-  },
+// BLOCK_REGISTRY merges pure metadata from blockMeta with JSX editors/previews
+const EDITORS = {
+  trigger:   { Editor: TriggerEditor,   Preview: TriggerPreview   },
+  message:   { Editor: MessageEditor,   Preview: MessagePreview   },
+  image:     { Editor: ImageEditor,     Preview: ImagePreview     },
+  audio:     { Editor: AudioEditor,     Preview: AudioPreview     },
+  video:     { Editor: VideoEditor,     Preview: VideoPreview     },
+  delay:     { Editor: DelayEditor,     Preview: DelayPreview     },
+  condition: { Editor: ConditionEditor, Preview: ConditionPreview },
+  choice:    { Editor: ChoiceEditor,    Preview: ChoicePreview    },
+  ia:        { Editor: IAEditor,        Preview: IAPreview        },
+  tag:       { Editor: TagEditor,       Preview: TagPreview       },
+  redirect:  { Editor: RedirectEditor,  Preview: RedirectPreview  },
 };
+
+export const BLOCK_REGISTRY = Object.fromEntries(
+  Object.entries(BLOCK_META).map(([kind, meta]) => [
+    kind,
+    { ...meta, ...(EDITORS[kind] || {}) },
+  ])
+);
 
 /* ─────────────────────────────────────────────
    BLOCK EDITOR PANEL (rendered in right rail)
@@ -849,16 +762,4 @@ export function WorkflowWhatsappPreview({ nodes }) {
   );
 }
 
-/* ─────────────────────────────────────────────
-   VALIDATE ALL NODES
-───────────────────────────────────────────── */
-export function validateWorkflow(nodes) {
-  const errors = [];
-  nodes.forEach((n) => {
-    const reg = BLOCK_REGISTRY[n.data?.kind];
-    if (!reg) return;
-    const err = reg.validate(n.data);
-    if (err) errors.push({ id: n.id, label: reg.label, error: err });
-  });
-  return errors;
-}
+

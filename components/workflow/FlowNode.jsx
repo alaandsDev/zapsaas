@@ -3,11 +3,11 @@ import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { motion } from "framer-motion";
 import { NODE_DEFS } from "./nodeTypes";
-import { BLOCK_REGISTRY } from "./blockRegistry";
+import { BLOCK_META } from "./blockMeta";
 
 function FlowNodeBase({ id, data, selected }) {
   const def = NODE_DEFS[data.kind] || NODE_DEFS.message;
-  const reg = BLOCK_REGISTRY[data.kind];
+  const reg = BLOCK_META[data.kind];
   const isTrigger = data.kind === "trigger";
   const isCondition = data.kind === "condition";
   const isChoice = data.kind === "choice";

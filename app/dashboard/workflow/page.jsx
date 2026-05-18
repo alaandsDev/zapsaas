@@ -19,7 +19,8 @@ import { Button } from "../../../components/ui/Field";
 import FlowNode from "../../../components/workflow/FlowNode";
 import NodePalette from "../../../components/workflow/NodePalette";
 import { NODE_DEFS } from "../../../components/workflow/nodeTypes";
-import { BLOCK_REGISTRY, BlockEditorPanel, WorkflowWhatsappPreview, validateWorkflow } from "../../../components/workflow/blockRegistry";
+import { BlockEditorPanel, WorkflowWhatsappPreview, BLOCK_REGISTRY } from "../../../components/workflow/blockRegistry";
+import { validateWorkflow } from "../../../components/workflow/blockMeta";
 import { api } from "../../../lib/api";
 
 let idSeq = 100;
