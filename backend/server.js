@@ -1703,11 +1703,11 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
     const { data: wf, error } = await supabase.from('workflows').select('*')
       .eq('id', req.params.id).eq('user_id', req.user.id).single();
     if (error || !wf) return res.status(404).json({ error: 'Fluxo não encontrado' });
-    const wa = wpp.getStatus(req.user.id);
-    if (wa.status !== 'connected') {
-      return res.status(409).json({ error: 'WhatsApp não conectado. Conecte em Conexões.' });
+    const connected = getConnectedSessions(req.user.id);
+    if (!connected.length) {
+      return res.status(409).json({ error: 'Nenhum canal WhatsApp conectado. Conecte em Canais.' });
     }
-    const result = await workflowEngine.testRun(wf, req.user.id, phone, name);
+    const result = await workflowEngine.testRun(wf, connected[0].key, phone, name);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
