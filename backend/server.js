@@ -1495,6 +1495,15 @@ async function sendBulkCloud(userId, phones, message, delayMs = 500) {
 }
 
 // Lê config (sem expor token completo)
+// Endpoint para o usuário confirmar o token salvo
+app.get('/api/wpp-cloud/verify-token', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    if (!c) return res.json({ token: null });
+    res.json({ token: c.webhook_verify_token || null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/wpp-cloud/config', requireAuth, async (req, res) => {
   try {
     const c = await getCloudConfig(req.user.id);

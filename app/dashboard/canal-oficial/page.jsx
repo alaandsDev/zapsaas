@@ -157,10 +157,12 @@ export default function CanalOficialPage() {
     e?.preventDefault();
     setErr(""); setOk(""); setSaving(true);
     try {
+      if (!phoneNumberId.trim()) return setErr("Phone Number ID é obrigatório");
+      if (!verifyToken.trim()) return setErr("Webhook Verify Token é obrigatório — defina um valor e use o mesmo no Meta");
       const body = {
         phone_number_id: phoneNumberId.trim(),
         business_account_id: businessAccountId.trim() || null,
-        webhook_verify_token: verifyToken.trim() || "wayvo_webhook",
+        webhook_verify_token: verifyToken.trim(),
         app_secret: appSecret.trim() || null,
       };
       if (accessToken.trim()) body.access_token = accessToken.trim();
@@ -431,6 +433,18 @@ export default function CanalOficialPage() {
                     </button>
                   </div>
                 </Field>
+                {config?.webhook_verify_token && (
+                  <div className="rounded-xl border border-[#22D3EE]/25 bg-[#22D3EE]/05 px-4 py-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] text-ink-500 uppercase tracking-wider mb-0.5">Token salvo no banco (use este no Meta)</p>
+                      <code className="text-[13px] font-bold text-[#22D3EE]">{config.webhook_verify_token}</code>
+                    </div>
+                    <button type="button" onClick={() => { navigator.clipboard?.writeText(config.webhook_verify_token); setCopiedToken(true); setTimeout(() => setCopiedToken(false), 1500); }}
+                      className="px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-ink-300 text-xs shrink-0 inline-flex items-center gap-1.5">
+                      {copiedToken ? <Check className="size-3.5 text-[#22D3EE]" /> : <Copy className="size-3.5" />} {copiedToken ? "Copiado" : "Copiar"}
+                    </button>
+                  </div>
+                )}
                 {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
                 {ok && <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-xl px-4 py-3">{ok}</div>}
                 <button type="submit" disabled={saving}
