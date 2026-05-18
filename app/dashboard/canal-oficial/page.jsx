@@ -12,6 +12,15 @@ const WEBHOOK_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api/wpp-cloud/webhook`
   : "https://delivery-full-production.up.railway.app/api/wpp-cloud/webhook";
 
+const STEPS = [
+  { n: 1, t: "Criar app no Meta for Developers", d: 'Em developers.facebook.com → "Criar app" → tipo "Business" → nomeie (ex: Wayvo Bot).' },
+  { n: 2, t: "Adicionar produto WhatsApp", d: 'No app: "Adicionar produto" → WhatsApp → "Configurar" → associe a uma conta do Business Manager.' },
+  { n: 3, t: "Obter Phone Number ID + WABA ID", d: 'WhatsApp → Introdução: copie o Phone Number ID, o WABA ID e o token de acesso.' },
+  { n: 4, t: "System User permanente (recomendado)", d: 'Business Suite → Usuários do sistema → Adicionar (Admin) → gerar token com whatsapp_business_messaging e management (não expira).' },
+  { n: 5, t: "Configurar Webhook", d: 'WhatsApp → Configuração → Webhooks: cole a URL do webhook e o mesmo Verify Token do formulário; ative o campo "messages".' },
+  { n: 6, t: "Salvar credenciais", d: 'Preencha o formulário de Credenciais e clique em "Salvar e validar" — verificamos com a Meta em tempo real.' },
+];
+
 /* ── status / badges ── */
 const TPL_STATUS = {
   APPROVED: { label: "Aprovado", color: "#00FF88" },
@@ -101,6 +110,13 @@ export default function CanalOficialPage() {
   const [testingConn, setTestingConn] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const [testTo, setTestTo] = useState("");
+  const [testTemplate, setTestTemplate] = useState("");
+  const [testVars, setTestVars] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState(null); // {ok, text}
+  const [openGuide, setOpenGuide] = useState(false);
+
   // estimativa de custos
   const [estCountry, setEstCountry] = useState("BR");
   const [estCat, setEstCat] = useState("MARKETING");
@@ -163,6 +179,30 @@ export default function CanalOficialPage() {
       setCopied(true); setTimeout(() => setCopied(false), 1500);
     });
   };
+
+  async function sendTest() {
+    setTestMsg(null); setTesting(true);
+    try {
+      const variables = testVars.split(",").map((v) => v.trim()).filter(Boolean);
+      const r = await api("/api/wpp-cloud/test", {
+        method: "POST",
+        body: { to: testTo.trim(), template: testTemplate, variables },
+      });
+      setTestMsg({ ok: true, text: `Enviado · ID ${r.messages?.[0]?.id || "—"}` });
+    } catch (e) {
+      setTestMsg({ ok: false, text: e.message || "Falha no envio" });
+    } finally { setTesting(false); }
+  }
+
+  async function disconnect() {
+    if (!window.confirm("Remover a configuração da API Meta? Você precisará reconfigurar.")) return;
+    try {
+      await api("/api/wpp-cloud/config", { method: "DELETE" });
+      setConfig(null); setTemplates(null); setVerify(null);
+      setPhoneNumberId(""); setBusinessAccountId(""); setVerifyToken("");
+      setOk("Configuração removida.");
+    } catch (e) { setErr(e.message); }
+  }
 
   const connected = !!config;
   const statusCards = [
@@ -305,11 +345,19 @@ export default function CanalOficialPage() {
                   <h2 className="font-semibold flex items-center gap-2"><KeyRound className="size-4 text-primary" /> Credenciais Meta</h2>
                   <p className="text-xs text-ink-500 mt-0.5">Validadas com a Meta antes de salvar</p>
                 </div>
-                {config?.has_token && (
-                  <button onClick={testConnection} disabled={testingConn}
-                    className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-white/10 text-ink-200 hover:bg-white/[0.05] disabled:opacity-50">
-                    {testingConn ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />} Testar conexão
-                  </button>
+                {config && (
+                  <div className="flex items-center gap-2">
+                    {config?.has_token && (
+                      <button onClick={testConnection} disabled={testingConn}
+                        className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-white/10 text-ink-200 hover:bg-white/[0.05] disabled:opacity-50">
+                        {testingConn ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />} Testar conexão
+                      </button>
+                    )}
+                    <button onClick={disconnect}
+                      className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
+                      <X className="size-4" /> Remover
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -422,6 +470,70 @@ export default function CanalOficialPage() {
                 ))}
               </div>
               <p className="text-[10px] text-ink-600 mt-3">Métricas de eventos do webhook (volume/falhas) entram quando o rastreamento histórico estiver ativo.</p>
+            </section>
+
+            {/* ENVIAR TESTE */}
+            {config?.has_token && (
+              <section className="glass p-5">
+                <h2 className="font-semibold flex items-center gap-2"><Plug className="size-4 text-primary" /> Enviar teste</h2>
+                <p className="text-xs text-ink-500 mt-0.5 mb-4">Dispara um template aprovado para validar a operação</p>
+                <div className="space-y-3">
+                  <Field label="Número destino (com DDI)">
+                    <Input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="5511987654321" />
+                  </Field>
+                  <Field label="Template aprovado">
+                    <select value={testTemplate} onChange={(e) => setTestTemplate(e.target.value)}
+                      className="w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none">
+                      <option value="">Selecione…</option>
+                      {(templates || []).filter((t) => t.status === "APPROVED").map((t) => (
+                        <option key={t.id || t.name} value={t.name}>{t.name} ({t.language})</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Variáveis (vírgula)" hint="Ex: João, 20%">
+                    <Input value={testVars} onChange={(e) => setTestVars(e.target.value)} placeholder="opcional" />
+                  </Field>
+                  {testMsg && (
+                    <div className={`text-sm rounded-xl px-4 py-2.5 border ${testMsg.ok ? "bg-primary/10 border-primary/25 text-primary" : "bg-red-500/10 border-red-500/25 text-red-300"}`}>
+                      {testMsg.text}
+                    </div>
+                  )}
+                  <button onClick={sendTest} disabled={testing || !testTo || !testTemplate}
+                    className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-bg font-semibold hover:opacity-90 disabled:opacity-50">
+                    {testing && <Loader2 className="size-4 animate-spin" />}
+                    {testing ? "Enviando…" : "Enviar teste"}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* GUIA (accordion discreto) */}
+            <section className="glass overflow-hidden">
+              <button onClick={() => setOpenGuide((v) => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <span className="text-sm font-semibold">Guia de configuração</span>
+                <span className={`text-ink-500 text-xs transition-transform ${openGuide ? "rotate-180" : ""}`}>▼</span>
+              </button>
+              <AnimatePresence>
+                {openGuide && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden">
+                    <div className="px-5 pb-5 space-y-2 border-t border-white/[0.06] pt-4">
+                      {STEPS.map((s) => (
+                        <div key={s.n} className="flex gap-3">
+                          <span className="size-6 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">{s.n}</span>
+                          <div>
+                            <div className="text-[13px] font-medium text-ink-100">{s.t}</div>
+                            <div className="text-[11px] text-ink-500 leading-relaxed mt-0.5">{s.d}</div>
+                          </div>
+                        </div>
+                      ))}
+                      <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer"
+                        className="inline-block text-[12px] text-primary hover:underline mt-1">Abrir Meta for Developers →</a>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </section>
           </div>
         </div>
