@@ -2316,11 +2316,15 @@ async function uploadIncomingMedia(userId, evt) {
 const entryFlowCooldown = new Map(); // `${userId}:${phone}` -> ts
 const ENTRY_FLOW_COOLDOWN_MS = 30 * 1000;
 
-function maybeRunEntryWorkflow(userId, evt) {
+function maybeRunEntryWorkflow(userId, evt, isNewConversation) {
   try {
     const phone = String(evt.phone || '').replace(/\D/g, '');
     if (!userId || phone.length < 10) return; // ignora grupos/jids estranhos
 
+    // Dispara só quando a conversa é NOVA (primeira mensagem do contato).
+    if (!isNewConversation) return;
+
+    // Dedupe curto contra eventos duplicados do mesmo "novo chat".
     const key = `${userId}:${phone}`;
     const now = Date.now();
     if (now - (entryFlowCooldown.get(key) || 0) < ENTRY_FLOW_COOLDOWN_MS) return;
@@ -2376,6 +2380,7 @@ wpp.on('message', async (evt) => {
       .from('chats').select('id, unread, profile_pic_url, profile_pic_refreshed_at')
       .eq('user_id', userId).eq('session_slot', slot).eq('phone', evt.phone)
       .maybeSingle();
+    const isNewConversation = !existing;
     let chatId = existing?.id;
 
     if (!chatId) {
@@ -2456,7 +2461,7 @@ wpp.on('message', async (evt) => {
         .catch(e => console.error('[chat] erro ao atualizar lead:', e.message));
 
       // Gatilho automático do fluxo de entrada (não bloqueia o chat)
-      maybeRunEntryWorkflow(userId, evt);
+      maybeRunEntryWorkflow(userId, evt, isNewConversation);
     }
   } catch (e) {
     console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');
