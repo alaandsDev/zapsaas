@@ -25,13 +25,13 @@ export default function BeforeAfter() {
           </div>
           <h2 className="text-h2">A diferença é<br />gritante.</h2>
           <p className="mt-4 text-ink-300 text-lg">
-            Veja o que muda no seu dia-a-dia quando o Wayvo assume o WhatsApp.
+            O que muda quando a operação roda com CRM conversacional, automação e IA.
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-5 max-w-5xl mx-auto">
           {/* ANTES */}
-          <div className="card p-7 relative overflow-hidden border-red-500/20">
+          <div className="glass p-7 relative overflow-hidden border-red-500/20">
             <div className="absolute -top-12 -right-12 size-40 rounded-full bg-red-500/5 blur-3xl pointer-events-none" />
             <div className="relative">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/25 text-red-300 text-xs font-bold mb-5">
@@ -52,7 +52,7 @@ export default function BeforeAfter() {
           </div>
 
           {/* DEPOIS */}
-          <div className="card p-7 relative overflow-hidden border-primary/30 bg-gradient-to-b from-primary/[0.04] to-card">
+          <div className="glass p-7 relative overflow-hidden border-primary/30 bg-gradient-to-b from-primary/[0.04] to-card">
             <div className="absolute -top-12 -right-12 size-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
             <div className="relative">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold mb-5">

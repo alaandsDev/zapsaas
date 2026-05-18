@@ -13,7 +13,7 @@ export default function Footer() {
           <div className="md:col-span-4">
             <Logo />
             <p className="mt-4 text-sm text-ink-300 max-w-sm leading-relaxed">
-              A plataforma que transforma seu WhatsApp em uma máquina de vendas automática 24h.
+              O sistema operacional de comunicação no WhatsApp: CRM conversacional, automação e IA.
             </p>
 
             {/* Status pill */}
@@ -50,7 +50,7 @@ export default function Footer() {
           <div className="md:col-span-4">
             <div className="text-sm font-semibold mb-2">Receba dicas que vendem</div>
             <p className="text-xs text-ink-400 mb-4">
-              1 e-mail por semana com táticas reais de WhatsApp marketing. Zero spam.
+              1 e-mail por semana com táticas reais de automação e revenue ops no WhatsApp. Zero spam.
             </p>
             <NewsletterForm />
           </div>
