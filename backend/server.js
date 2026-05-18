@@ -1550,12 +1550,15 @@ app.post('/api/wpp-cloud/config', requireAuth, async (req, res) => {
     if (!phone_number_id || !access_token || !webhook_verify_token) {
       return res.status(400).json({ error: 'phone_number_id, access_token e webhook_verify_token são obrigatórios' });
     }
-    // Valida com Meta antes de salvar
+    // Tenta validar com Meta (não bloqueia o save se falhar)
     let info = null;
+    let verifyWarning = null;
     try {
       info = await wppCloud.verify({ token: access_token, phoneNumberId: phone_number_id });
     } catch (e) {
-      return res.status(400).json({ error: `Validação Meta falhou: ${e.message}` });
+      // Salva mesmo assim — token pode ser válido para envio mas sem permissão de leitura
+      verifyWarning = e.message;
+      console.warn('[wpp-cloud config] verify falhou (salvando mesmo assim):', e.message);
     }
 
     const payload = {
@@ -1565,8 +1568,8 @@ app.post('/api/wpp-cloud/config', requireAuth, async (req, res) => {
       access_token,
       webhook_verify_token,
       app_secret: app_secret || null,
-      display_phone: info.display_phone_number || null,
-      verified_name: info.verified_name || null,
+      display_phone: info?.display_phone_number || null,
+      verified_name: info?.verified_name || null,
       enabled: true,
       updated_at: new Date().toISOString()
     };
@@ -1580,7 +1583,7 @@ app.post('/api/wpp-cloud/config', requireAuth, async (req, res) => {
     _vtCacheTime = Date.now();
     console.log('[vtcache] token adicionado ao cache:', webhook_verify_token);
 
-    res.json({ ok: true, info });
+    res.json({ ok: true, info, warning: verifyWarning });
   } catch (e) {
     console.error('[wpp-cloud config]', e);
     res.status(500).json({ error: e.message });

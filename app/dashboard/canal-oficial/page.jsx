@@ -168,8 +168,12 @@ export default function CanalOficialPage() {
       if (accessToken.trim()) body.access_token = accessToken.trim();
       else if (!config?.has_token) return setErr("Access Token é obrigatório na primeira configuração");
       else return setErr("Cole o Access Token novamente para atualizar (oculto por segurança)");
-      await api("/api/wpp-cloud/config", { method: "POST", body });
-      setOk("Credenciais validadas e salvas com sucesso.");
+      const result = await api("/api/wpp-cloud/config", { method: "POST", body });
+      if (result?.warning) {
+        setOk("Credenciais salvas. Aviso: não foi possível validar o número com a Meta — verifique se o System User tem acesso à conta WABA.");
+      } else {
+        setOk("Credenciais validadas e salvas com sucesso.");
+      }
       setAccessToken(""); setAppSecret("");
       loadConfig();
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
