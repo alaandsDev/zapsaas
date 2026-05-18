@@ -19,7 +19,7 @@ const _vtCache = new Map();
 let _vtCacheTime = 0;
 async function isValidVerifyToken(token) {
   const now = Date.now();
-  if (now - _vtCacheTime > 60000) {
+  if (now - _vtCacheTime > 5000) { // revalida a cada 5s
     try {
       const { data } = await supabase.from('whatsapp_cloud_configs').select('webhook_verify_token');
       _vtCache.clear();
@@ -1577,6 +1577,12 @@ app.post('/api/wpp-cloud/config', requireAuth, async (req, res) => {
     } else {
       await supabase.from('whatsapp_cloud_configs').insert(payload);
     }
+
+    // Invalida cache imediatamente para o webhook funcionar na hora
+    _vtCache.set(webhook_verify_token, true);
+    _vtCacheTime = Date.now();
+    console.log('[vtcache] token adicionado ao cache:', webhook_verify_token);
+
     res.json({ ok: true, info });
   } catch (e) {
     console.error('[wpp-cloud config]', e);
