@@ -1570,6 +1570,34 @@ app.get('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Testar conexão com a Meta (valida token/phone real)
+app.get('/api/wpp-cloud/verify', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    if (!c || !c.access_token) return res.status(400).json({ error: 'Credenciais não configuradas' });
+    const info = await wppCloud.verify({ token: c.access_token, phoneNumberId: c.phone_number_id });
+    res.json({ ok: true, display_phone: info.display_phone_number || null, verified_name: info.verified_name || null, quality_rating: info.quality_rating || null });
+  } catch (e) { res.status(400).json({ ok: false, error: e.message }); }
+});
+
+// Criar template oficial na Meta (envia para aprovação)
+app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    if (!c) return res.status(400).json({ error: 'Configure as credenciais Meta primeiro' });
+    if (!c.business_account_id) return res.status(400).json({ error: 'business_account_id não configurado' });
+    const { name, language, category, components } = req.body;
+    if (!name || !category || !Array.isArray(components)) {
+      return res.status(400).json({ error: 'name, category e components são obrigatórios' });
+    }
+    const r = await wppCloud.createTemplate(
+      { token: c.access_token, businessAccountId: c.business_account_id },
+      { name, language: language || 'pt_BR', category, components }
+    );
+    res.json(r);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // AUTOMAÇÃO INTELIGENTE — Flows
 // ═══════════════════════════════════════════════════════════════
