@@ -7,7 +7,7 @@ export default function SocialProof({ stats, testimonials }) {
           {stats.map((s, i) => (
             <div
               key={i}
-              className="card p-8 text-center bg-gradient-to-b from-card to-card/40 relative overflow-hidden"
+              className="glass p-8 text-center bg-gradient-to-b from-card to-card/40 relative overflow-hidden"
             >
               <div className="absolute -top-10 left-1/2 -translate-x-1/2 size-32 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
               <div className="relative">
@@ -32,7 +32,7 @@ export default function SocialProof({ stats, testimonials }) {
           {testimonials.map((t, i) => (
             <figure
               key={i}
-              className="card p-6 relative hover:border-primary/30 transition-colors group"
+              className="glass p-6 relative hover:border-primary/30 transition-colors group"
             >
               {/* Resultado destacado em badge no topo */}
               {t.result && (

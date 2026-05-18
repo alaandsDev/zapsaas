@@ -14,7 +14,7 @@ const plans = [
     tagline: "Pra escalar",
     price: "R$ 47",
     period: "/mês",
-    desc: "Disparos ilimitados, 2 chips com round-robin anti-ban e CRM completo.",
+    desc: "Campanhas ilimitadas, balanceamento inteligente entre canais, CRM conversacional e Wayvo AI.",
     cta: "Assinar Pro agora",
     href: "/register",
     highlighted: true,
@@ -24,19 +24,20 @@ const plans = [
 ];
 
 const FEATURES = [
-  { label: "Disparos por mês", free: "3", pro: "Ilimitados" },
-  { label: "Conexões WhatsApp", free: "1 número", pro: "2 números (round-robin anti-ban)" },
-  { label: "Leads / contatos", free: "Até 50", pro: "Ilimitados" },
-  { label: "Listas de contatos", free: "1 lista", pro: "Ilimitadas" },
+  { label: "Campanhas por mês", free: "3", pro: "Ilimitadas" },
+  { label: "Canais conectados", free: "1 canal", pro: "2 canais (balanceamento inteligente)" },
+  { label: "Leads / CRM conversacional", free: "Até 50", pro: "Ilimitados" },
+  { label: "Listas e segmentação", free: "1 lista", pro: "Ilimitadas" },
   { label: "Mídia (foto/vídeo/áudio/PDF)", free: true, pro: true },
   { label: "Templates prontos por nicho", free: true, pro: true },
-  { label: "Painel completo de controle", free: true, pro: true },
-  { label: "Relatórios em tempo real", free: false, pro: true },
-  { label: "Histórico completo de campanhas", free: false, pro: true },
+  { label: "Painel operacional completo", free: true, pro: true },
+  { label: "Wayvo AI Copilot", free: "Básico", pro: "Completo" },
+  { label: "Workflow Builder + IA monta o fluxo", free: false, pro: true },
+  { label: "Revenue Ops (ROI por campanha)", free: false, pro: true },
+  { label: "Relatórios e analytics em tempo real", free: false, pro: true },
   { label: "Export de relatórios em Excel", free: false, pro: true },
-  { label: "Automação inteligente (fluxos)", free: false, pro: true },
-  { label: "API oficial WhatsApp Cloud", free: false, pro: true },
-  { label: "Suporte prioritário no WhatsApp", free: false, pro: true },
+  { label: "API oficial WhatsApp (Canal Oficial)", free: false, pro: true },
+  { label: "Suporte prioritário", free: false, pro: true },
 ];
 
 export default function Pricing() {
@@ -59,7 +60,7 @@ export default function Pricing() {
           {plans.map((p) => (
             <div
               key={p.name}
-              className={`relative card p-8 ${
+              className={`relative glass p-8 ${
                 p.highlighted
                   ? "border-primary/40 bg-gradient-to-b from-primary/[0.06] to-card shadow-glow scale-[1.02]"
                   : ""
@@ -103,7 +104,7 @@ export default function Pricing() {
 
         {/* Selo de garantia */}
         <div className="mt-10 max-w-3xl mx-auto">
-          <div className="card p-6 bg-gradient-to-r from-primary/[0.05] via-card to-accent-blue/[0.05] border-primary/20">
+          <div className="glass p-6 bg-gradient-to-r from-primary/[0.05] via-card to-accent-blue/[0.05] border-primary/20">
             <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
               <div className="size-14 shrink-0 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center">
                 <svg className="size-7 text-primary" viewBox="0 0 24 24" fill="currentColor">
@@ -113,7 +114,7 @@ export default function Pricing() {
               <div className="flex-1">
                 <div className="font-bold text-lg">Garantia de 7 dias</div>
                 <div className="text-sm text-ink-300 mt-1">
-                  Não gostou no primeiro disparo? Devolvemos 100% do dinheiro, sem perguntas. Você só corre o risco de vender mais.
+                  Não viu valor na primeira semana de operação? Devolvemos 100% do dinheiro, sem perguntas.
                 </div>
               </div>
             </div>
@@ -126,7 +127,7 @@ export default function Pricing() {
             <h3 className="text-2xl font-bold">Compare os planos</h3>
             <p className="text-ink-400 text-sm mt-2">Tudo que vem em cada um — sem surpresa</p>
           </div>
-          <div className="card overflow-hidden">
+          <div className="glass overflow-hidden">
             <table className="w-full">
               <thead className="bg-white/[0.03] border-b border-white/[0.08]">
                 <tr>

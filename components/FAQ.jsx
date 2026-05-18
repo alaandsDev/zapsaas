@@ -3,20 +3,20 @@ import { useState } from "react";
 
 const FAQS = [
   {
-    q: "Vou ser banido se mandar disparo em massa?",
-    a: "Não, se respeitar boas práticas. O Wayvo tem cadência inteligente, intervalos randomizados e modo round-robin com até 2 chips alternando — o WhatsApp não bate como spam. Mais de 200 contas ativas há +6 meses sem ban.",
+    q: "A entrega das campanhas é estável e segura?",
+    a: "Sim. A Wayvo usa engine de estabilidade com cadência inteligente, intervalos randomizados e balanceamento entre canais (até 2 canais alternando) — entrega consistente e operação saudável. Mais de 200 operações ativas há +6 meses.",
   },
   {
-    q: "Funciona com meu WhatsApp atual ou preciso comprar chip novo?",
-    a: "Funciona com qualquer WhatsApp — você liga seu número via QR Code em 30 segundos, sem trocar de chip. Pra disparos pesados (>1.000/dia), recomendamos um chip dedicado pra isolar o número de uso pessoal.",
+    q: "Funciona com meu WhatsApp atual ou preciso de chip novo?",
+    a: "Funciona com qualquer WhatsApp — você conecta seu número via QR Code em 30 segundos, sem trocar de chip. Para volume alto, recomendamos um canal dedicado para isolar o número de uso pessoal.",
   },
   {
     q: "Existe plano gratuito de verdade?",
-    a: "Sim. O Starter é grátis pra sempre, sem cartão de crédito. Você pode disparar até 3 campanhas/mês e capturar 50 leads. Suficiente pra testar e validar antes de pagar.",
+    a: "Sim. O Starter é grátis pra sempre, sem cartão. Você opera até 3 campanhas/mês, 50 leads no CRM e já tem o Wayvo AI Copilot em modo básico. Suficiente pra validar antes de pagar.",
   },
   {
     q: "Quanto custa o Pro e o que vem incluído?",
-    a: "Pro custa R$ 47/mês: disparos ilimitados, 2 conexões WhatsApp simultâneas (round-robin anti-ban), CRM com leads ilimitados, automações, relatórios em tempo real e suporte prioritário.",
+    a: "Pro custa R$ 47/mês: campanhas ilimitadas, 2 canais com balanceamento inteligente, CRM conversacional ilimitado, Workflow Builder com IA, Revenue Ops (ROI por campanha), analytics em tempo real e suporte prioritário.",
   },
   {
     q: "Quanto tempo leva pra ver resultado?",
@@ -32,7 +32,7 @@ const FAQS = [
   },
   {
     q: "Posso enviar mídia (imagem, vídeo, áudio, PDF)?",
-    a: "Sim. O Wayvo suporta imagens, vídeos, áudios e documentos em qualquer disparo. Útil pra catálogo, panfletos, áudios personalizados e PDFs de orçamento.",
+    a: "Sim. A Wayvo suporta imagens, vídeos, áudios e documentos em qualquer campanha ou fluxo. Útil pra catálogo, panfletos, áudios personalizados e PDFs de orçamento.",
   },
 ];
 
@@ -58,7 +58,7 @@ export default function FAQ() {
             return (
               <div
                 key={i}
-                className={`card overflow-hidden transition-all ${isOpen ? "border-primary/30" : "hover:border-white/15"}`}
+                className={`glass overflow-hidden transition-all ${isOpen ? "border-primary/30" : "hover:border-white/15"}`}
               >
                 <button
                   onClick={() => setOpen(isOpen ? -1 : i)}
