@@ -18,9 +18,8 @@ import Topbar from "../../../components/dashboard/Topbar";
 import { Button } from "../../../components/ui/Field";
 import FlowNode from "../../../components/workflow/FlowNode";
 import NodePalette from "../../../components/workflow/NodePalette";
-import WhatsappPreview from "../../../components/workflow/WhatsappPreview";
-import AIPanel from "../../../components/workflow/AIPanel";
 import { NODE_DEFS } from "../../../components/workflow/nodeTypes";
+import { BLOCK_REGISTRY, BlockEditorPanel, WorkflowWhatsappPreview, validateWorkflow } from "../../../components/workflow/blockRegistry";
 import { api } from "../../../lib/api";
 
 let idSeq = 100;
@@ -31,25 +30,25 @@ const INITIAL_NODES = [
     id: "n1",
     type: "zap",
     position: { x: 60, y: 180 },
-    data: { kind: "trigger", title: "Novo lead no WhatsApp", body: "Quando alguém envia a 1ª mensagem" },
+    data: { kind: "trigger", triggerType: "new_conversation", description: "Quando alguém envia a 1ª mensagem" },
   },
   {
     id: "n2",
     type: "zap",
     position: { x: 360, y: 120 },
-    data: { kind: "message", title: "Boas-vindas", body: "Olá! 👋 Que bom te ver por aqui. Como posso ajudar hoje?" },
+    data: { kind: "message", text: "Olá! 👋 Que bom te ver por aqui. Como posso ajudar hoje?" },
   },
   {
     id: "n3",
     type: "zap",
     position: { x: 360, y: 320 },
-    data: { kind: "delay", title: "Aguardar 1h", body: "" },
+    data: { kind: "delay", amount: 1, unit: "hours" },
   },
   {
     id: "n4",
     type: "zap",
     position: { x: 680, y: 320 },
-    data: { kind: "ia", title: "Qualificar lead", body: "Entenda a necessidade e responda com a melhor oferta." },
+    data: { kind: "ia", prompt: "Entenda a necessidade e responda com a melhor oferta.", goal: "qualify_lead", tone: "friendly" },
   },
 ];
 
@@ -133,12 +132,26 @@ function Builder() {
     },
   ];
 
+  // Normalise AI template defs to registry data shapes
+  function normalise(kind, partial) {
+    const reg = BLOCK_REGISTRY[kind];
+    const base = reg?.defaultData ? { ...reg.defaultData } : {};
+    // Map legacy "body" / "title" fields to proper schema
+    if (partial.body) {
+      if (kind === "message") base.text = partial.body;
+      else if (kind === "ia") base.prompt = partial.body;
+      else if (kind === "delay") { const m = partial.body.match(/\d+/); base.amount = m ? parseInt(m[0]) : 1; base.unit = partial.body.includes("hora") ? "hours" : "minutes"; }
+      else if (kind === "tag") { base.tags = [partial.body.replace("tag: ", "").trim()]; }
+    }
+    return { kind, ...base };
+  }
+
   function graph(defs, links) {
     const ns = defs.map((d, i) => ({
       id: `ai${Date.now()}_${i}`,
       type: "zap",
       position: { x: 60 + (i % 3) * 300, y: 80 + Math.floor(i / 3) * 220 + (i % 2) * 60 },
-      data: d,
+      data: normalise(d.kind, d),
     }));
     const es = links.map(([a, b]) => ({
       id: `aie_${ns[a].id}_${ns[b].id}`,
@@ -174,6 +187,13 @@ function Builder() {
 
   const persist = useCallback(
     async (status) => {
+      if (status === "published") {
+        const errors = validateWorkflow(nodes);
+        if (errors.length > 0) {
+          flash("err", `${errors.length} bloco${errors.length > 1 ? "s" : ""} com erro: ${errors[0].label} — ${errors[0].error}`);
+          return null;
+        }
+      }
       const action = status === "published" ? "publish" : "save";
       setBusy(action);
       try {
@@ -224,11 +244,12 @@ function Builder() {
   const addNode = useCallback(
     (kind, position) => {
       const def = NODE_DEFS[kind];
+      const reg = BLOCK_REGISTRY[kind];
       const pos = position || { x: 320 + Math.random() * 120, y: 120 + Math.random() * 200 };
       const id = nextId();
       setNodes((nds) => [
         ...nds,
-        { id, type: "zap", position: pos, data: { kind, title: def.label, body: "" } },
+        { id, type: "zap", position: pos, data: { kind, ...(reg?.defaultData || { body: "" }) } },
       ]);
       setSelectedId(id);
     },
@@ -394,57 +415,33 @@ function Builder() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="glass p-4"
+                className="glass overflow-hidden"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-semibold">
-                    Editar · {NODE_DEFS[selected.data.kind]?.label}
-                  </div>
-                  <button
-                    onClick={deleteSelected}
-                    className="text-[11px] text-red-400 hover:bg-red-500/10 px-2 py-1 rounded-lg"
-                  >
-                    Remover
-                  </button>
-                </div>
-                <label className="block mb-3">
-                  <span className="block text-[11px] font-medium text-ink-300 mb-1">Título</span>
-                  <input
-                    value={selected.data.title || ""}
-                    onChange={(e) => patchSelected({ title: e.target.value })}
-                    className="w-full rounded-lg bg-bg/60 border border-white/10 px-3 py-2 text-[13px] outline-none focus:border-primary/60"
-                  />
-                </label>
-                <label className="block">
-                  <span className="block text-[11px] font-medium text-ink-300 mb-1">
-                    {selected.data.kind === "delay" ? "Tempo de espera" : "Conteúdo / mensagem"}
-                  </span>
-                  <textarea
-                    value={selected.data.body || ""}
-                    onChange={(e) => patchSelected({ body: e.target.value })}
-                    placeholder={
-                      selected.data.kind === "delay"
-                        ? "ex: 1 hora"
-                        : "Digite a mensagem enviada ao contato..."
-                    }
-                    className="w-full min-h-[110px] rounded-lg bg-bg/60 border border-white/10 px-3 py-2 text-[13px] outline-none focus:border-primary/60 resize-none"
-                  />
-                </label>
+                <BlockEditorPanel
+                  node={selected}
+                  onChange={(updated) =>
+                    setNodes((nds) => nds.map((n) => (n.id === updated.id ? updated : n)))
+                  }
+                  onDelete={deleteSelected}
+                />
               </motion.div>
             ) : (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="glass p-4 text-[12px] text-ink-500"
+                className="glass p-5 text-center space-y-2"
               >
-                Selecione um bloco no canvas para editar — o preview do WhatsApp atualiza ao vivo.
+                <div className="text-3xl opacity-20">🔲</div>
+                <p className="text-[12px] text-ink-500 leading-relaxed">
+                  Selecione um bloco no canvas para editar — o preview atualiza ao vivo.
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
 
           <div className="glass p-4">
-            <WhatsappPreview nodes={nodes} />
+            <WorkflowWhatsappPreview nodes={nodes} />
           </div>
 
           <AIPanel />
