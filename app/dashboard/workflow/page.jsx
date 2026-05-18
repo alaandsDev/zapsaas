@@ -444,8 +444,6 @@ function Builder() {
           <div className="glass p-4">
             <WorkflowWhatsappPreview nodes={nodes} />
           </div>
-
-          <AIPanel />
         </div>
       </div>
     </>
