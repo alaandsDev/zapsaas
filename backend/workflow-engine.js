@@ -27,12 +27,19 @@ function findStart(nodes) {
   return nodes.find((n) => n.data?.kind === 'trigger') || nodes[0];
 }
 
-async function runFlow(workflow, { phone, name, sendText, loadFlow }) {
+function delayMs(d) {
+  const amount = Math.max(0, Number(d.amount) || 1);
+  const mult = { minutes: 60000, hours: 3600000, days: 86400000 }[d.unit || 'minutes'] || 60000;
+  return amount * mult;
+}
+const LIVE_INLINE_MAX_MS = 10000; // delays curtos rodam inline; acima disso agenda
+
+async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, startNodeIds }) {
   const vars = { name: name || '', phone };
   const log = [];
   const ctx = { steps: 0, jumps: 0, visitedFlows: new Set() };
 
-  async function walk(flow, flowId) {
+  async function walk(flow, flowId, startIds) {
     if (!flow) return;
     if (flowId) {
       if (ctx.visitedFlows.has(flowId)) {
@@ -44,11 +51,13 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow }) {
     const nodes = flow.nodes || [];
     const edges = flow.edges || [];
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    const start = findStart(nodes);
-    if (!start) { log.push({ kind: 'flow', status: 'error', info: 'Fluxo sem nó inicial' }); return; }
+    const seedIds = (startIds && startIds.length)
+      ? startIds.filter((x) => byId.has(x))
+      : (findStart(nodes) ? [findStart(nodes).id] : []);
+    if (!seedIds.length) { log.push({ kind: 'flow', status: 'error', info: 'Fluxo sem nó inicial' }); return; }
 
     const visited = new Set();
-    const queue = [start.id];
+    const queue = [...seedIds];
 
     while (queue.length && ctx.steps < MAX_STEPS) {
       const id = queue.shift();
@@ -104,10 +113,18 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow }) {
             break;
           }
 
-          case 'delay':
-            await new Promise((r) => setTimeout(r, TEST_DELAY_CAP_MS));
+          case 'delay': {
+            const ms = delayMs(d);
+            if (onDelay && ms > LIVE_INLINE_MAX_MS) {
+              const targets = outgoing(edges, id).filter((t) => !visited.has(t));
+              await onDelay({ flowId, resumeNodeIds: targets, delayMs: ms });
+              log.push({ node: id, kind, status: 'scheduled', info: `agendado: +${d.amount || 1} ${d.unit || 'minutes'}` });
+              continue; // pausa este ramo; será retomado pelo job
+            }
+            await new Promise((r) => setTimeout(r, onDelay ? Math.min(ms, LIVE_INLINE_MAX_MS) : Math.min(ms, TEST_DELAY_CAP_MS)));
             log.push({ node: id, kind, status: 'ok', info: `aguardou ${d.amount || 1} ${d.unit || 'minutes'}` });
             break;
+          }
 
           case 'condition':
             log.push({ node: id, kind, status: 'ok', info: 'condição avaliada (ramo padrão)' });
@@ -150,7 +167,7 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow }) {
     }
   }
 
-  await walk(workflow, workflow.id || null);
+  await walk(workflow, workflow.id || null, startNodeIds);
   return { ok: true, steps: ctx.steps, log };
 }
 

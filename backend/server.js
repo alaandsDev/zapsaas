@@ -2348,9 +2348,21 @@ function maybeRunEntryWorkflow(userId, evt, isNewConversation) {
           return data || null;
         };
         const sendText = (to, text) => wpp.sendMessage(evt.sessionId, to, text);
+        const onDelay = async ({ flowId, resumeNodeIds, delayMs }) => {
+          if (!resumeNodeIds?.length) return;
+          await supabase.from('workflow_jobs').insert({
+            user_id: userId,
+            flow_id: flowId || wf.id,
+            phone,
+            name: evt.pushName || '',
+            resume_node_ids: resumeNodeIds,
+            run_at: new Date(Date.now() + delayMs).toISOString(),
+            status: 'pending',
+          });
+        };
         const r = await workflowEngine.runFlow(
           { id: wf.id, nodes: wf.nodes || [], edges: wf.edges || [] },
-          { phone, name: evt.pushName || '', sendText, loadFlow }
+          { phone, name: evt.pushName || '', sendText, loadFlow, onDelay }
         );
         console.log(`[entry-flow] user=${userId} phone=${phone} fluxo="${wf.name}" blocos=${r?.steps || 0}`);
       })
@@ -3423,6 +3435,71 @@ cron.schedule('*/3 * * * *', async () => {
     }
   } catch (e) {
     console.error('[cron] Erro:', e.message);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CRON — Delays reais: retoma continuações de workflow (a cada min)
+// ═══════════════════════════════════════════════════════════════
+cron.schedule('* * * * *', async () => {
+  try {
+    const { data: jobs } = await supabase
+      .from('workflow_jobs')
+      .select('*')
+      .eq('status', 'pending')
+      .lte('run_at', new Date().toISOString())
+      .order('run_at', { ascending: true })
+      .limit(25);
+    for (const job of (jobs || [])) {
+      try {
+        const connected = getConnectedSessions(job.user_id);
+        if (!connected.length) {
+          const attempts = (job.attempts || 0) + 1;
+          await supabase.from('workflow_jobs').update(
+            attempts >= 8
+              ? { status: 'failed' }
+              : { attempts, run_at: new Date(Date.now() + 15 * 60000).toISOString() }
+          ).eq('id', job.id);
+          continue;
+        }
+        // marca em processamento (evita reprocessar em paralelo)
+        await supabase.from('workflow_jobs').update({ status: 'done' }).eq('id', job.id);
+
+        const { data: flow } = await supabase.from('workflows')
+          .select('id, name, nodes, edges, enabled, status')
+          .eq('id', job.flow_id).eq('user_id', job.user_id).single();
+        if (!flow || flow.enabled === false) continue;
+
+        const key = connected[0].key;
+        const sendText = (to, text) => wpp.sendMessage(key, to, text);
+        const loadFlow = async (fid) => {
+          const { data } = await supabase.from('workflows')
+            .select('id, name, nodes, edges')
+            .eq('id', fid).eq('user_id', job.user_id).single();
+          return data || null;
+        };
+        const onDelay = async ({ flowId, resumeNodeIds, delayMs }) => {
+          if (!resumeNodeIds?.length) return;
+          await supabase.from('workflow_jobs').insert({
+            user_id: job.user_id, flow_id: flowId || flow.id,
+            phone: job.phone, name: job.name || '',
+            resume_node_ids: resumeNodeIds,
+            run_at: new Date(Date.now() + delayMs).toISOString(),
+            status: 'pending',
+          });
+        };
+        const r = await workflowEngine.runFlow(
+          { id: flow.id, nodes: flow.nodes || [], edges: flow.edges || [] },
+          { phone: job.phone, name: job.name || '', sendText, loadFlow, onDelay, startNodeIds: job.resume_node_ids || [] }
+        );
+        console.log(`[wf-jobs] retomado user=${job.user_id} phone=${job.phone} fluxo="${flow.name}" blocos=${r?.steps || 0}`);
+      } catch (e) {
+        console.warn('[wf-jobs] job falhou:', e.message);
+        await supabase.from('workflow_jobs').update({ status: 'failed' }).eq('id', job.id).then(() => {}, () => {});
+      }
+    }
+  } catch (e) {
+    console.error('[wf-jobs] cron erro:', e.message);
   }
 });
 
