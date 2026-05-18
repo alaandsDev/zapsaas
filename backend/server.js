@@ -2310,6 +2310,52 @@ async function uploadIncomingMedia(userId, evt) {
   } catch (e) { console.warn('[chat media] erro:', e.message); return null; }
 }
 
+// ── Gatilho automático: fluxo de ENTRADA em conversas reais ──────
+// Fire-and-forget, totalmente protegido. Só age se houver um workflow
+// is_entry=true + enabled + published. Sem isso, comportamento inalterado.
+const entryFlowCooldown = new Map(); // `${userId}:${phone}` -> ts
+const ENTRY_FLOW_COOLDOWN_MS = 30 * 1000;
+
+function maybeRunEntryWorkflow(userId, evt) {
+  try {
+    const phone = String(evt.phone || '').replace(/\D/g, '');
+    if (!userId || phone.length < 10) return; // ignora grupos/jids estranhos
+
+    const key = `${userId}:${phone}`;
+    const now = Date.now();
+    if (now - (entryFlowCooldown.get(key) || 0) < ENTRY_FLOW_COOLDOWN_MS) return;
+
+    supabase.from('workflows')
+      .select('id, name, nodes, edges')
+      .eq('user_id', userId)
+      .eq('is_entry', true)
+      .eq('enabled', true)
+      .eq('status', 'published')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(async ({ data: wf }) => {
+        if (!wf) return; // nenhum fluxo de entrada publicado → nada muda
+        entryFlowCooldown.set(key, now);
+        const loadFlow = async (flowId) => {
+          const { data } = await supabase.from('workflows')
+            .select('id, name, nodes, edges')
+            .eq('id', flowId).eq('user_id', userId).single();
+          return data || null;
+        };
+        const sendText = (to, text) => wpp.sendMessage(evt.sessionId, to, text);
+        const r = await workflowEngine.runFlow(
+          { id: wf.id, nodes: wf.nodes || [], edges: wf.edges || [] },
+          { phone, name: evt.pushName || '', sendText, loadFlow }
+        );
+        console.log(`[entry-flow] user=${userId} phone=${phone} fluxo="${wf.name}" blocos=${r?.steps || 0}`);
+      })
+      .catch((e) => console.warn('[entry-flow] falhou:', e.message));
+  } catch (e) {
+    console.warn('[entry-flow] erro:', e.message);
+  }
+}
+
 wpp.on('message', async (evt) => {
   try {
     const { userId, slot } = parseSessionId(evt.sessionId);
@@ -2408,6 +2454,9 @@ wpp.on('message', async (evt) => {
           return supabase.from('leads').update(patch).eq('id', lead.id);
         })
         .catch(e => console.error('[chat] erro ao atualizar lead:', e.message));
+
+      // Gatilho automático do fluxo de entrada (não bloqueia o chat)
+      maybeRunEntryWorkflow(userId, evt);
     }
   } catch (e) {
     console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');
