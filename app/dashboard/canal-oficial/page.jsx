@@ -165,7 +165,13 @@ export default function CanalOficialPage() {
         webhook_verify_token: verifyToken.trim(),
         app_secret: appSecret.trim() || null,
       };
-      if (accessToken.trim()) body.access_token = accessToken.trim();
+      if (accessToken.trim()) {
+        const tk = accessToken.trim();
+        if (/\s/.test(tk) || /;|create\s+table|alter\s+table|select\s|<[a-z]/i.test(tk) || tk.length > 800) {
+          return setErr("Isso não parece um Access Token da Meta. Cole apenas o token do System User (algo como EAAxxxxxx…), sem espaços, SQL ou código.");
+        }
+        body.access_token = tk;
+      }
       else if (!config?.has_token) return setErr("Access Token é obrigatório na primeira configuração");
       else return setErr("Cole o Access Token novamente para atualizar (oculto por segurança)");
       const result = await api("/api/wpp-cloud/config", { method: "POST", body });
