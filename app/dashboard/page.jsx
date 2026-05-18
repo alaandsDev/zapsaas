@@ -117,14 +117,7 @@ export default function DashboardHome() {
       const ds = Array.isArray(disp) ? disp : disp?.data || [];
       setDispatches(ds);
 
-      const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-      const base = ds.slice(0, 7).map((d, i) => ({
-        day: days[i % 7],
-        enviadas: d.sent || 0,
-        leads: Math.round((d.sent || 0) * 0.3),
-        respostas: Math.round((d.sent || 0) * 0.15),
-      }));
-      setChartData(base.length ? base : days.map((d) => ({ day: d, enviadas: 0, leads: 0, respostas: 0 })));
+      // chartData agora vem do endpoint real /api/dashboard/timeseries
 
       const feed = [];
       (s?.lastLeads || []).slice(0, 4).forEach((l) => feed.push({
@@ -143,6 +136,13 @@ export default function DashboardHome() {
     api("/api/dashboard/insights").then(setInsights).catch(() => setInsights({ hours: [], channels: [], hasData: false }));
     api("/api/sales/summary?days=7").then(setRevenue).catch(() => setRevenue({ total: 0 }));
   }, []);
+
+  // Série real por data (últimos `range` dias até hoje)
+  useEffect(() => {
+    api(`/api/dashboard/timeseries?days=${range}`)
+      .then((r) => setChartData(Array.isArray(r?.series) ? r.series : []))
+      .catch(() => setChartData([]));
+  }, [range]);
 
   // SSE tempo real (mantido — funciona no backend da main)
   useEffect(() => {
@@ -191,7 +191,7 @@ export default function DashboardHome() {
     },
   ];
 
-  const chart = chartData.slice(0, range === 7 ? 7 : range);
+  const chart = chartData;
 
   // Funil honesto: só etapas com dado real (envios, leads, campanhas)
   const funnel = useMemo(() => {
@@ -465,7 +465,7 @@ export default function DashboardHome() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fill: "#64748B", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="label" tick={{ fill: "#64748B", fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} />
                   <YAxis tick={{ fill: "#64748B", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CHART_TOOLTIP />} />
                   <Area type="monotone" dataKey="enviadas" name="Enviadas" stroke={NEON} strokeWidth={2.5} fill="url(#gN)" dot={false} />

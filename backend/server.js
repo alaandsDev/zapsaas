@@ -1144,6 +1144,61 @@ app.get('/api/dashboard/insights', requireAuth, async (req, res) => {
   }
 });
 
+// Série temporal real por DATA (últimos N dias até hoje):
+// enviadas = chat_messages out, respostas = chat_messages in, leads = leads criados.
+app.get('/api/dashboard/timeseries', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 7));
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (days - 1));
+    const startISO = start.toISOString();
+
+    const [{ data: msgs }, { data: leadRows }] = await Promise.all([
+      supabase.from('chat_messages')
+        .select('direction, timestamp')
+        .eq('user_id', uid)
+        .gte('timestamp', startISO)
+        .limit(20000),
+      supabase.from('leads')
+        .select('created_at')
+        .eq('user_id', uid)
+        .gte('created_at', startISO)
+        .limit(20000),
+    ]);
+
+    // esqueleto de N dias (chave = YYYY-MM-DD) preservando ordem
+    const buckets = {};
+    const order = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      order.push(key);
+      buckets[key] = {
+        date: key,
+        label: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        enviadas: 0,
+        respostas: 0,
+        leads: 0,
+      };
+    }
+    const put = (iso, field) => {
+      if (!iso) return;
+      const k = new Date(iso).toISOString().slice(0, 10);
+      if (buckets[k]) buckets[k][field]++;
+    };
+    (msgs || []).forEach((m) => put(m.timestamp, m.direction === 'in' ? 'respostas' : 'enviadas'));
+    (leadRows || []).forEach((l) => put(l.created_at, 'leads'));
+
+    res.json({ days, series: order.map((k) => buckets[k]) });
+  } catch (e) {
+    console.error('Timeseries error:', e);
+    res.status(500).json({ error: 'Erro ao buscar série temporal' });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // VENDAS / RECEITA (Fase 1)
 // ═══════════════════════════════════════════════════════════════
