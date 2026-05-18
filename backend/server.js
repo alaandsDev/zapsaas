@@ -158,12 +158,22 @@ app.get('/api/wpp-cloud/webhook', async (req, res) => {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
     if (mode !== 'subscribe' || !token) return res.sendStatus(400);
-    // Aceita verify se algum user tiver esse token configurado
+
+    // 1. Aceita token fixo via variável de ambiente (útil para setup inicial)
+    const envToken = process.env.WEBHOOK_VERIFY_TOKEN || process.env.WAYVO_VERIFY_TOKEN;
+    if (envToken && token === envToken) return res.status(200).send(challenge);
+
+    // 2. Aceita se algum usuário tiver esse token salvo no banco
     const { data } = await supabase.from('whatsapp_cloud_configs')
       .select('id').eq('webhook_verify_token', token).limit(1);
     if (data?.length) return res.status(200).send(challenge);
+
+    console.warn(`[webhook] token inválido recebido: ${token}`);
     return res.sendStatus(403);
-  } catch (e) { res.sendStatus(500); }
+  } catch (e) {
+    console.error('[webhook] erro na verificação:', e.message);
+    res.sendStatus(500);
+  }
 });
 
 app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
