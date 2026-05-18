@@ -21,13 +21,20 @@ async function isValidVerifyToken(token) {
   const now = Date.now();
   if (now - _vtCacheTime > 5000) { // revalida a cada 5s
     try {
-      const { data } = await supabase.from('whatsapp_cloud_configs').select('webhook_verify_token');
-      _vtCache.clear();
-      (data || []).forEach(r => r.webhook_verify_token && _vtCache.set(r.webhook_verify_token, true));
-      _vtCacheTime = now;
-    } catch (e) { console.warn('[vtcache]', e.message); }
+      const { data, error } = await supabase.from('whatsapp_cloud_configs').select('webhook_verify_token');
+      if (error) {
+        console.error('[vtcache] erro Supabase:', error.message);
+      } else {
+        _vtCache.clear();
+        (data || []).forEach(r => r.webhook_verify_token && _vtCache.set(r.webhook_verify_token, true));
+        _vtCacheTime = now;
+        console.log('[vtcache] revalidado:', [..._vtCache.keys()]);
+      }
+    } catch (e) { console.warn('[vtcache] catch:', e.message); }
   }
-  return _vtCache.has(token);
+  const result = _vtCache.has(token);
+  console.log('[vtcache] check', token, '->', result, '| cache:', [..._vtCache.keys()]);
+  return result;
 }
 
 
