@@ -14,6 +14,24 @@ const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_
 
 const app = express();
 
+// Cache de verify tokens — responde webhook do Meta em < 1ms
+const _vtCache = new Map();
+let _vtCacheTime = 0;
+async function isValidVerifyToken(token) {
+  const now = Date.now();
+  if (now - _vtCacheTime > 60000) {
+    try {
+      const { data } = await supabase.from('whatsapp_cloud_configs').select('webhook_verify_token');
+      _vtCache.clear();
+      (data || []).forEach(r => r.webhook_verify_token && _vtCache.set(r.webhook_verify_token, true));
+      _vtCacheTime = now;
+    } catch (e) { console.warn('[vtcache]', e.message); }
+  }
+  return _vtCache.has(token);
+}
+
+
+
 // ── CORS ──────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
@@ -159,19 +177,22 @@ app.get('/api/wpp-cloud/webhook', async (req, res) => {
     const challenge = req.query['hub.challenge'];
     if (mode !== 'subscribe' || !token) return res.sendStatus(400);
 
-    // 1. Aceita token fixo via variável de ambiente (útil para setup inicial)
+    // 1. Token via variável de ambiente
     const envToken = process.env.WEBHOOK_VERIFY_TOKEN || process.env.WAYVO_VERIFY_TOKEN;
     if (envToken && token === envToken) return res.status(200).send(challenge);
 
-    // 2. Aceita se algum usuário tiver esse token salvo no banco
-    const { data } = await supabase.from('whatsapp_cloud_configs')
-      .select('id').eq('webhook_verify_token', token).limit(1);
-    if (data?.length) return res.status(200).send(challenge);
+    // 2. Cache em memória (< 1ms) com fallback direto ao banco
+    const valid = await Promise.race([
+      isValidVerifyToken(token),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 4000))
+    ]).catch(() => false);
 
-    console.warn(`[webhook] token inválido recebido: ${token}`);
+    if (valid) return res.status(200).send(challenge);
+
+    console.warn('[webhook] token invalido:', token);
     return res.sendStatus(403);
   } catch (e) {
-    console.error('[webhook] erro na verificação:', e.message);
+    console.error('[webhook] erro:', e.message);
     res.sendStatus(500);
   }
 });
