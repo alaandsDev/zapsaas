@@ -305,12 +305,12 @@ function Builder() {
               <AnimatePresence>
                 {aiOpen && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setAiOpen(false)} />
+                    <div className="fixed inset-0 z-[60]" onClick={() => setAiOpen(false)} />
                     <motion.div
                       initial={{ opacity: 0, y: -8, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                      className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-white/[0.08] p-2"
+                      className="fixed right-4 top-[68px] z-[61] w-72 rounded-2xl border border-white/[0.08] p-2"
                       style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)", boxShadow: "0 24px 60px -20px rgba(0,0,0,0.8)" }}
                     >
                       <div className="px-3 py-2 text-[11px] uppercase tracking-wider text-ink-500">IA monta o fluxo</div>
