@@ -1,3 +1,5 @@
+import BackgroundPaths from "./BackgroundPaths";
+
 export default function Hero({
   eyebrow = "Conversational Revenue OS · AI-first",
   title,
@@ -9,6 +11,7 @@ export default function Hero({
 }) {
   return (
     <section className="relative overflow-hidden">
+      <BackgroundPaths />
       <div className="absolute inset-0 grid-bg pointer-events-none" />
       <div className="absolute -top-40 -right-40 size-[600px] rounded-full bg-primary/15 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -left-40 size-[500px] rounded-full bg-accent-blue/10 blur-3xl pointer-events-none" />
