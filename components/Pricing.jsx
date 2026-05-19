@@ -1,3 +1,7 @@
+"use client";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
 const plans = [
   {
     name: "Starter",
@@ -12,11 +16,10 @@ const plans = [
   {
     name: "Pro",
     tagline: "Pra escalar",
-    price: "R$ 47",
-    period: "/mês",
+    price: "Sob consulta",
+    period: "",
     desc: "Campanhas ilimitadas, balanceamento inteligente entre canais, CRM conversacional e Wayvo AI.",
-    cta: "Assinar Pro agora",
-    href: "/register",
+    cta: "Consultar preço",
     highlighted: true,
     badge: "Mais escolhido",
     socialProof: "Junte-se a 200+ negócios",
@@ -40,7 +43,120 @@ const FEATURES = [
   { label: "Suporte prioritário", free: false, pro: true },
 ];
 
+const DISPAROS_OPTS = [
+  { value: "ate_1000", label: "Até 1.000" },
+  { value: "1001_5000", label: "1.001 a 5.000" },
+  { value: "5001_20000", label: "5.001 a 20.000" },
+  { value: "20001_50000", label: "20.001 a 50.000" },
+  { value: "acima_50000", label: "Acima de 50.000" },
+];
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://delivery-full-production.up.railway.app";
+
+function ConsultarPrecoModal({ open, onClose }) {
+  const [form, setForm] = useState({ nome: "", whatsapp: "", email: "", disparos: "", usaApi: "" });
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState("");
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  async function submit() {
+    if (!form.nome.trim() || !form.whatsapp.trim() || !form.email.trim() || !form.disparos || !form.usaApi) {
+      setErr("Preencha todos os campos para continuar."); return;
+    }
+    setSending(true); setErr("");
+    try {
+      await fetch(`${API_URL}/api/lead-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+    } catch (_) {}
+    setSent(true); setSending(false);
+  }
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B1120] shadow-2xl overflow-hidden"
+      >
+        <div className="h-1 w-full bg-gradient-to-r from-[#00FFAE] to-[#3B82F6]" />
+        <div className="p-6">
+          {sent ? (
+            <div className="text-center py-6 space-y-3">
+              <div className="text-4xl">🎉</div>
+              <h3 className="text-lg font-bold text-white">Recebemos sua solicitação!</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Nossa equipe vai entrar em contato com você em breve no WhatsApp informado com a melhor proposta personalizada.
+              </p>
+              <button onClick={onClose} className="mt-4 px-6 py-2 rounded-xl bg-[#00FFAE]/15 border border-[#00FFAE]/30 text-[#00FFAE] text-sm font-semibold hover:bg-[#00FFAE]/25 transition-colors">
+                Fechar
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-base font-bold text-white">Consultar preço</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Preencha e nossa equipe entra em contato</p>
+                </div>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { key: "nome", label: "Nome", placeholder: "Seu nome completo" },
+                  { key: "whatsapp", label: "WhatsApp", placeholder: "(11) 99999-9999" },
+                  { key: "email", label: "E-mail", placeholder: "seu@email.com", type: "email" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">{f.label} *</label>
+                    <input value={form[f.key]} onChange={e => set(f.key, e.target.value)}
+                      placeholder={f.placeholder} type={f.type || "text"}
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-[#00FFAE]/50 transition-colors placeholder:text-gray-600" />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Disparos mensais *</label>
+                  <select value={form.disparos} onChange={e => set("disparos", e.target.value)}
+                    className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-[#00FFAE]/50 transition-colors appearance-none cursor-pointer">
+                    <option value="">Selecione...</option>
+                    {DISPAROS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Usa API oficial da Meta? *</label>
+                  <div className="flex gap-3">
+                    {["sim", "nao"].map(v => (
+                      <button key={v} type="button" onClick={() => set("usaApi", v)}
+                        className={`flex-1 py-2 rounded-xl border text-[13px] font-semibold transition-colors ${form.usaApi === v ? "border-[#00FFAE]/50 bg-[#00FFAE]/15 text-[#00FFAE]" : "border-white/10 bg-white/[0.04] text-gray-400 hover:border-white/20"}`}>
+                        {v === "sim" ? "✓ Sim" : "✕ Não"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {err && <p className="text-[12px] text-red-400 font-medium">{err}</p>}
+                <button onClick={submit} disabled={sending}
+                  className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-[#00FFAE] to-[#3B82F6] text-black font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60">
+                  {sending ? "Enviando..." : "Solicitar proposta personalizada →"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function Pricing() {
+  const [showModal, setShowModal] = useState(false);
+
   return (
     <section id="planos" className="py-24 border-t border-white/[0.06]">
       <div className="container-x">
@@ -83,42 +199,29 @@ export default function Pricing() {
                 )}
               </div>
               <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-6xl font-bold tracking-tight">{p.price}</span>
-                <span className="text-ink-500 ml-1">{p.period}</span>
+                <span className="text-4xl font-bold tracking-tight">{p.price}</span>
+                {p.period && <span className="text-ink-500 ml-1">{p.period}</span>}
               </div>
               <p className="mt-3 text-ink-300 text-sm">{p.desc}</p>
-              <a
-                href={p.href}
-                className={p.highlighted ? "btn-primary w-full mt-6" : "btn-ghost w-full mt-6"}
-              >
-                {p.cta} →
-              </a>
+              {p.highlighted ? (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="btn-primary w-full mt-6"
+                >
+                  {p.cta} →
+                </button>
+              ) : (
+                <a href={p.href} className="btn-ghost w-full mt-6">
+                  {p.cta} →
+                </a>
+              )}
               {p.highlighted && (
                 <div className="mt-3 text-center text-xs text-ink-500">
-                  ⚡ Setup em 5 minutos · Sem fidelidade
+                  ⚡ Proposta personalizada · Sem fidelidade
                 </div>
               )}
             </div>
           ))}
-        </div>
-
-        {/* Selo de garantia */}
-        <div className="mt-10 max-w-3xl mx-auto">
-          <div className="glass p-6 bg-gradient-to-r from-primary/[0.05] via-card to-accent-blue/[0.05] border-primary/20">
-            <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-              <div className="size-14 shrink-0 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center">
-                <svg className="size-7 text-primary" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L4 5v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V5l-8-3zm-1 14l-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6z"/>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-lg">Garantia de 7 dias</div>
-                <div className="text-sm text-ink-300 mt-1">
-                  Não viu valor na primeira semana de operação? Devolvemos 100% do dinheiro, sem perguntas.
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Tabela comparativa */}
@@ -158,12 +261,12 @@ export default function Pricing() {
         {/* Trust badges */}
         <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-xs text-ink-400">
           <span className="inline-flex items-center gap-2">
-            <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4 5v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V5l-8-3z"/></svg>
-            Pagamento seguro via Stripe
+            <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+            Proposta personalizada
           </span>
           <span className="inline-flex items-center gap-2">
             <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
-            7 dias de garantia
+            Sem fidelidade
           </span>
           <span className="inline-flex items-center gap-2">
             <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
@@ -175,6 +278,10 @@ export default function Pricing() {
           </span>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showModal && <ConsultarPrecoModal open={showModal} onClose={() => setShowModal(false)} />}
+      </AnimatePresence>
     </section>
   );
 }

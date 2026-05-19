@@ -38,7 +38,7 @@ export default function Home() {
             "Sistema de vendas automáticas pelo WhatsApp: disparos em massa, chatbot 24/7, automações e CRM.",
           offers: [
             { "@type": "Offer", name: "Starter", price: "0", priceCurrency: "BRL" },
-            { "@type": "Offer", name: "Pro", price: "47", priceCurrency: "BRL" },
+            { "@type": "Offer", name: "Pro", price: "0", priceCurrency: "BRL", description: "Sob consulta" },
           ],
           aggregateRating: {
             "@type": "AggregateRating",
@@ -65,7 +65,7 @@ export default function Home() {
               name: "Existe plano gratuito?",
               acceptedAnswer: {
                 "@type": "Answer",
-                text: "Sim. O plano Starter é gratuito pra sempre, sem cartão de crédito. O plano Pro custa R$ 47/mês.",
+                text: "Sim. O plano Starter é gratuito pra sempre, sem cartão de crédito. O plano Pro tem preço personalizado conforme sua operação — clique em Consultar preço para receber uma proposta.",
               },
             },
             {
