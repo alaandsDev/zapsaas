@@ -55,10 +55,7 @@ export default function AiCopilot() {
     e?.preventDefault();
     const text = q.trim();
     if (!text) return;
-    setAnswer({
-      q: text,
-      a: "Posso te ajudar a montar campanhas, fluxos e ler a operação. Esta resposta inteligente entra em breve — por enquanto, veja as recomendações priorizadas abaixo, geradas a partir dos seus dados.",
-    });
+    setAnswer({ q: text, a: answerFor(text, data) });
     setQ("");
   }
 
@@ -181,6 +178,53 @@ export default function AiCopilot() {
       </AnimatePresence>
     </>
   );
+}
+
+// Resposta contextual por intenção, usando os dados reais já carregados.
+// (Heurística — não é LLM. Respostas conversacionais com IA entram depois.)
+function answerFor(text, d) {
+  const t = (text || "").toLowerCase();
+  const has = (...ks) => ks.some((k) => t.includes(k));
+  const s = d?.stats || {};
+  const ds = d?.dispatches || [];
+  const last = ds[0];
+  const rev = d?.revenue;
+  const bh = d?.bestHour;
+
+  if (has("horario", "hora", "quando enviar", "quando disparar", "melhor dia")) {
+    return bh && bh.value > 0
+      ? `Pelo histórico real, seus contatos respondem mais por volta de ${bh.h}. Concentre campanhas e follow-ups nessa janela para elevar a taxa de resposta. Evite madrugada e horário de almoço.`
+      : "Ainda não há volume suficiente de respostas para detectar o melhor horário. Como referência geral, 9h–11h e 19h–21h costumam converter melhor — depois eu te mostro o pico real assim que houver dados.";
+  }
+  if (has("campanha", "disparo", "performance", "entrega", "taxa")) {
+    if (last && (last.total || 0) > 0) {
+      const r = Math.round(((last.sent || 0) / Math.max(last.total, 1)) * 100);
+      return `Sua última campanha ("${last.message_title || "sem título"}") entregou ${r}% (${last.sent || 0}/${last.total}). ${r < 70 ? "Está abaixo do ideal: revise segmentação, horário e ative o balanceamento entre canais (Canal Oficial / 2 números)." : "Boa entrega. Para escalar, teste variações de mensagem e segmente por tags de lead quente."} Você tem ${ds.length} campanha(s) registrada(s).`;
+    }
+    return "Você ainda não tem campanhas com envios. Crie uma em Campanhas (wizard de 4 etapas) usando uma lista segmentada e um horário de pico — depois eu analiso a performance real aqui.";
+  }
+  if (has("lead", "contato", "quente", "crm")) {
+    return `Você tem ${s.leads ?? 0} leads no total${(s.newLeads ?? 0) > 0 ? ` e ${s.newLeads} novo(s) aguardando contato` : ""}. Priorize os novos nas primeiras horas (convertem muito mais), use o lead score no CRM para focar nos "quentes" e aplique um fluxo de follow-up para os sem resposta.`;
+  }
+  if (has("receita", "faturamento", "venda", "roi", "dinheiro", "ticket")) {
+    if (rev && (rev.total || 0) > 0) {
+      return `Receita atribuída nos últimos 30 dias: ${brl(rev.total)}${rev.deltaPct != null ? ` (${rev.deltaPct >= 0 ? "+" : ""}${rev.deltaPct}% vs. período anterior)` : ""}. Veja ROI por campanha em Vendas para dobrar no que já gera caixa e cortar o que não converte.`;
+    }
+    return "Ainda não há receita registrada. Registre as vendas no CRM (botão 'Registrar venda' no lead) ou em Vendas, vinculando à campanha de origem — assim o ROI por campanha passa a ser real.";
+  }
+  if (has("fluxo", "automacao", "automação", "workflow", "bot")) {
+    return "Monte no Workflow Builder um fluxo de entrada (Gatilho → Mensagem → IA/Condição), marque como 'entrada' + 'ativo' e publique — ele responde sozinho em conversas novas. Use o bloco 'Ir para fluxo' para encadear (ex: qualificação → fechamento) e 'Delay' para follow-ups automáticos.";
+  }
+  if (has("conexao", "conexão", "canal", "numero", "número", "banimento", "bloqueio", "estabilidade")) {
+    return "Para entrega estável: conecte 2 canais e ative o balanceamento inteligente, mantenha intervalo entre mensagens e prefira o Canal Oficial (API Meta) para volume alto. Evite picos repentinos com número novo.";
+  }
+  if (has("template", "meta", "oficial", "homologa")) {
+    return "Templates oficiais ficam em Canal Oficial. Crie em 'Novo Template' (preview ao vivo) e envie para aprovação da Meta — só pode disparar para quem nunca te respondeu usando template aprovado. Verifique se o Access Token tem escopo de management.";
+  }
+  if (has("preco", "preço", "plano", "assinar", "valor", "quanto custa")) {
+    return "O plano Pro agora é sob consulta — o cliente clica em 'Consultar preço' na landing e cai como orçamento no Admin → Orçamentos, onde sua equipe negocia conforme a necessidade.";
+  }
+  return `Posso te orientar com base nos seus números reais. Hoje: ${s.leads ?? 0} leads, ${ds.length} campanha(s)${rev?.total ? `, ${brl(rev.total)} de receita (30d)` : ""}. Pergunte sobre: melhor horário, performance de campanha, leads quentes, receita/ROI, fluxos, canais ou templates — ou veja as recomendações priorizadas abaixo.`;
 }
 
 // Constrói insights — usa dado real quando existe; senão, recomendação acionável.
