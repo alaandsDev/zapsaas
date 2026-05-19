@@ -190,3 +190,15 @@ html[data-theme="light"] .bg-ink-800\/60 { background-color: #F1F5F9 !important;
 .rf-canvas .react-flow__controls-button { background: transparent; border: none; color: #94A3B8; }
 .rf-canvas .react-flow__controls-button:hover { background: rgba(255,255,255,0.06); color: #00FF88; }
 .rf-canvas .react-flow__controls-button svg { fill: currentColor; }
+
+/* Selects nativos: opções legíveis no tema dark (corrige texto branco no branco) */
+select option,
+select optgroup {
+  background-color: #0B1120;
+  color: #F8FAFC;
+}
+html[data-theme="light"] select option,
+html[data-theme="light"] select optgroup {
+  background-color: #FFFFFF;
+  color: #0F172A;
+}
