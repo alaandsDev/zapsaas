@@ -1436,6 +1436,17 @@ async function getCloudConfig(userId) {
   return data;
 }
 
+// Detecta access_token corrompido salvo no banco (ex: SQL colado por engano).
+// Retorna string de erro amigável ou null se ok.
+function cloudTokenError(c) {
+  if (!c || !c.access_token) return 'Credenciais Meta não configuradas.';
+  const t = String(c.access_token);
+  if (/\s/.test(t) || /;|create\s+table|alter\s+table|select\s|<[a-z]/i.test(t) || t.length > 800) {
+    return 'Access Token inválido ou corrompido. Vá em Canal Oficial → Remover e reconfigure colando apenas o token EAA… da Meta.';
+  }
+  return null;
+}
+
 // Disparo em massa via API Meta (Cloud API)
 async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
   const dispatch = await supabase.from('dispatches').select('*').eq('id', dispatchId).single().then(r => r.data);
@@ -1599,7 +1610,7 @@ app.post('/api/wpp-cloud/test', requireAuth, async (req, res) => {
     const { to, template, language, variables } = req.body;
     if (!to || !template) return res.status(400).json({ error: 'to e template obrigatórios' });
     const c = await getCloudConfig(req.user.id);
-    if (!c) return res.status(400).json({ error: 'Configure as credenciais Meta primeiro' });
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     const r = await wppCloud.sendTemplate(
       { token: c.access_token, phoneNumberId: c.phone_number_id },
       to, template, language || 'pt_BR', variables || []
@@ -1612,7 +1623,7 @@ app.post('/api/wpp-cloud/test', requireAuth, async (req, res) => {
 app.get('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   try {
     const c = await getCloudConfig(req.user.id);
-    if (!c) return res.status(400).json({ error: 'Configure as credenciais Meta primeiro' });
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     if (!c.business_account_id) return res.status(400).json({ error: 'business_account_id não configurado' });
     const r = await wppCloud.listTemplates({ token: c.access_token, businessAccountId: c.business_account_id });
     res.json(r.data || []);
@@ -1623,7 +1634,7 @@ app.get('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
 app.get('/api/wpp-cloud/verify', requireAuth, async (req, res) => {
   try {
     const c = await getCloudConfig(req.user.id);
-    if (!c || !c.access_token) return res.status(400).json({ error: 'Credenciais não configuradas' });
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ ok: false, error: te }); }
     const info = await wppCloud.verify({ token: c.access_token, phoneNumberId: c.phone_number_id });
     res.json({ ok: true, display_phone: info.display_phone_number || null, verified_name: info.verified_name || null, quality_rating: info.quality_rating || null });
   } catch (e) { res.status(400).json({ ok: false, error: e.message }); }
@@ -1633,7 +1644,7 @@ app.get('/api/wpp-cloud/verify', requireAuth, async (req, res) => {
 app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   try {
     const c = await getCloudConfig(req.user.id);
-    if (!c) return res.status(400).json({ error: 'Configure as credenciais Meta primeiro' });
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     if (!c.business_account_id) return res.status(400).json({ error: 'business_account_id não configurado' });
     const { name, language, category, components } = req.body;
     if (!name || !category || !Array.isArray(components)) {
