@@ -467,6 +467,30 @@ const chatsCache = new Map();  // key: userId:slot → { data, ts }
 const profilePicCache = new Map(); // key: phone → { url, ts }
 
 // ── HEALTH CHECK ──────────────────────────────────────────────
+// ── CAPTAÇÃO DE LEADS (Consultar Preço) ──────────────────────
+app.post('/api/lead-contact', async (req, res) => {
+  try {
+    const { nome, whatsapp, email, disparos, usaApi } = req.body;
+    if (!nome || !whatsapp || !email) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+
+    // Salva no banco
+    await supabase.from('price_leads').insert({
+      nome: nome.trim(),
+      whatsapp: whatsapp.trim(),
+      email: email.trim(),
+      disparos_mensais: disparos || null,
+      usa_api_meta: usaApi === 'sim',
+      created_at: new Date().toISOString()
+    }).catch(() => null); // não bloqueia se tabela não existir ainda
+
+    console.log(`[price-lead] ${nome} | ${whatsapp} | ${email} | ${disparos} | api:${usaApi}`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[price-lead] erro:', e.message);
+    res.json({ ok: true }); // retorna ok mesmo com erro para não frustrar o usuário
+  }
+});
+
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // ═══════════════════════════════════════════════════════════════
