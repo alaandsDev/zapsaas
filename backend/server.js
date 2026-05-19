@@ -467,6 +467,21 @@ const chatsCache = new Map();  // key: userId:slot → { data, ts }
 const profilePicCache = new Map(); // key: phone → { url, ts }
 
 // ── HEALTH CHECK ──────────────────────────────────────────────
+// ── ADMIN: ORÇAMENTOS ─────────────────────────────────────────
+app.get('/api/admin/orcamentos', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('price_leads')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── CAPTAÇÃO DE LEADS (Consultar Preço) ──────────────────────
 app.post('/api/lead-contact', async (req, res) => {
   try {

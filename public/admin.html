@@ -224,6 +224,10 @@ select:focus{border-color:var(--red)}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>
           Marketing
         </div>
+        <div class="nav-item" data-view="orcamento" onclick="navigate('orcamento')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+          Orçamentos
+        </div>
       </div>
       <div class="sidebar-footer">
         <div class="nav-item" onclick="doLogout()">
@@ -446,6 +450,34 @@ select:focus{border-color:var(--red)}
           </div>
         </div>
 
+      <!-- ORCAMENTOS -->
+        <div class="view" id="view-orcamento">
+          <div class="section-card">
+            <div class="section-header">
+              <div class="section-title">Orçamentos solicitados</div>
+              <button class="btn btn-ghost btn-sm" onclick="loadOrcamentos()">🔄 Atualizar</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>WhatsApp</th>
+                    <th>E-mail</th>
+                    <th>Disparos/mês</th>
+                    <th>API Meta</th>
+                    <th>Data</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="orcamentos-tbody">
+                  <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div><!-- /content -->
     </div><!-- /main -->
   </div><!-- /layout -->
@@ -604,6 +636,7 @@ const pages = {
   users: ['Usuários', 'Gerenciar todos os usuários da plataforma'],
   dispatches: ['Disparos', 'Histórico de todos os disparos'],
   marketing: ['Marketing', 'Campanhas em massa para usuários da plataforma'],
+  orcamento: ['Orçamentos', 'Solicitações de proposta dos clientes'],
 };
 
 function navigate(view) {
@@ -618,6 +651,48 @@ function navigate(view) {
   else if (view === 'users') loadUsers();
   else if (view === 'dispatches') loadAllDispatches();
   else if (view === 'marketing') { mkTab('connection'); mkWppStatus(); }
+  else if (view === 'orcamento') loadOrcamentos();
+}
+
+// ── ORÇAMENTOS ────────────────────────────────────────────────
+const DISPAROS_LABELS = {
+  ate_1000: 'Até 1.000', '1001_5000': '1.001–5.000',
+  '5001_20000': '5.001–20.000', '20001_50000': '20.001–50.000',
+  acima_50000: 'Acima de 50.000'
+};
+
+async function loadOrcamentos() {
+  const tbody = document.getElementById('orcamentos-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>';
+  try {
+    const data = await adminFetch('/api/admin/orcamentos');
+    if (!data?.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Nenhuma solicitação ainda</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(r => {
+      const dt = new Date(r.created_at).toLocaleString('pt-BR');
+      const disparos = DISPAROS_LABELS[r.disparos_mensais] || r.disparos_mensais || '—';
+      const api = r.usa_api_meta ? '<span style="color:var(--green);font-weight:600">✓ Sim</span>' : '<span style="color:var(--text3)">Não</span>';
+      const wa = r.whatsapp.replace(/\D/g,'');
+      return `<tr>
+        <td><strong>${r.nome}</strong></td>
+        <td>${r.whatsapp}</td>
+        <td style="color:var(--text2)">${r.email}</td>
+        <td>${disparos}</td>
+        <td>${api}</td>
+        <td style="color:var(--text3);font-size:11px">${dt}</td>
+        <td>
+          <a href="https://wa.me/55${wa}" target="_blank"
+             style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,232,122,.1);border:1px solid rgba(0,232,122,.25);color:var(--green);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">
+            💬 WhatsApp
+          </a>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--red)">${e.message}</td></tr>`;
+  }
 }
 
 // ── MARKETING ─────────────────────────────────────────────────
