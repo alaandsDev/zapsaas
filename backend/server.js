@@ -1225,7 +1225,7 @@ app.get('/api/dashboard/timeseries', requireAuth, async (req, res) => {
     start.setDate(start.getDate() - (days - 1));
     const startISO = start.toISOString();
 
-    const [{ data: msgs }, { data: leadRows }] = await Promise.all([
+    const [{ data: msgs }, { data: leadRows }, { data: dispRows }] = await Promise.all([
       supabase.from('chat_messages')
         .select('direction, timestamp')
         .eq('user_id', uid)
@@ -1236,6 +1236,11 @@ app.get('/api/dashboard/timeseries', requireAuth, async (req, res) => {
         .eq('user_id', uid)
         .gte('created_at', startISO)
         .limit(20000),
+      supabase.from('dispatches')
+        .select('sent, created_at')
+        .eq('user_id', uid)
+        .gte('created_at', startISO)
+        .limit(5000),
     ]);
 
     // esqueleto de N dias (chave = YYYY-MM-DD) preservando ordem
@@ -1259,8 +1264,15 @@ app.get('/api/dashboard/timeseries', requireAuth, async (req, res) => {
       const k = new Date(iso).toISOString().slice(0, 10);
       if (buckets[k]) buckets[k][field]++;
     };
+    const add = (iso, field, n) => {
+      if (!iso || !n) return;
+      const k = new Date(iso).toISOString().slice(0, 10);
+      if (buckets[k]) buckets[k][field] += n;
+    };
     (msgs || []).forEach((m) => put(m.timestamp, m.direction === 'in' ? 'respostas' : 'enviadas'));
     (leadRows || []).forEach((l) => put(l.created_at, 'leads'));
+    // Campanhas/disparos: soma os enviados no dia da campanha
+    (dispRows || []).forEach((d) => add(d.created_at, 'enviadas', Number(d.sent) || 0));
 
     res.json({ days, series: order.map((k) => buckets[k]) });
   } catch (e) {
