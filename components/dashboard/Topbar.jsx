@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { LogOut, Settings, ChevronDown } from "lucide-react";
 import { getUser, clearAuth } from "../../lib/api";
 import NotificationsBell from "./NotificationsBell";
-import ThemeToggle from "./ThemeToggle";
 
 export default function Topbar({ title, subtitle, actions }) {
   const router = useRouter();
@@ -29,7 +28,6 @@ export default function Topbar({ title, subtitle, actions }) {
       )}
 
       <div className="flex items-center gap-1">
-        <ThemeToggle />
         <NotificationsBell />
 
         {/* User menu */}

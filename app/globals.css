@@ -145,31 +145,7 @@
   }
 }
 
-/* Light mode (dados-tema="light") */
-html[data-theme="light"] body {
-  background: #F8FAFC !important;
-  color: #0F172A !important;
-  background-image:
-    radial-gradient(ellipse 90% 60% at 50% -5%,  rgba(0,200,100,0.08), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 85% 15%,  rgba(124,58,237,0.06), transparent 55%) !important;
-}
-html[data-theme="light"] .card {
-  background: #FFFFFF !important;
-  border-color: #E2E8F0 !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04) !important;
-}
-html[data-theme="light"] .text-ink-100 { color: #0F172A !important; }
-html[data-theme="light"] .text-ink-200 { color: #1E293B !important; }
-html[data-theme="light"] .text-ink-300 { color: #334155 !important; }
-html[data-theme="light"] .text-ink-400 { color: #475569 !important; }
-html[data-theme="light"] .text-ink-500 { color: #64748B !important; }
-html[data-theme="light"] .bg-bg,
-html[data-theme="light"] .bg-bg\/95 { background-color: #F8FAFC !important; }
-html[data-theme="light"] .bg-bg2 { background-color: #FFFFFF !important; }
-html[data-theme="light"] .border-ink-700\/60,
-html[data-theme="light"] .border-white\/\[0\.06\],
-html[data-theme="light"] .border-white\/10 { border-color: #E2E8F0 !important; }
-html[data-theme="light"] .bg-ink-800\/60 { background-color: #F1F5F9 !important; }
+/* Tema fixo escuro — modo claro removido (data-theme="light" não tem efeito) */
 
 /* React Flow premium theme (Workflow Builder) */
 .react-flow__attribution { display: none !important; }
@@ -196,9 +172,4 @@ select option,
 select optgroup {
   background-color: #0B1120;
   color: #F8FAFC;
-}
-html[data-theme="light"] select option,
-html[data-theme="light"] select optgroup {
-  background-color: #FFFFFF;
-  color: #0F172A;
 }
