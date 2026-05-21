@@ -1,104 +1,265 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import {
+  useEffect, useMemo, useRef, useState, useCallback, memo
+} from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Send as SendIcon, Phone, Copy, ChevronDown, MessageSquare,
-  Check, CheckCheck, Clock, X,
+  Search, Send as SendIcon, Phone, Copy, ChevronDown,
+  MessageSquare, Check, CheckCheck, Clock, X, Tag,
+  Users, Layers, Filter, Mic, Paperclip, MoreHorizontal,
+  RefreshCw, Megaphone, ExternalLink, Zap,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
 import { Button } from "../../../components/ui/Field";
 import EmptyState from "../../../components/dashboard/EmptyState";
 import { api, API_URL, getToken } from "../../../lib/api";
 
-// Polling fica como fallback caso SSE caia. Intervalo bem maior agora.
-const POLL_FALLBACK_MS = 30000;
+// ─── Constantes ─────────────────────────────────────────────────────────────
+
+const POLL_MS = 30_000;
+const SEARCH_DEBOUNCE = 220;
+const LS_CHANNEL  = "conversation_channel_filter";
+const LS_GROUP    = "conversation_group_mode";
+
+// Cor fixa por slot (1-indexed)
+const SLOT_COLOR = {
+  1: { hex: "#00FF88", cls: "bg-primary",   text: "text-primary",   ring: "border-primary/40",   label: "Nº1" },
+  2: { hex: "#7C3AED", cls: "bg-secondary", text: "text-secondary", ring: "border-secondary/40", label: "Nº2" },
+  3: { hex: "#00D1FF", cls: "bg-accent-blue",text: "text-accent-blue",ring: "border-accent-blue/40",label: "Nº3" },
+  4: { hex: "#F59E0B", cls: "bg-amber-400", text: "text-amber-400", ring: "border-amber-400/40", label: "Nº4" },
+  5: { hex: "#EF4444", cls: "bg-red-400",   text: "text-red-400",   ring: "border-red-400/40",   label: "Nº5" },
+};
+function slotColor(slot) {
+  return SLOT_COLOR[slot] ?? { hex: "#8B8B8B", cls: "bg-ink-500", text: "text-ink-400", ring: "border-white/20", label: `Nº${slot}` };
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtTime(iso) {
   if (!iso) return "";
-  const d = new Date(iso);
+  const d   = new Date(iso);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
   if (sameDay) return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return "Ontem";
+  const yest = new Date(now); yest.setDate(yest.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return "Ontem";
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
-
-function Avatar({ src, name, size = 40 }) {
-  const [errored, setErrored] = useState(false);
-  const initial = (name || "?").trim()[0]?.toUpperCase() || "?";
-  if (src && !errored) {
-    return (
-      <img
-        src={src}
-        alt=""
-        onError={() => setErrored(true)}
-        style={{ width: size, height: size }}
-        className="rounded-full object-cover bg-bg2 shrink-0"
-      />
-    );
-  }
-  return (
-    <div
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
-      className="rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center shrink-0"
-    >
-      {initial}
-    </div>
-  );
+function fmtRelative(iso) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000)  return "agora";
+  if (diff < 3600_000) return `${Math.floor(diff/60_000)}min`;
+  if (diff < 86400_000) return `${Math.floor(diff/3600_000)}h`;
+  return fmtTime(iso);
 }
-
 function fmtDayHeader(iso) {
-  const d = new Date(iso);
-  const now = new Date();
+  const d = new Date(iso), now = new Date();
   if (d.toDateString() === now.toDateString()) return "Hoje";
   const y = new Date(now); y.setDate(y.getDate() - 1);
   if (d.toDateString() === y.toDateString()) return "Ontem";
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
+// ─── Componentes menores ──────────────────────────────────────────────────────
+
+function Avatar({ src, name, size = 40 }) {
+  const [err, setErr] = useState(false);
+  const initial = (name || "?").trim()[0]?.toUpperCase() || "?";
+  if (src && !err) {
+    return <img src={src} alt="" onError={() => setErr(true)}
+      style={{ width: size, height: size }}
+      className="rounded-full object-cover bg-bg2 shrink-0" />;
+  }
+  return (
+    <div style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
+      className="rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center shrink-0">
+      {initial}
+    </div>
+  );
+}
+
+// Badge colorida de canal
+function ChannelBadge({ slot, tiny = false }) {
+  const c = slotColor(slot);
+  if (tiny) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold"
+        style={{ color: c.hex }}>
+        <span className="size-1.5 rounded-full shrink-0" style={{ background: c.hex }} />
+        {c.label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+      style={{ color: c.hex, borderColor: `${c.hex}40`, background: `${c.hex}15` }}>
+      <span className="size-1.5 rounded-full" style={{ background: c.hex }} />
+      {c.label}
+    </span>
+  );
+}
+
+// Toast simples
+function Toast({ msg, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 2500); return () => clearTimeout(t); }, [onClose]);
+  return (
+    <motion.div initial={{ opacity: 0, y: 16, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 8 }}
+      className="fixed bottom-6 right-6 z-[200] bg-bg2 border border-white/10 rounded-xl px-4 py-3 text-sm shadow-xl flex items-center gap-2">
+      <Check className="size-4 text-primary" /> {msg}
+    </motion.div>
+  );
+}
+
+// Item de conversa (memo para evitar re-render desnecessário)
+const ChatItem = memo(function ChatItem({ chat, isActive, showChannel, onClick }) {
+  const c = slotColor(chat.slot);
+  return (
+    <button onClick={onClick}
+      className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors mb-0.5 ${
+        isActive
+          ? "bg-primary/[0.08] border border-primary/20"
+          : "border border-transparent hover:bg-white/[0.03]"
+      }`}>
+      <div className="relative shrink-0">
+        <Avatar src={chat.profile_pic_url} name={chat.name || chat.phone} size={44} />
+        {showChannel && (
+          <span className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-[#0B1120]"
+            style={{ background: c.hex }} />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-medium text-sm truncate">{chat.name || `+${chat.phone}`}</div>
+          <span className="text-[10px] text-ink-500 shrink-0">{fmtTime(chat.last_message_at)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {showChannel && <ChannelBadge slot={chat.slot} tiny />}
+            <div className="text-xs text-ink-400 truncate">{chat.last_message || "—"}</div>
+          </div>
+          {chat.unread > 0 && (
+            <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-bg text-[10px] font-bold flex items-center justify-center">
+              {chat.unread > 99 ? "99+" : chat.unread}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+});
+
+// Grupo de canal (modo agrupado por canal)
+function ChannelGroup({ slot, sessionPhone, chats, activeChat, onSelect }) {
+  const c = slotColor(slot);
+  const totalUnread = chats.reduce((acc, ch) => acc + (ch.unread || 0), 0);
+  return (
+    <div className="mb-3">
+      <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 z-10"
+        style={{ background: "linear-gradient(180deg,#0B1120,#0B1120cc)" }}>
+        <span className="size-2 rounded-full" style={{ background: c.hex }} />
+        <span className="text-[11px] font-semibold" style={{ color: c.hex }}>{c.label}</span>
+        {sessionPhone && <span className="text-[10px] text-ink-500">· +{sessionPhone}</span>}
+        {totalUnread > 0 && (
+          <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full text-bg text-[10px] font-bold flex items-center justify-center"
+            style={{ background: c.hex }}>
+            {totalUnread}
+          </span>
+        )}
+      </div>
+      {chats.map((chat) => (
+        <ChatItem key={chat.id} chat={chat} isActive={activeChat?.id === chat.id}
+          showChannel={false} onClick={() => onSelect(chat)} />
+      ))}
+    </div>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+
 export default function Conversas() {
-  const [sessions, setSessions] = useState([]);   // todos slots
-  const [activeSlot, setActiveSlot] = useState(null);
-  const [chats, setChats] = useState([]);
-  const [activeChat, setActiveChat] = useState(null);
-  const [msgs, setMsgs] = useState([]);
-  const [q, setQ] = useState("");
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("todas");
-  const [copied, setCopied] = useState(false);
-  const msgsEndRef = useRef(null);
+  const [sessions,    setSessions]    = useState([]);
+  const [allChats,    setAllChats]    = useState([]);   // chats de TODOS os slots
+  const [activeChat,  setActiveChat]  = useState(null);
+  const [msgs,        setMsgs]        = useState([]);
+  const [rawQ,        setRawQ]        = useState("");
+  const [q,           setQ]           = useState("");
+  const [draft,       setDraft]       = useState("");
+  const [sending,     setSending]     = useState(false);
+  const [loading,     setLoading]     = useState(true);
+  const [copied,      setCopied]      = useState(false);
+  const [toast,       setToast]       = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filtros operacionais (combinável)
+  const [filterUnread,    setFilterUnread]    = useState(false);
+  const [filterIA,        setFilterIA]        = useState(false);
+  const [filterWithLead,  setFilterWithLead]  = useState(false);
+  const [filterNoReply,   setFilterNoReply]   = useState(false);
+
+  // Canal selecionado: "all" ou número do slot
+  const [channelFilter, setChannelFilter] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem(LS_CHANNEL) || "all";
+    return "all";
+  });
+
+  // Modo de agrupamento
+  const [groupMode, setGroupMode] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem(LS_GROUP) || "contacts";
+    return "contacts";
+  });
+
+  const msgsEndRef    = useRef(null);
+  const activeChatRef = useRef(null);
+  const searchTimer   = useRef(null);
+
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+
+  // Persistir preferências
+  useEffect(() => { localStorage.setItem(LS_CHANNEL, channelFilter); }, [channelFilter]);
+  useEffect(() => { localStorage.setItem(LS_GROUP, groupMode); }, [groupMode]);
+
+  // Debounce de busca
+  useEffect(() => {
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setQ(rawQ), SEARCH_DEBOUNCE);
+    return () => clearTimeout(searchTimer.current);
+  }, [rawQ]);
 
   const connectedSessions = useMemo(
     () => sessions.filter((s) => s.status === "connected"),
     [sessions]
   );
 
+  // ── Carrega sessões ────────────────────────────────────────────────────────
   const loadSessions = useCallback(async () => {
     try {
       const list = await api("/api/whatsapp/sessions");
       setSessions(list || []);
-      const conn = (list || []).filter((s) => s.status === "connected");
-      if (conn.length) {
-        const slot = conn[0].slot;
-        setActiveSlot(slot);
-        return slot;
-      }
-    } catch {}
-    return null;
+      return (list || []).filter((s) => s.status === "connected");
+    } catch { return []; }
   }, []);
 
-  const loadChats = useCallback(async (slotOverride) => {
-    const slot = slotOverride ?? activeSlot;
-    if (!slot) return;
+  // ── Carrega chats de TODOS os canais conectados ────────────────────────────
+  const loadAllChats = useCallback(async (connected) => {
+    if (!connected?.length) return;
     try {
-      const list = await api(`/api/chats?slot=${slot}`);
-      setChats(list || []);
+      const results = await Promise.allSettled(
+        connected.map((s) =>
+          api(`/api/chats?slot=${s.slot}`)
+            .then((list) => (list || []).map((c) => ({ ...c, slot: s.slot, sessionPhone: s.phone })))
+        )
+      );
+      const merged = results
+        .filter((r) => r.status === "fulfilled")
+        .flatMap((r) => r.value);
+      // Ordena por última mensagem (mais recente primeiro)
+      merged.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
+      setAllChats(merged);
     } catch {}
-  }, [activeSlot]);
+  }, []);
 
   const loadMsgs = useCallback(async () => {
     if (!activeChat?.id) return;
@@ -108,51 +269,51 @@ export default function Conversas() {
     } catch {}
   }, [activeChat]);
 
+  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const slot = await loadSessions();
-      if (slot) await loadChats(slot);
+      const conn = await loadSessions();
+      await loadAllChats(conn);
       setLoading(false);
     })();
   }, []);
 
-  useEffect(() => {
-    if (!activeSlot) return;
-    setActiveChat(null);
-    setMsgs([]);
-    loadChats(activeSlot);
-  }, [activeSlot]);
-
   useEffect(() => { if (activeChat?.id) loadMsgs(); }, [activeChat?.id, loadMsgs]);
 
-  const activeChatRef = useRef(null);
-  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
-
+  // ── SSE ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const token = getToken();
     if (!token) return;
     const url = `${API_URL}/api/chats/stream?token=${encodeURIComponent(token)}`;
     let es;
     try { es = new EventSource(url); } catch { return; }
-
     es.addEventListener("message", (e) => {
       try {
         const data = JSON.parse(e.data);
-        loadChats(activeSlot);
+        // Atualiza a lista de chats
+        setAllChats((prev) => {
+          const idx = prev.findIndex((c) => c.id === data.chatId);
+          if (idx === -1) return prev;
+          const updated = { ...prev[idx], last_message: data.text, last_message_at: data.timestamp };
+          if (data.direction === "in" && activeChatRef.current?.id !== data.chatId) {
+            updated.unread = (updated.unread || 0) + 1;
+          }
+          const next = [...prev];
+          next.splice(idx, 1);
+          return [updated, ...next];
+        });
+        // Adiciona mensagem se a conversa ativa
         const cur = activeChatRef.current;
         if (cur?.id === data.chatId) {
           setMsgs((prev) => {
-            if (data.direction === "out" && prev.some((m) => m.text === data.text && Math.abs(new Date(m.timestamp) - new Date(data.timestamp)) < 5000)) {
-              return prev;
-            }
+            if (data.direction === "out" && prev.some(
+              (m) => m.text === data.text && Math.abs(new Date(m.timestamp) - new Date(data.timestamp)) < 5000
+            )) return prev;
             return [...prev, {
               id: `sse_${Date.now()}_${Math.random()}`,
-              direction: data.direction,
-              type: data.type,
-              text: data.text,
-              media_url: data.media_url || null,
-              mime_type: data.mime_type || null,
+              direction: data.direction, type: data.type, text: data.text,
+              media_url: data.media_url || null, mime_type: data.mime_type || null,
               status: data.direction === "out" ? "sent" : null,
               timestamp: data.timestamp,
             }];
@@ -160,29 +321,36 @@ export default function Conversas() {
         }
       } catch {}
     });
-
-    es.onerror = () => { /* navegador reconecta sozinho */ };
+    es.onerror = () => {};
     return () => { try { es.close(); } catch {} };
-  }, [loadChats]);
+  }, []);
 
+  // ── Poll fallback ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!activeSlot) return;
-    const i = setInterval(() => {
-      loadChats(activeSlot);
+    if (!connectedSessions.length) return;
+    const i = setInterval(async () => {
+      await loadAllChats(connectedSessions);
       if (activeChatRef.current?.id) loadMsgs();
-    }, POLL_FALLBACK_MS);
+    }, POLL_MS);
     return () => clearInterval(i);
-  }, [activeSlot, loadChats, loadMsgs]);
+  }, [connectedSessions, loadAllChats, loadMsgs]);
 
+  // ── Auto-scroll msgs ────────────────────────────────────────────────────────
   useEffect(() => {
     msgsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs.length, activeChat?.id]);
 
-  const unreadCount = useMemo(() => chats.filter((c) => c.unread > 0).length, [chats]);
-
+  // ── Filtros + busca ─────────────────────────────────────────────────────────
   const filteredChats = useMemo(() => {
-    let out = chats;
-    if (tab === "naolidas") out = out.filter((c) => c.unread > 0);
+    let out = allChats;
+    // Filtro de canal
+    if (channelFilter !== "all") out = out.filter((c) => String(c.slot) === channelFilter);
+    // Filtros operacionais
+    if (filterUnread)   out = out.filter((c) => c.unread > 0);
+    if (filterIA)       out = out.filter((c) => c.is_ai);
+    if (filterWithLead) out = out.filter((c) => c.lead_id);
+    if (filterNoReply)  out = out.filter((c) => c.last_direction === "in" || !c.last_direction);
+    // Busca
     const term = q.toLowerCase().trim();
     if (term) {
       out = out.filter((c) =>
@@ -190,41 +358,73 @@ export default function Conversas() {
       );
     }
     return out;
-  }, [q, chats, tab]);
+  }, [allChats, channelFilter, filterUnread, filterIA, filterWithLead, filterNoReply, q]);
 
+  // Contadores por canal
+  const channelCounts = useMemo(() => {
+    const map = { all: { total: allChats.length, unread: 0 } };
+    allChats.forEach((c) => {
+      const k = String(c.slot);
+      if (!map[k]) map[k] = { total: 0, unread: 0 };
+      map[k].total++;
+      if (c.unread > 0) { map[k].unread += c.unread; map.all.unread += c.unread; }
+    });
+    return map;
+  }, [allChats]);
+
+  // Chats agrupados por canal (modo canais)
+  const groupedBySlot = useMemo(() => {
+    const map = {};
+    filteredChats.forEach((c) => {
+      const k = c.slot;
+      if (!map[k]) map[k] = [];
+      map[k].push(c);
+    });
+    return map;
+  }, [filteredChats]);
+
+  // ── Enviar mensagem ─────────────────────────────────────────────────────────
   async function send() {
     if (!draft.trim() || !activeChat || sending) return;
-    const text = draft.trim();
+    const text  = draft.trim();
+    const slot  = activeChat.slot;
     setDraft("");
     setSending(true);
     const tempId = `tmp_${Date.now()}`;
     setMsgs((m) => [...m, {
       id: tempId, direction: "out", type: "text", text,
-      status: "pending", timestamp: new Date().toISOString()
+      status: "pending", timestamp: new Date().toISOString(),
     }]);
     try {
       await api("/api/chats/send", {
         method: "POST",
-        body: { slot: activeSlot, phone: activeChat.phone, message: text }
+        body: { slot, phone: activeChat.phone, message: text },
       });
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "sent" } : msg));
-    } catch (e) {
+    } catch {
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
     } finally { setSending(false); }
+  }
+
+  function selectChat(chat) {
+    setActiveChat(chat);
+    if (chat.unread > 0) {
+      setAllChats((prev) => prev.map((c) => c.id === chat.id ? { ...c, unread: 0 } : c));
+    }
   }
 
   function copyPhone() {
     if (!activeChat?.phone) return;
     navigator.clipboard?.writeText(`+${activeChat.phone}`).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setCopied(true); setTimeout(() => setCopied(false), 1500);
     });
   }
 
+  // ── Tela de loading ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <>
-        <Topbar title="Conversas" subtitle="Atendimento e conversas em tempo real" />
+        <Topbar title="Conversas" subtitle="Inbox multi-canal em tempo real" />
         <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] xl:grid-cols-[340px_1fr_320px]">
           <div className="border-r border-white/[0.06] p-4 space-y-3">
             {Array.from({ length: 7 }).map((_, i) => (
@@ -248,120 +448,212 @@ export default function Conversas() {
   if (!connectedSessions.length) {
     return (
       <>
-        <Topbar title="Conversas" subtitle="Atendimento e conversas em tempo real" />
+        <Topbar title="Conversas" subtitle="Inbox multi-canal em tempo real" />
         <div className="p-6 lg:p-8">
-          <EmptyState
-            icon="📵"
-            title="Nenhum WhatsApp conectado"
+          <EmptyState icon="📵" title="Nenhum WhatsApp conectado"
             desc="Conecte um número em Conexões para ver suas conversas em tempo real."
-            action={<Link href="/dashboard/canais"><Button>Ir para Conexões</Button></Link>}
-          />
+            action={<Link href="/dashboard/canais"><Button>Ir para Conexões</Button></Link>} />
         </div>
       </>
     );
   }
 
-  const TABS = [
-    { k: "todas", label: "Todas", count: chats.length },
-    { k: "naolidas", label: "Não lidas", count: unreadCount },
-  ];
+  const showChannelDot = channelFilter === "all" && connectedSessions.length > 1;
+  const activeSlotForReply = activeChat?.slot ?? connectedSessions[0]?.slot;
+  const replyColor = slotColor(activeSlotForReply);
+  const activeSession = connectedSessions.find((s) => s.slot === activeSlotForReply);
 
   return (
     <>
-      <Topbar title="Conversas" subtitle="Atendimento e conversas em tempo real" />
+      <Topbar title="Conversas" subtitle="Inbox multi-canal em tempo real" />
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && <Toast key="toast" msg={toast} onClose={() => setToast(null)} />}
+      </AnimatePresence>
 
       <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] xl:grid-cols-[340px_1fr_320px] overflow-hidden">
 
-        {/* ── LISTA ── */}
+        {/* ══════════════════════════════════════════════════
+            LISTA LATERAL
+        ══════════════════════════════════════════════════ */}
         <aside className="border-r border-white/[0.06] flex flex-col min-h-0"
-          style={{ background: "linear-gradient(180deg, #0B1120, #0F172A)" }}>
-          <div className="px-4 pt-4 pb-3">
-            <h2 className="text-lg font-bold">Conversas</h2>
-            <p className="text-xs text-ink-500">Atendimento em tempo real</p>
-          </div>
+          style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)" }}>
 
-          <div className="px-3 flex items-center gap-1 border-b border-white/[0.06]">
-            {TABS.map((t) => (
+          {/* ── Seletor de canal ── */}
+          <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {/* Chip "Todas" */}
               <button
-                key={t.k}
-                onClick={() => setTab(t.k)}
-                className={`relative px-3 py-2.5 text-[13px] font-medium transition-colors ${
-                  tab === t.k ? "text-primary" : "text-ink-400 hover:text-ink-200"
-                }`}
-              >
-                {t.label}
-                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${
-                  tab === t.k ? "bg-primary/15 text-primary" : "bg-white/[0.05] text-ink-500"
-                }`}>{t.count}</span>
-                {tab === t.k && (
-                  <motion.span layoutId="conv-tab" className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-primary" />
+                onClick={() => setChannelFilter("all")}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
+                  channelFilter === "all"
+                    ? "bg-white/10 border-white/20 text-ink-100"
+                    : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.03]"
+                }`}>
+                <Layers className="size-3" />
+                Todas
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  channelFilter === "all" ? "bg-white/10 text-ink-300" : "bg-white/[0.05] text-ink-500"
+                }`}>
+                  {channelCounts.all?.total || 0}
+                </span>
+                {(channelCounts.all?.unread || 0) > 0 && (
+                  <span className="size-2 rounded-full bg-primary animate-pulse" />
                 )}
               </button>
-            ))}
-            {connectedSessions.length > 1 && (
-              <div className="ml-auto pr-1">
-                <select
-                  value={activeSlot || ""}
-                  onChange={(e) => setActiveSlot(Number(e.target.value))}
-                  className="bg-white/[0.04] border border-white/10 rounded-lg text-[11px] px-2 py-1.5 outline-none"
-                >
-                  {connectedSessions.map((s) => (
-                    <option key={s.slot} value={s.slot}>Nº {s.slot}{s.phone ? ` · +${s.phone}` : ""}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
 
-          <div className="p-3">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-500 group-focus-within:text-primary transition-colors" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar conversas..."
-                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] pl-9 pr-3 py-2 text-sm outline-none focus:border-primary/50 focus:shadow-[0_0_22px_-10px_rgba(0,255,136,0.5)] transition-all placeholder:text-ink-500"
-              />
+              {/* Chips por canal */}
+              {connectedSessions.map((s) => {
+                const key   = String(s.slot);
+                const c     = slotColor(s.slot);
+                const count = channelCounts[key] || { total: 0, unread: 0 };
+                const active = channelFilter === key;
+                return (
+                  <button key={s.slot}
+                    onClick={() => setChannelFilter(key)}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
+                      active ? "border-opacity-50 text-ink-100" : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.03]"
+                    }`}
+                    style={active ? { borderColor: `${c.hex}50`, background: `${c.hex}15`, color: c.hex } : {}}>
+                    <span className="size-2 rounded-full shrink-0"
+                      style={{ background: active ? c.hex : "#8B8B8B" }} />
+                    <span>{c.label}</span>
+                    {s.phone && <span className="text-[10px] opacity-60 hidden sm:inline">·{s.phone.slice(-4)}</span>}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      active ? "bg-white/10" : "bg-white/[0.05] text-ink-500"
+                    }`}>{count.total}</span>
+                    {count.unread > 0 && (
+                      <span className="min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold text-bg flex items-center justify-center"
+                        style={{ background: c.hex }}>
+                        {count.unread > 99 ? "99+" : count.unread}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2 pb-2">
-            {!filteredChats.length ? (
-              <div className="p-8 text-center text-sm text-ink-500">
-                {q ? "Nenhuma conversa encontrada" : "Aguardando mensagens — assim que alguém te mandar algo, aparece aqui."}
+          {/* ── Busca + controles ── */}
+          <div className="px-3 pt-2.5 pb-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-ink-500 group-focus-within:text-primary transition-colors" />
+                <input value={rawQ} onChange={(e) => setRawQ(e.target.value)}
+                  placeholder="Buscar conversas..."
+                  className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] pl-8 pr-3 py-2 text-xs outline-none focus:border-primary/50 focus:shadow-[0_0_20px_-10px_rgba(0,255,136,0.5)] transition-all placeholder:text-ink-500" />
               </div>
-            ) : filteredChats.map((c) => {
-              const isActive = activeChat?.id === c.id;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => { setActiveChat(c); if (c.unread > 0) setChats(prev => prev.map(x => x.id === c.id ? { ...x, unread: 0 } : x)); }}
-                  className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors mb-0.5 ${
-                    isActive ? "bg-primary/[0.08] border border-primary/20" : "border border-transparent hover:bg-white/[0.03]"
-                  }`}
-                >
-                  <Avatar src={c.profile_pic_url} name={c.name || c.phone} size={44} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium text-sm truncate">{c.name || `+${c.phone}`}</div>
-                      <span className="text-[10px] text-ink-500 shrink-0">{fmtTime(c.last_message_at)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <div className="text-xs text-ink-400 truncate">{c.last_message || "—"}</div>
-                      {c.unread > 0 && (
-                        <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-bg text-[10px] font-bold flex items-center justify-center">
-                          {c.unread > 99 ? "99+" : c.unread}
-                        </span>
-                      )}
-                    </div>
+              {/* Toggle filtros operacionais */}
+              <button onClick={() => setShowFilters(!showFilters)}
+                className={`size-8 rounded-xl border flex items-center justify-center transition-colors ${
+                  showFilters || filterUnread || filterIA || filterWithLead || filterNoReply
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-white/[0.08] bg-white/[0.03] text-ink-400 hover:text-ink-200"
+                }`}>
+                <Filter className="size-3.5" />
+              </button>
+              {/* Toggle modo agrupamento */}
+              <button onClick={() => setGroupMode(groupMode === "contacts" ? "channels" : "contacts")}
+                title={groupMode === "contacts" ? "Agrupar por canais" : "Agrupar por contatos"}
+                className={`size-8 rounded-xl border flex items-center justify-center transition-colors ${
+                  groupMode === "channels"
+                    ? "border-accent-blue/40 bg-accent-blue/10 text-accent-blue"
+                    : "border-white/[0.08] bg-white/[0.03] text-ink-400 hover:text-ink-200"
+                }`}>
+                {groupMode === "channels" ? <Layers className="size-3.5" /> : <Users className="size-3.5" />}
+              </button>
+            </div>
+
+            {/* Filtros operacionais (expansível) */}
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="flex flex-wrap gap-1.5 pb-1">
+                    {[
+                      { key: "unread",   label: "Não lidas",  val: filterUnread,   set: setFilterUnread   },
+                      { key: "ia",       label: "Somente IA", val: filterIA,       set: setFilterIA       },
+                      { key: "withlead", label: "Com lead",   val: filterWithLead, set: setFilterWithLead },
+                      { key: "noreply",  label: "Sem resposta",val: filterNoReply, set: setFilterNoReply  },
+                    ].map(({ key, label, val, set }) => (
+                      <button key={key} onClick={() => set(!val)}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all border ${
+                          val ? "bg-primary/15 border-primary/40 text-primary" : "border-white/10 text-ink-400 hover:text-ink-200"
+                        }`}>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                </button>
-              );
-            })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
+          {/* ── Lista de conversas ── */}
+          <div className="flex-1 overflow-y-auto px-2 pb-2 mt-1">
+            {!filteredChats.length ? (
+              <div className="p-8 text-center">
+                <MessageSquare className="size-8 mx-auto mb-3 text-ink-700" />
+                <p className="text-sm text-ink-500">
+                  {q ? "Nenhuma conversa encontrada" :
+                   channelFilter !== "all" ? `Nenhuma conversa neste canal` :
+                   "Aguardando mensagens…"}
+                </p>
+                {(q || channelFilter !== "all") && (
+                  <button onClick={() => { setRawQ(""); setChannelFilter("all"); }}
+                    className="mt-3 text-xs text-primary hover:underline">
+                    Ver todas
+                  </button>
+                )}
+              </div>
+            ) : groupMode === "channels" ? (
+              Object.entries(groupedBySlot).map(([slot, chats]) => {
+                const sess = connectedSessions.find((s) => String(s.slot) === slot);
+                return (
+                  <ChannelGroup key={slot} slot={Number(slot)} sessionPhone={sess?.phone}
+                    chats={chats} activeChat={activeChat} onSelect={selectChat} />
+                );
+              })
+            ) : (
+              filteredChats.map((c) => (
+                <ChatItem key={c.id} chat={c} isActive={activeChat?.id === c.id}
+                  showChannel={showChannelDot} onClick={() => selectChat(c)} />
+              ))
+            )}
+
+            {filteredChats.length > 0 && (
+              <button onClick={() => loadAllChats(connectedSessions)}
+                className="w-full py-3 text-[11px] text-ink-500 hover:text-ink-300 flex items-center justify-center gap-1.5 transition-colors">
+                <RefreshCw className="size-3" /> Atualizar conversas
+              </button>
+            )}
+          </div>
+
+          {/* ── Resumo por canal (rodapé) ── */}
+          {connectedSessions.length > 1 && (
+            <div className="border-t border-white/[0.06] px-3 py-2 flex gap-3 overflow-x-auto scrollbar-none">
+              {connectedSessions.map((s) => {
+                const c     = slotColor(s.slot);
+                const count = channelCounts[String(s.slot)] || { unread: 0 };
+                return (
+                  <button key={s.slot} onClick={() => setChannelFilter(String(s.slot))}
+                    className="flex items-center gap-2 shrink-0 text-[10px] hover:opacity-80 transition-opacity">
+                    <span className="size-2 rounded-full" style={{ background: c.hex }} />
+                    <span style={{ color: c.hex }}>{c.label}</span>
+                    {count.unread > 0 && (
+                      <span className="font-bold" style={{ color: c.hex }}>{count.unread} não lidas</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </aside>
 
-        {/* ── CHAT ── */}
+        {/* ══════════════════════════════════════════════════
+            ÁREA DE CHAT
+        ══════════════════════════════════════════════════ */}
         <section className="flex flex-col min-h-0" style={{ background: "#0B1120" }}>
           {!activeChat ? (
             <div className="flex-1 flex items-center justify-center p-8 text-center">
@@ -373,104 +665,135 @@ export default function Conversas() {
             </div>
           ) : (
             <>
-              <div className="h-16 border-b border-white/[0.06] flex items-center px-5 gap-3 backdrop-blur-xl bg-white/[0.02]">
-                <Avatar src={activeChat.profile_pic_url} name={activeChat.name || activeChat.phone} size={40} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{activeChat.name || `+${activeChat.phone}`}</div>
-                  <div className="text-[11px] text-ink-500 flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-primary" /> +{activeChat.phone}
+              {/* Header da conversa */}
+              <div className="border-b border-white/[0.06] backdrop-blur-xl bg-white/[0.02]">
+                {/* Linha principal */}
+                <div className="h-16 flex items-center px-5 gap-3">
+                  <Avatar src={activeChat.profile_pic_url}
+                    name={activeChat.name || activeChat.phone} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm truncate">
+                      {activeChat.name || `+${activeChat.phone}`}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <ChannelBadge slot={activeChat.slot} />
+                      {activeChat.lead_tag && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold"
+                          style={{ color: "#F59E0B", borderColor: "#F59E0B40", background: "#F59E0B15" }}>
+                          {activeChat.lead_tag}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-ink-500">
+                        Última interação: {fmtRelative(activeChat.last_message_at)}
+                      </span>
+                    </div>
                   </div>
+                  {/* Botões de ação */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Link href={`/dashboard/leads?q=${activeChat.phone}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:border-primary/30 transition-colors">
+                      <Users className="size-3.5" /> CRM
+                    </Link>
+                    <Link href="/dashboard/campanhas"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:border-secondary/30 transition-colors">
+                      <Megaphone className="size-3.5" /> Campanha
+                    </Link>
+                    <a href={`https://wa.me/${activeChat.phone}`} target="_blank" rel="noreferrer"
+                      className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 transition-colors">
+                      <ExternalLink className="size-3.5" /> WA Web
+                    </a>
+                    <button
+                      className="size-8 rounded-lg border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 transition-colors">
+                      <MoreHorizontal className="size-4" />
+                    </button>
+                  </div>
+                </div>
+                {/* Indicador: respondendo como */}
+                <div className="px-5 pb-2 flex items-center gap-1.5 text-[10px] text-ink-500">
+                  <span>Respondendo como:</span>
+                  <span className="inline-flex items-center gap-1 font-semibold" style={{ color: replyColor.hex }}>
+                    <span className="size-1.5 rounded-full" style={{ background: replyColor.hex }} />
+                    {activeSession?.phone ? `+${activeSession.phone}` : replyColor.label}
+                  </span>
                 </div>
               </div>
 
+              {/* Mensagens */}
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1"
-                style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px)", backgroundSize: "22px 22px" }}>
+                style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.02) 1px,transparent 1px)", backgroundSize: "22px 22px" }}>
                 {!msgs.length ? (
                   <div className="text-center text-sm text-ink-500 my-12">
                     Sem mensagens ainda. Mande a primeira 👇
                   </div>
-                ) : (
-                  msgs.map((m, i) => {
-                    if (!m.text && !m.media_url && (m.type === "other" || !m.type)) return null;
-                    const prev = msgs[i - 1];
-                    const showDay = !prev || new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString();
-                    const out = m.direction === "out";
-                    return (
-                      <div key={m.id || m.wa_id || i}>
-                        {showDay && (
-                          <div className="flex justify-center my-3">
-                            <span className="text-[10px] uppercase tracking-wider text-ink-500 bg-white/5 px-3 py-1 rounded-full">
-                              {fmtDayHeader(m.timestamp)}
-                            </span>
-                          </div>
+                ) : msgs.map((m, i) => {
+                  if (!m.text && !m.media_url && (m.type === "other" || !m.type)) return null;
+                  const prev    = msgs[i - 1];
+                  const showDay = !prev || new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString();
+                  const out     = m.direction === "out";
+                  return (
+                    <div key={m.id || m.wa_id || i}>
+                      {showDay && (
+                        <div className="flex justify-center my-3">
+                          <span className="text-[10px] uppercase tracking-wider text-ink-500 bg-white/5 px-3 py-1 rounded-full">
+                            {fmtDayHeader(m.timestamp)}
+                          </span>
+                        </div>
+                      )}
+                      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                        className={`max-w-[72%] px-3 py-2 rounded-2xl text-sm shadow-sm ${
+                          out ? "ml-auto rounded-br-sm text-ink-50" : "rounded-bl-sm bg-[#1b2536] border border-white/[0.06]"
+                        }`}
+                        style={out ? { background: "linear-gradient(135deg,rgba(0,255,136,0.18),rgba(0,209,255,0.12))", border: "1px solid rgba(0,255,136,0.25)" } : undefined}>
+                        {m.media_url && m.type === "image" && (
+                          <a href={m.media_url} target="_blank" rel="noopener noreferrer">
+                            <img src={m.media_url} alt="" className="rounded-lg max-w-full max-h-72 object-cover mb-1" />
+                          </a>
                         )}
-                        <motion.div
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`max-w-[72%] px-3 py-2 rounded-2xl text-sm shadow-sm ${
-                            out
-                              ? "ml-auto rounded-br-sm text-ink-50"
-                              : "rounded-bl-sm bg-[#1b2536] border border-white/[0.06]"
-                          }`}
-                          style={out ? { background: "linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,209,255,0.12))", border: "1px solid rgba(0,255,136,0.25)" } : undefined}
-                        >
-                          {m.media_url && m.type === "image" && (
-                            <a href={m.media_url} target="_blank" rel="noopener noreferrer">
-                              <img src={m.media_url} alt="" className="rounded-lg max-w-full max-h-72 object-cover mb-1" />
-                            </a>
+                        {m.media_url && m.type === "audio" && (
+                          <audio controls src={m.media_url} className="w-64 max-w-full mb-1" />
+                        )}
+                        {m.media_url && m.type === "video" && (
+                          <video controls src={m.media_url} className="rounded-lg max-w-full max-h-72 mb-1" />
+                        )}
+                        {m.media_url && m.type === "document" && (
+                          <a href={m.media_url} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-lg hover:bg-white/10 mb-1">
+                            <span className="text-2xl">📄</span>
+                            <span className="text-xs truncate">Abrir documento</span>
+                          </a>
+                        )}
+                        {!m.media_url && m.type !== "text" && m.type !== "other" && (
+                          <div className="text-xs text-ink-400 italic">📎 {m.type} (sem prévia)</div>
+                        )}
+                        {m.text && <div style={{ wordBreak: "break-word" }}>{m.text}</div>}
+                        <div className="text-[10px] text-ink-500 mt-1 text-right flex items-center justify-end gap-1">
+                          {fmtTime(m.timestamp)}
+                          {out && (
+                            m.status === "failed"  ? <X className="size-3 text-red-400" />
+                            : m.status === "pending" ? <Clock className="size-3" />
+                            : m.status === "read"    ? <CheckCheck className="size-3 text-primary" />
+                            : m.status === "sent"    ? <Check className="size-3" />
+                            : <CheckCheck className="size-3" />
                           )}
-                          {m.media_url && m.type === "audio" && (
-                            <audio controls src={m.media_url} className="w-64 max-w-full mb-1" />
-                          )}
-                          {m.media_url && m.type === "video" && (
-                            <video controls src={m.media_url} className="rounded-lg max-w-full max-h-72 mb-1" />
-                          )}
-                          {m.media_url && m.type === "document" && (
-                            <a href={m.media_url} target="_blank" rel="noopener noreferrer"
-                               className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-lg hover:bg-white/10 mb-1">
-                              <span className="text-2xl">📄</span>
-                              <span className="text-xs truncate">Abrir documento</span>
-                            </a>
-                          )}
-                          {!m.media_url && m.type !== "text" && m.type !== "other" && (
-                            <div className="text-xs text-ink-400 italic">📎 {m.type} (sem prévia)</div>
-                          )}
-                          {m.text && <div style={{ wordBreak: "break-word" }}>{m.text}</div>}
-                          <div className="text-[10px] text-ink-500 mt-1 text-right flex items-center justify-end gap-1">
-                            {fmtTime(m.timestamp)}
-                            {out && (
-                              m.status === "failed" ? <X className="size-3 text-red-400" />
-                                : m.status === "pending" ? <Clock className="size-3" />
-                                : m.status === "read" ? <CheckCheck className="size-3 text-primary" />
-                                : m.status === "sent" ? <Check className="size-3" />
-                                : <CheckCheck className="size-3" />
-                            )}
-                          </div>
-                        </motion.div>
-                      </div>
-                    );
-                  })
-                )}
+                        </div>
+                      </motion.div>
+                    </div>
+                  );
+                })}
                 <div ref={msgsEndRef} />
               </div>
 
+              {/* Input */}
               <div className="border-t border-white/[0.06] p-3 bg-white/[0.02]">
                 <div className="flex gap-2 items-end">
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
+                  <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                     placeholder="Digite sua mensagem..."
                     rows={1}
-                    className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none"
-                  />
-                  <button
-                    onClick={send}
-                    disabled={!draft.trim() || sending}
+                    className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none" />
+                  <button onClick={send} disabled={!draft.trim() || sending}
                     className="size-10 rounded-xl flex items-center justify-center text-bg disabled:opacity-50 hover:scale-105 transition-transform"
-                    style={{ background: "linear-gradient(135deg, #00FF88, #00D1FF)" }}
-                    aria-label="Enviar"
-                  >
+                    style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }} aria-label="Enviar">
                     {sending ? <Clock className="size-4" /> : <SendIcon className="size-4" />}
                   </button>
                 </div>
@@ -479,9 +802,11 @@ export default function Conversas() {
           )}
         </section>
 
-        {/* ── DADOS DO CONTATO ── */}
+        {/* ══════════════════════════════════════════════════
+            PAINEL LATERAL DE CONTATO
+        ══════════════════════════════════════════════════ */}
         <aside className="hidden xl:flex flex-col border-l border-white/[0.06] min-h-0 overflow-y-auto"
-          style={{ background: "linear-gradient(180deg, #0B1120, #0F172A)" }}>
+          style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)" }}>
           {!activeChat ? (
             <div className="flex-1 flex items-center justify-center text-center p-6">
               <p className="text-xs text-ink-600">Selecione uma conversa para ver os dados do contato</p>
@@ -489,20 +814,28 @@ export default function Conversas() {
           ) : (
             <div className="p-5 space-y-5">
               <div className="text-sm font-semibold text-ink-300">Dados do contato</div>
+
+              {/* Avatar + nome */}
               <div className="text-center">
                 <div className="inline-block">
-                  <Avatar src={activeChat.profile_pic_url} name={activeChat.name || activeChat.phone} size={72} />
+                  <Avatar src={activeChat.profile_pic_url}
+                    name={activeChat.name || activeChat.phone} size={72} />
                 </div>
                 <div className="mt-3 font-bold">{activeChat.name || `+${activeChat.phone}`}</div>
-                <div className="text-[11px] text-primary flex items-center justify-center gap-1 mt-0.5">
-                  <span className="size-1.5 rounded-full bg-primary" /> WhatsApp
+                <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
+                  <ChannelBadge slot={activeChat.slot} />
+                  {activeChat.lead_tag && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                      style={{ color: "#F59E0B", background: "#F59E0B15", border: "1px solid #F59E0B40" }}>
+                      {activeChat.lead_tag}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <button
-                onClick={copyPhone}
-                className="w-full flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 hover:border-primary/30 transition-colors group"
-              >
+              {/* Telefone */}
+              <button onClick={copyPhone}
+                className="w-full flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 hover:border-primary/30 transition-colors group">
                 <span className="size-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
                   <Phone className="size-4 text-primary" />
                 </span>
@@ -510,13 +843,16 @@ export default function Conversas() {
                 {copied ? <Check className="size-4 text-primary" /> : <Copy className="size-4 text-ink-500 group-hover:text-ink-200" />}
               </button>
 
+              {/* Informações */}
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Informações</div>
                 <div className="space-y-2.5 text-sm">
                   {[
-                    ["Último contato", fmtTime(activeChat.last_message_at) || "—"],
-                    ["Não lidas", String(activeChat.unread || 0)],
-                    ["Número", `Nº ${activeSlot}`],
+                    ["Última interação", fmtRelative(activeChat.last_message_at) || "—"],
+                    ["Não lidas",        String(activeChat.unread || 0)],
+                    ["Canal",           slotColor(activeChat.slot).label],
+                    ["Origem",          activeChat.origin || "WhatsApp"],
+                    ["Criado em",       fmtTime(activeChat.created_at) || "—"],
                   ].map(([k, v]) => (
                     <div key={k} className="flex items-center justify-between gap-3">
                       <span className="text-ink-500 text-xs">{k}</span>
@@ -526,49 +862,70 @@ export default function Conversas() {
                 </div>
               </div>
 
+              {/* Histórico */}
+              {(activeChat.total_messages || activeChat.campaigns_received) && (
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Histórico</div>
+                  <div className="space-y-2.5">
+                    {activeChat.total_messages && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-ink-500 text-xs">Total de interações</span>
+                        <span className="text-ink-100 text-xs font-medium">{activeChat.total_messages} mensagens</span>
+                      </div>
+                    )}
+                    {activeChat.campaigns_received && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-ink-500 text-xs">Campanhas recebidas</span>
+                        <span className="text-ink-100 text-xs font-medium">{activeChat.campaigns_received} campanhas</span>
+                      </div>
+                    )}
+                  </div>
+                  <Link href={`/dashboard/leads?q=${activeChat.phone}`}
+                    className="mt-2 flex items-center gap-1 text-[11px] text-primary hover:underline">
+                    Ver histórico completo <ExternalLink className="size-3" />
+                  </Link>
+                </div>
+              )}
+
+              {/* Ações */}
               <div className="grid grid-cols-2 gap-2">
-                <Link
-                  href="/dashboard/leads"
-                  className="flex flex-col items-center gap-1 text-center text-[11px] font-semibold text-primary border border-primary/30 rounded-xl py-3 hover:bg-primary/10 transition-colors"
-                >
-                  <span className="text-base">👤</span>
-                  Ver no CRM
+                <Link href={`/dashboard/leads?q=${activeChat.phone}`}
+                  className="flex flex-col items-center gap-1 text-center text-[11px] font-semibold text-primary border border-primary/30 rounded-xl py-3 hover:bg-primary/10 transition-colors">
+                  <Users className="size-4" /> Ver no CRM
                 </Link>
-                <Link
-                  href="/dashboard/campanhas"
-                  className="flex flex-col items-center gap-1 text-center text-[11px] font-semibold text-secondary border border-secondary/30 rounded-xl py-3 hover:bg-secondary/10 transition-colors"
-                >
-                  <span className="text-base">📢</span>
-                  Campanha
+                <Link href="/dashboard/campanhas"
+                  className="flex flex-col items-center gap-1 text-center text-[11px] font-semibold text-secondary border border-secondary/30 rounded-xl py-3 hover:bg-secondary/10 transition-colors">
+                  <Megaphone className="size-4" /> Campanha
                 </Link>
               </div>
 
+              {/* Ações rápidas */}
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Ações rápidas</div>
                 <div className="space-y-1">
-                  <a
-                    href={`https://wa.me/${activeChat.phone}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5"
-                  >
-                    <span className="size-5 rounded-md bg-primary/15 flex items-center justify-center text-[10px]">📱</span>
+                  <a href={`https://wa.me/${activeChat.phone}`} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5">
+                    <span className="size-5 rounded-md bg-primary/15 flex items-center justify-center">
+                      <ExternalLink className="size-3 text-primary" />
+                    </span>
                     Abrir no WhatsApp Web
                   </a>
-                  <Link
-                    href="/dashboard/workflow"
-                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5"
-                  >
-                    <span className="size-5 rounded-md bg-secondary/15 flex items-center justify-center text-[10px]">⚡</span>
+                  <Link href="/dashboard/workflow"
+                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5">
+                    <span className="size-5 rounded-md bg-secondary/15 flex items-center justify-center">
+                      <Zap className="size-3 text-secondary" />
+                    </span>
                     Criar automação
                   </Link>
+                  <button onClick={() => {}}
+                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5 w-full text-left">
+                    <span className="size-5 rounded-md bg-accent-blue/15 flex items-center justify-center">
+                      <Tag className="size-3 text-accent-blue" />
+                    </span>
+                    Adicionar tag
+                  </button>
                 </div>
               </div>
-
-              <p className="text-[10px] text-ink-600 leading-relaxed text-center">
-                Tags e notas vinculadas ao número estão em{" "}
-                <Link href="/dashboard/leads" className="text-primary">Leads</Link>.
-              </p>
             </div>
           )}
         </aside>
