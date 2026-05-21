@@ -35,7 +35,7 @@ const STEPS = [
   { n: 4, label: "Revisão", Icon: ClipboardCheck },
 ];
 
-export default function DisparosPage() {
+export default function CampanhasPage() {
   const [wpp, setWpp] = useState(null);
   const [lists, setLists] = useState([]);
   const [leads, setLeads] = useState([]);

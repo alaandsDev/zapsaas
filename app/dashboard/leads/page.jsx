@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Users, UserPlus, TrendingUp, Target, Activity,
@@ -120,9 +121,10 @@ function Avatar({ name, url, size = 40 }) {
 
 /* ════════════════════ PÁGINA ════════════════════ */
 export default function LeadsPage() {
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [lists, setLists] = useState([]);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(searchParams?.get("q") || "");
   const [seg, setSeg] = useState({ type: "all", value: null }); // all | status | source
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
