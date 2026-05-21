@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BLOCK_META } from "./blockMeta";
-import { api } from "../../lib/api";
+import { api, API_URL, getToken } from "../../lib/api";
 
 /* ─────────────────────────────────────────────
    SHARED UI PRIMITIVES
@@ -74,6 +74,90 @@ function Tag({ label, onRemove, color = "#00FFAE" }) {
 }
 
 const VARS = ["{nome}", "{numero}", "{email}", "{empresa}"];
+
+/* ─────────────────────────────────────────────
+   MEDIA UPLOADER (compartilhado por Imagem/Áudio/Vídeo)
+───────────────────────────────────────────── */
+function MediaUploader({ kind, accept, data, onChange, hint }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function send(file) {
+    if (!file) return;
+    setErr(""); setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${API_URL}/api/media/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: form,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || "Falha no upload");
+      onChange({
+        ...data,
+        url: j.url,
+        filename: j.originalname || j.filename || file.name,
+        mimetype: j.mimetype || file.type,
+        size: j.size || file.size,
+      });
+    } catch (e) { setErr(e.message); }
+    finally { setUploading(false); }
+  }
+
+  const onDrop = (e) => { e.preventDefault(); send(e.dataTransfer.files?.[0]); };
+  const remove = () => onChange({ ...data, url: "", filename: "", mimetype: "", size: 0 });
+
+  const icon = { image: "🖼️", audio: "🎙️", video: "🎬" }[kind] || "📎";
+  const verb = { image: "imagem", audio: "áudio", video: "vídeo" }[kind] || "arquivo";
+
+  return (
+    <div>
+      {!data.url ? (
+        <div
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={onDrop}
+          className={cx(
+            "flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed transition-all cursor-pointer p-5",
+            uploading ? "border-primary/40 bg-primary/5" : "border-white/10 hover:border-white/25 hover:bg-white/[0.02]"
+          )}
+        >
+          <input ref={fileRef} type="file" accept={accept} className="hidden"
+            onChange={(e) => send(e.target.files?.[0])} disabled={uploading} />
+          {uploading ? (
+            <>
+              <span className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <span className="text-[11px] text-ink-400">Enviando…</span>
+            </>
+          ) : (
+            <>
+              <span className="text-xl">{icon}</span>
+              <span className="text-[12px] text-ink-300 font-medium">Clique ou arraste o {verb}</span>
+              <span className="text-[10px] text-ink-500">{hint || "Máx. 64 MB"}</span>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/25 bg-primary/5">
+          <span className="text-xl shrink-0">{icon}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[12.5px] font-medium text-ink-100 truncate">{data.filename || data.url.split("/").pop()}</div>
+            {data.size > 0 && <div className="text-[10px] text-ink-500 mt-0.5">{(data.size / 1024 / 1024).toFixed(2)} MB</div>}
+          </div>
+          {kind === "image" && (
+            <img src={data.url} alt="" className="size-10 rounded-lg object-cover shrink-0" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          )}
+          <button type="button" onClick={remove}
+            className="text-[11px] text-red-400 hover:text-red-300 px-2 py-1 shrink-0">✕ Remover</button>
+        </div>
+      )}
+      {err && <p className="mt-2 text-[11px] text-red-400">{err}</p>}
+    </div>
+  );
+}
 
 /* ─────────────────────────────────────────────
    1. GATILHO
@@ -170,14 +254,9 @@ function ImageEditor({ data, onChange }) {
   const set = (p) => onChange({ ...data, ...p });
   return (
     <div className="space-y-4">
-      <F label="URL da imagem" hint="Cole o link direto da imagem (JPG, PNG, WebP)">
-        <Inp value={data.url || ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://..." />
+      <F label="Imagem" hint="Envie do seu computador (JPG, PNG, WebP)">
+        <MediaUploader kind="image" accept="image/*" data={data} onChange={onChange} />
       </F>
-      {data.url && (
-        <div className="rounded-xl overflow-hidden border border-white/10">
-          <img src={data.url} alt="preview" className="w-full object-cover max-h-40" onError={(e) => { e.target.style.display = "none"; }} />
-        </div>
-      )}
       <F label="Legenda (opcional)">
         <Inp value={data.caption || ""} onChange={(e) => set({ caption: e.target.value })} placeholder="Legenda da imagem…" />
       </F>
@@ -210,8 +289,8 @@ function AudioEditor({ data, onChange }) {
   const set = (p) => onChange({ ...data, ...p });
   return (
     <div className="space-y-4">
-      <F label="URL do áudio" hint="Suporta MP3, OGG, M4A, OPUS">
-        <Inp value={data.url || ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://..." />
+      <F label="Áudio" hint="MP3, OGG, M4A, OPUS — até 64 MB">
+        <MediaUploader kind="audio" accept="audio/*" data={data} onChange={onChange} />
       </F>
       <F label="Duração estimada (opcional)" hint="ex: 0:30">
         <Inp value={data.duration || ""} onChange={(e) => set({ duration: e.target.value })} placeholder="0:30" />
@@ -243,8 +322,8 @@ function VideoEditor({ data, onChange }) {
   const set = (p) => onChange({ ...data, ...p });
   return (
     <div className="space-y-4">
-      <F label="URL do vídeo" hint="Suporta MP4, MOV, AVI">
-        <Inp value={data.url || ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://..." />
+      <F label="Vídeo" hint="MP4, MOV, AVI — até 64 MB">
+        <MediaUploader kind="video" accept="video/*" data={data} onChange={onChange} />
       </F>
       <F label="Legenda (opcional)">
         <Inp value={data.caption || ""} onChange={(e) => set({ caption: e.target.value })} placeholder="Legenda do vídeo…" />
