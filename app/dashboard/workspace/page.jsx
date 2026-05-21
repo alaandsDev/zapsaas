@@ -117,11 +117,12 @@ function ConsultarPrecoModal({ open, onClose }) {
   );
 }
 
-export default function MinhaContaPage() {
+export default function WorkspacePage() {
   const [user, setUser] = useState(null);
   const [sub, setSub] = useState(null);
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [portalErr, setPortalErr] = useState("");
   const [showConsultar, setShowConsultar] = useState(false);
 
   useEffect(() => {
@@ -130,18 +131,21 @@ export default function MinhaContaPage() {
     api("/api/usage").then(setUsage).catch(() => {});
   }, []);
   async function portal() {
-    setLoading(true);
+    setLoading(true); setPortalErr("");
     try {
       const r = await api("/api/stripe/portal", { method: "POST" });
       if (r?.url) location.href = r.url;
-    } catch (e) { alert(e.message); } finally { setLoading(false); }
+      else setPortalErr("Não foi possível abrir o portal. Tente novamente.");
+    } catch (e) {
+      setPortalErr(e.message || "Erro ao acessar portal de assinatura.");
+    } finally { setLoading(false); }
   }
 
   const isPro = sub?.plan === "pro" || sub?.status === "active";
 
   return (
     <>
-      <Topbar title="Minha Conta" subtitle="Perfil, plano e configurações" />
+      <Topbar title="Workspace" subtitle="Perfil, plano e configurações" />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10 space-y-6">
         <div className="card p-6">
           <h3 className="font-semibold mb-4">👤 Perfil</h3>
@@ -169,7 +173,10 @@ export default function MinhaContaPage() {
               </div>
             </div>
             {isPro ? (
-              <Button variant="ghost" loading={loading} onClick={portal}>Gerenciar Assinatura</Button>
+              <div className="space-y-2">
+                <Button variant="ghost" loading={loading} onClick={portal}>Gerenciar Assinatura</Button>
+                {portalErr && <p className="text-xs text-red-400 mt-1">{portalErr}</p>}
+              </div>
             ) : (
               <button onClick={() => setShowConsultar(true)}
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent-blue text-bg font-bold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-primary/25">

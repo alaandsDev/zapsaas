@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -51,14 +51,15 @@ export default function VendasPage() {
   const [roi, setRoi] = useState(null);
   const [dispatches, setDispatches] = useState([]);
   const [workflows, setWorkflows] = useState([]);
-  const [modal, setModal] = useState(null); // null | {} | sale
+  const [modal,      setModal]      = useState(null);  // null | {} | sale
+  const [deleteId,   setDeleteId]   = useState(null);  // id pendente de confirmação
 
-  const load = () => {
+  const load = useCallback(() => {
     api(`/api/sales/summary?days=${days}`).then(setSummary).catch(() => setSummary({}));
     api(`/api/sales/roi?days=${days}`).then(setRoi).catch(() => setRoi({ rows: [] }));
     api("/api/sales").then((s) => setSales(Array.isArray(s) ? s : [])).catch(() => setSales([]));
-  };
-  useEffect(() => { load(); }, [days]);
+  }, [days]);
+  useEffect(() => { load(); }, [load]);
   useEffect(() => {
     api("/api/leads").then((l) => setLeads(Array.isArray(l) ? l : [])).catch(() => {});
     api("/api/dispatches").then((d) => setDispatches(Array.isArray(d) ? d : d?.data || [])).catch(() => {});
@@ -71,8 +72,8 @@ export default function VendasPage() {
   }, [leads]);
 
   async function remove(id) {
-    if (!confirm("Remover esta venda?")) return;
     await api(`/api/sales/${id}`, { method: "DELETE" });
+    setDeleteId(null);
     load();
   }
 
@@ -91,16 +92,19 @@ export default function VendasPage() {
         subtitle="Receita e negócios fechados"
         actions={
           <>
-            <div className="flex gap-1 bg-white/[0.03] border border-white/10 rounded-xl p-1">
+            <div className="flex gap-0.5 bg-white/[0.03] border border-white/10 rounded-xl p-1">
               {RANGES.map((r) => (
                 <button key={r.d} onClick={() => setDays(r.d)}
-                  className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${days === r.d ? "text-bg font-semibold" : "text-ink-400 hover:text-ink-100"}`}
+                  className={`text-xs px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors ${days === r.d ? "text-bg font-semibold" : "text-ink-400 hover:text-ink-100"}`}
                   style={days === r.d ? { background: NEON } : undefined}>
                   {r.label}
                 </button>
               ))}
             </div>
-            <Button onClick={() => setModal({})}><Plus className="size-4" /> Nova venda</Button>
+            <Button onClick={() => setModal({})} className="shrink-0">
+              <Plus className="size-4" />
+              <span className="hidden sm:inline">Nova venda</span>
+            </Button>
           </>
         }
       />
@@ -176,16 +180,15 @@ export default function VendasPage() {
             <div className="py-12 text-center text-xs text-ink-500">Sem vendas atribuídas neste período</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" style={{ minWidth: 600 }}>
                 <thead className="bg-white/[0.02] text-[11px] uppercase tracking-wider text-ink-500">
                   <tr className="text-left">
-                    <th className="px-5 py-2.5 font-medium">Origem</th>
-                    <th className="px-3 py-2.5 font-medium">Tipo</th>
-                    <th className="px-3 py-2.5 font-medium text-right">Destinatários</th>
-                    <th className="px-3 py-2.5 font-medium text-right">Vendas</th>
-                    <th className="px-3 py-2.5 font-medium text-right">Conversão</th>
-                    <th className="px-3 py-2.5 font-medium text-right">Ticket</th>
-                    <th className="px-5 py-2.5 font-medium text-right">Receita</th>
+                    <th className="px-5 py-2.5 font-medium min-w-[160px]">Origem</th>
+                    <th className="px-3 py-2.5 font-medium min-w-[90px]">Tipo</th>
+                    <th className="px-3 py-2.5 font-medium text-right min-w-[80px]">Envios</th>
+                    <th className="px-3 py-2.5 font-medium text-right min-w-[60px]">Vendas</th>
+                    <th className="px-3 py-2.5 font-medium text-right min-w-[80px]">Conv.</th>
+                    <th className="px-5 py-2.5 font-medium text-right min-w-[100px]">Receita</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
@@ -194,14 +197,16 @@ export default function VendasPage() {
                     const tlabel = r.kind === "campaign" ? "Campanha" : r.kind === "flow" ? "Fluxo" : "—";
                     return (
                       <tr key={`${r.kind}-${r.id}`} className="hover:bg-white/[0.02]">
-                        <td className="px-5 py-3 font-medium truncate max-w-[220px]">{r.name}</td>
+                        <td className="px-5 py-3 font-medium max-w-[200px]">
+                          <div className="truncate">{r.name}</div>
+                          <div className="text-[10px] text-ink-500 tabular-nums mt-0.5">ticket: {brl(r.avgTicket)}</div>
+                        </td>
                         <td className="px-3 py-3">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full border" style={{ background: `${tint}1a`, color: tint, borderColor: `${tint}40` }}>{tlabel}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap" style={{ background: `${tint}1a`, color: tint, borderColor: `${tint}40` }}>{tlabel}</span>
                         </td>
                         <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.recipients ? r.recipients.toLocaleString("pt-BR") : "—"}</td>
                         <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.count}</td>
                         <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.convRate != null ? `${r.convRate}%` : "—"}</td>
-                        <td className="px-3 py-3 text-right text-ink-400 tabular-nums">{brl(r.avgTicket)}</td>
                         <td className="px-5 py-3 text-right font-bold tabular-nums" style={{ color: NEON }}>{brl(r.revenue)}</td>
                       </tr>
                     );
@@ -250,8 +255,15 @@ export default function VendasPage() {
                     </span>
                     <div className="text-sm font-bold tabular-nums shrink-0" style={{ color: st.color }}>{brl(v.amount)}</div>
                     <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setModal(v)} className="size-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-primary hover:bg-white/5"><Pencil className="size-3.5" /></button>
-                      <button onClick={() => remove(v.id)} className="size-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-red-400 hover:bg-red-500/10"><Trash2 className="size-3.5" /></button>
+                      <button onClick={() => setModal(v)} className="size-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-primary hover:bg-white/5" title="Editar"><Pencil className="size-3.5" /></button>
+                      {deleteId === v.id ? (
+                        <>
+                          <button onClick={() => remove(v.id)} className="px-2 h-7 rounded-lg text-[10px] font-semibold text-red-400 bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 transition-colors">Confirmar</button>
+                          <button onClick={() => setDeleteId(null)} className="size-7 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200"><X className="size-3.5" /></button>
+                        </>
+                      ) : (
+                        <button onClick={() => setDeleteId(v.id)} className="size-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-red-400 hover:bg-red-500/10" title="Excluir"><Trash2 className="size-3.5" /></button>
+                      )}
                     </div>
                   </motion.div>
                 );

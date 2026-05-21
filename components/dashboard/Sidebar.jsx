@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
   Workflow, Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
+  MoreHorizontal,
 } from "lucide-react";
 import { api } from "../../lib/api";
 
@@ -41,6 +42,14 @@ const SECTIONS = [
   },
 ];
 const ALL = SECTIONS.flatMap((s) => s.items);
+// Itens principais no mobile (máx 5 sem scroll)
+const MOBILE_PRIMARY = [
+  "/dashboard",
+  "/dashboard/conversas",
+  "/dashboard/leads",
+  "/dashboard/campanhas",
+  "/dashboard/workflow",
+];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -62,6 +71,9 @@ export default function Sidebar() {
   const isActive = (it) => (it.exact ? pathname === it.href : pathname.startsWith(it.href));
 
   const openCopilot = () => window.dispatchEvent(new CustomEvent("wayvo:open-copilot"));
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const mobilePrimary = ALL.filter((it) => MOBILE_PRIMARY.includes(it.href));
+  const mobileSecondary = ALL.filter((it) => !MOBILE_PRIMARY.includes(it.href));
 
   const NavLink = ({ item }) => {
     const active = isActive(item);
@@ -193,22 +205,55 @@ export default function Sidebar() {
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.06] bg-bg/95 backdrop-blur-xl">
-        <div className="flex gap-1 overflow-x-auto px-2 py-2 hide-scrollbar">
-          {ALL.map((item) => {
+        {/* Drawer com itens secundários */}
+        {mobileExpanded && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setMobileExpanded(false)} />
+            <div className="absolute bottom-full inset-x-0 z-50 border-t border-white/[0.06] bg-bg/98 backdrop-blur-xl pb-1">
+              <div className="grid grid-cols-4 gap-1 px-2 pt-2 pb-1">
+                {mobileSecondary.map((item) => {
+                  const active = isActive(item);
+                  const { Icon } = item;
+                  return (
+                    <Link key={item.href} href={item.href}
+                      onClick={() => setMobileExpanded(false)}
+                      className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-3 text-[10px] transition-all
+                        ${active ? "text-primary bg-primary/10" : "text-ink-400 hover:text-ink-200 hover:bg-white/[0.04]"}`}>
+                      <Icon className="size-5 shrink-0" />
+                      <span className="truncate max-w-[56px] text-center">{item.label}</span>
+                    </Link>
+                  );
+                })}
+                <button onClick={() => { setMobileExpanded(false); openCopilot(); }}
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-3 text-[10px] text-secondary hover:bg-secondary/10 transition-colors">
+                  <Sparkles className="size-5 shrink-0" />
+                  <span>Wayvo AI</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+        {/* Barra principal — 5 itens fixos */}
+        <div className="flex items-center px-1 py-1.5">
+          {mobilePrimary.map((item) => {
             const active = isActive(item);
             const { Icon } = item;
             return (
               <Link key={item.href} href={item.href}
-                className={`min-w-[60px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] transition-all
+                className={`flex-1 flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-[10px] transition-all
                   ${active ? "text-primary bg-primary/10" : "text-ink-400"}`}>
                 <Icon className="size-5 shrink-0" />
                 <span className="truncate max-w-[56px]">{item.label}</span>
               </Link>
             );
           })}
-          <button onClick={openCopilot} className="min-w-[60px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] text-secondary">
-            <Sparkles className="size-5 shrink-0" />
-            <span>Wayvo AI</span>
+          {/* Botão "Mais" */}
+          <button
+            onClick={() => setMobileExpanded((v) => !v)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-[10px] transition-all
+              ${mobileExpanded ? "text-primary bg-primary/10" : "text-ink-400"}`}>
+            <MoreHorizontal className="size-5 shrink-0" />
+            <span>Mais</span>
           </button>
         </div>
       </nav>
