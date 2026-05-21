@@ -335,7 +335,7 @@ export default function Conversas() {
               return (
                 <button
                   key={c.id}
-                  onClick={() => setActiveChat(c)}
+                  onClick={() => { setActiveChat(c); if (c.unread > 0) setChats(prev => prev.map(x => x.id === c.id ? { ...x, unread: 0 } : x)); }}
                   className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors mb-0.5 ${
                     isActive ? "bg-primary/[0.08] border border-primary/20" : "border border-transparent hover:bg-white/[0.03]"
                   }`}
@@ -526,15 +526,48 @@ export default function Conversas() {
                 </div>
               </div>
 
-              <Link
-                href="/dashboard/leads"
-                className="block text-center text-xs font-semibold text-primary border border-primary/30 rounded-xl py-2.5 hover:bg-primary/10 transition-colors"
-              >
-                Ver no CRM de Leads
-              </Link>
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  href="/dashboard/leads"
+                  className="flex flex-col items-center gap-1 text-center text-[11px] font-semibold text-primary border border-primary/30 rounded-xl py-3 hover:bg-primary/10 transition-colors"
+                >
+                  <span className="text-base">👤</span>
+                  Ver no CRM
+                </Link>
+                <Link
+                  href="/dashboard/campanhas"
+                  className="flex flex-col items-center gap-1 text-center text-[11px] font-semibold text-secondary border border-secondary/30 rounded-xl py-3 hover:bg-secondary/10 transition-colors"
+                >
+                  <span className="text-base">📢</span>
+                  Campanha
+                </Link>
+              </div>
 
-              <p className="text-[10px] text-ink-600 leading-relaxed">
-                Tags, notas e automações por contato ficam na tela de <Link href="/dashboard/leads" className="text-primary">Leads</Link>, vinculadas ao mesmo número.
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Ações rápidas</div>
+                <div className="space-y-1">
+                  <a
+                    href={`https://wa.me/${activeChat.phone}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5"
+                  >
+                    <span className="size-5 rounded-md bg-primary/15 flex items-center justify-center text-[10px]">📱</span>
+                    Abrir no WhatsApp Web
+                  </a>
+                  <Link
+                    href="/dashboard/workflow"
+                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5"
+                  >
+                    <span className="size-5 rounded-md bg-secondary/15 flex items-center justify-center text-[10px]">⚡</span>
+                    Criar automação
+                  </Link>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-ink-600 leading-relaxed text-center">
+                Tags e notas vinculadas ao número estão em{" "}
+                <Link href="/dashboard/leads" className="text-primary">Leads</Link>.
               </p>
             </div>
           )}

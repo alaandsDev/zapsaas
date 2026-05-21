@@ -14,7 +14,7 @@ import Topbar from "../../components/dashboard/Topbar";
 import { api, getUser, API_URL, getToken } from "../../lib/api";
 
 /* ── paleta premium (escopo dashboard) ── */
-const NEON = "#00FFAE";
+const NEON = "#00FF88"; // primary brand color
 const CYAN = "#00D1FF";
 
 /* ── helpers ── */

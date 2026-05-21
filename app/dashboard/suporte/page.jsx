@@ -2,11 +2,13 @@
 import Topbar from "../../../components/dashboard/Topbar";
 
 const FAQ = [
-  { q: "Como conecto meu WhatsApp?", a: "Vá em Conexões e clique em Conectar WhatsApp. Escaneie o QR Code com o app no celular em Aparelhos conectados." },
-  { q: "Quantos disparos posso fazer no plano gratuito?", a: "Até 3 disparos por mês. Faça upgrade para o Pro e tenha disparos ilimitados." },
+  { q: "Como conecto meu WhatsApp?", a: "Vá em Canais e clique em Conectar WhatsApp. Escaneie o QR Code com o app no celular em Aparelhos conectados." },
+  { q: "Quantas campanhas posso fazer no plano gratuito?", a: "Até 3 campanhas por mês. Faça upgrade para o Pro e tenha campanhas ilimitadas." },
   { q: "Como importar contatos de uma planilha?", a: "Em Leads, clique em Importar e envie um arquivo .xlsx ou .csv com colunas NOME e NUMERO." },
-  { q: "Posso agendar um disparo?", a: "Sim, na tela de Disparos use o campo Agendar envio para escolher data/hora." },
-  { q: "É seguro? Posso ser banido do WhatsApp?", a: "Use delays entre mensagens (3-10s) e pausas a cada 25 envios para reduzir o risco. Evite mensagens idênticas — use multi-mensagem em rotação." },
+  { q: "Posso agendar uma campanha?", a: "Sim, na tela de Campanhas use o campo Agendar envio para escolher data/hora." },
+  { q: "É seguro? Posso ser banido do WhatsApp?", a: "Use delays entre mensagens (3-10s) e pausas a cada 25 envios para reduzir o risco. Evite mensagens idênticas — use múltiplas mensagens em rotação." },
+  { q: "Como funciona o Workflow Builder?", a: "Em Workflow você cria fluxos automáticos com blocos visuais. Arraste blocos, conecte e publique — a IA cuida do resto." },
+  { q: "Como integrar a API Oficial do WhatsApp (Meta)?", a: "Vá em Canal Oficial, siga o passo a passo para criar o app no Meta for Developers, insira suas credenciais e salve. O webhook é configurado automaticamente." },
 ];
 
 export default function SuportePage() {
@@ -22,17 +24,17 @@ export default function SuportePage() {
           </p>
           <div className="mt-6 grid sm:grid-cols-2 gap-3 max-w-md mx-auto">
             <a
-              href="mailto:dias.sdt@gmail.com"
+              href="mailto:suporte@wayvo.com.br"
               className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-primary/30 transition-all text-left"
             >
               <div className="size-10 rounded-lg bg-accent-blue/15 flex items-center justify-center text-xl shrink-0">📧</div>
               <div>
                 <div className="text-sm font-semibold">E-mail</div>
-                <div className="text-xs text-primary">dias.sdt@gmail.com</div>
+                <div className="text-xs text-primary">suporte@wayvo.com.br</div>
               </div>
             </a>
             <a
-              href="https://wa.me/55?text=Olá! Preciso de suporte no Wayvo."
+              href="https://wa.me/5511999999999?text=Olá! Preciso de suporte no Wayvo."
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-primary/30 transition-all text-left"
@@ -63,9 +65,27 @@ export default function SuportePage() {
                   <span>{f.q}</span>
                   <span className="text-ink-500 group-open:rotate-180 transition-transform">▾</span>
                 </summary>
-                <p className="text-sm text-ink-300 mt-2">{f.a}</p>
+                <p className="text-sm text-ink-400 mt-2 leading-relaxed">{f.a}</p>
               </details>
             ))}
+          </div>
+        </div>
+
+        <div className="card p-6 flex items-start gap-4">
+          <div className="size-10 rounded-xl bg-secondary/15 border border-secondary/30 flex items-center justify-center shrink-0 text-xl">📚</div>
+          <div>
+            <h3 className="font-semibold text-sm">Documentação</h3>
+            <p className="text-xs text-ink-400 mt-1 leading-relaxed">
+              Acesse nossa base de conhecimento completa com tutoriais, guias de integração e referência da API.
+            </p>
+            <a
+              href="https://docs.wayvo.com.br"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-primary hover:underline"
+            >
+              Acessar documentação →
+            </a>
           </div>
         </div>
       </div>
