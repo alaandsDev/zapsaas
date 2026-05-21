@@ -1,113 +1,79 @@
 import Link from "next/link";
 import Logo from "../Logo";
 
+const HIGHLIGHTS = [
+  {
+    title: "Disparos em massa no WhatsApp",
+    desc: "Envie campanhas para milhares de contatos com round-robin de mensagens e variáveis personalizadas.",
+  },
+  {
+    title: "Chatbot e automações 24/7",
+    desc: "Atenda leads automaticamente, qualifique e converta enquanto você dorme.",
+  },
+  {
+    title: "Painel completo de vendas",
+    desc: "Acompanhe leads, contatos, histórico de disparos e estatísticas em tempo real.",
+  },
+];
+
 export default function AuthShell({ title, subtitle, children, footer }) {
   return (
-    <div className="h-screen flex overflow-hidden">
+    <div className="min-h-screen grid lg:grid-cols-2">
+      {/* LADO ESQUERDO — destaque do sistema */}
+      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden bg-gradient-to-br from-bg via-bg to-primary/10">
+        <div className="absolute inset-0 grid-bg opacity-40 pointer-events-none" />
+        <div className="absolute -top-40 -left-40 size-[500px] rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 size-[500px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
 
-      {/* ── LEFT: formulário ── */}
-      <div className="flex flex-col justify-between w-full lg:w-1/2 px-8 py-10 bg-white min-h-screen">
-        <div className="flex justify-center lg:justify-start">
-          <Link href="/" aria-label="ZapFlow">
-            <div className="flex items-center gap-2.5">
-              <div
-                className="rounded-xl flex items-center justify-center font-bold"
-                style={{
-                  width: 36, height: 36,
-                  background: "linear-gradient(135deg, #00FFB2 0%, #00DFA2 100%)",
-                  boxShadow: "0 4px 14px -4px rgba(0,255,178,0.55)",
-                }}
-              >
-                <svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                  <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" fill="#0B0F14" />
-                </svg>
-              </div>
-              <span className="font-bold text-lg tracking-tight text-gray-900">ZapFlow</span>
-            </div>
-          </Link>
-        </div>
+        <Link href="/" className="relative z-10 flex items-center gap-2" aria-label="Wayvo">
+          <Logo size={32} />
+        </Link>
 
-        <div className="w-full max-w-sm mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">{title} 👋</h1>
-          {subtitle && <p className="text-gray-500 text-sm mb-7">{subtitle}</p>}
-
-          {/* form fields com estilo light */}
-          <style>{`
-            .auth-field label { display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px; }
-            .auth-field input {
-              width:100%; padding:11px 14px 11px 38px;
-              background:#fff; border:1.5px solid #E5E7EB;
-              border-radius:10px; color:#111827; font-size:14px;
-              outline:none; transition:border-color .2s, box-shadow .2s;
-              font-family:inherit;
-            }
-            .auth-field input:focus { border-color:#00DFA2; box-shadow:0 0 0 3px rgba(0,223,162,0.12); }
-            .auth-field .input-wrap { position:relative; }
-            .auth-field .input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9CA3AF; font-size:15px; pointer-events:none; }
-            .auth-btn {
-              width:100%; padding:13px; background:#00DFA2; color:#0B0F14;
-              border:none; border-radius:10px; font-size:15px; font-weight:700;
-              cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px;
-              font-family:inherit;
-            }
-            .auth-btn:hover { background:#00c990; transform:translateY(-1px); }
-            .auth-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; }
-            .auth-security { display:flex; align-items:center; gap:8px; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; padding:10px 14px; font-size:12px; color:#15803D; margin-top:12px; }
-            .auth-err { background:#FEF2F2; border:1px solid #FECACA; border-radius:8px; padding:10px 14px; font-size:13px; color:#DC2626; margin-bottom:12px; }
-          `}</style>
-
-          <div className="space-y-4 [&_.auth-field]:block">
-            {children}
-          </div>
-
-          <div className="auth-security">
-            <span>🛡️</span>
-            <span>Os seus dados estão protegidos com criptografia de ponta a ponta.</span>
-          </div>
-        </div>
-
-        <div className="text-center text-sm text-gray-500">
-          {footer}
-          <p className="mt-4 text-xs text-gray-400">© 2025 • PLATAFORMA SEGURA E CONFIÁVEL</p>
-        </div>
-      </div>
-
-      {/* ── RIGHT: marketing ── */}
-      <div className="hidden lg:flex flex-col justify-center items-start w-1/2 px-16 relative overflow-hidden min-h-screen"
-        style={{ background: "linear-gradient(145deg, #0B0F14 0%, #0d1f18 50%, #0a1a1a 100%)" }}>
-
-        {/* glow */}
-        <div className="absolute top-1/4 right-0 w-96 h-96 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(0,255,178,0.12) 0%, transparent 70%)" }} />
-        <div className="absolute bottom-1/4 left-0 w-64 h-64 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(0,255,178,0.06) 0%, transparent 70%)" }} />
-
-
-        <div className="relative z-10 max-w-md">
-          <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-            Automatize o seu WhatsApp<br/>
-            e <span style={{ color: "#00DFA2" }}>escale as suas vendas.</span>
+        <div className="relative z-10 max-w-lg">
+          <h2 className="text-4xl font-bold tracking-tight leading-tight">
+            Venda mais no WhatsApp.<br />
+            <span className="text-primary">No automático.</span>
           </h2>
-          <p className="text-gray-400 text-base leading-relaxed mb-10">
-            Transforme mensagens em receitas com a plataforma completa de Disparos, Chatbot e Leads. Tudo o que precisa para vender mais e melhor.
+          <p className="text-ink-300 mt-4 text-lg">
+            A plataforma completa para escalar suas vendas com disparos, chatbot e automações.
           </p>
 
-          {/* stats */}
-          <div className="flex gap-8">
-            {[
-              { val: "500+", label: "negócios ativos" },
-              { val: "2M+", label: "msgs enviadas" },
-              { val: "R$47", label: "plano completo" },
-            ].map((s, i) => (
-              <div key={i}>
-                <div className="text-2xl font-bold" style={{ color: "#00DFA2" }}>{s.val}</div>
-                <div className="text-xs text-gray-500 mt-1">{s.label}</div>
-              </div>
+          <ul className="mt-10 space-y-6">
+            {HIGHLIGHTS.map((h) => (
+              <li key={h.title} className="flex gap-4">
+                <div className="shrink-0 size-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center">
+                  <svg className="size-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold">{h.title}</h3>
+                  <p className="text-ink-300 text-sm mt-1">{h.desc}</p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
+        </div>
+
+        <div className="relative z-10 text-sm text-ink-400">
+          © {new Date().getFullYear()} Wayvo · Todos os direitos reservados
         </div>
       </div>
 
+      {/* LADO DIREITO — formulário */}
+      <div className="flex items-center justify-center px-6 py-12 relative">
+        <Link href="/" className="lg:hidden absolute top-6 left-6 flex items-center gap-2" aria-label="Wayvo">
+          <Logo size={28} />
+        </Link>
+        <div className="w-full max-w-md">
+          <div className="card p-8">
+            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            {subtitle && <p className="text-ink-300 mt-2 text-sm">{subtitle}</p>}
+            <div className="mt-7">{children}</div>
+          </div>
+          {footer && <div className="text-center text-sm text-ink-300 mt-6">{footer}</div>}
+        </div>
+      </div>
     </div>
   );
 }

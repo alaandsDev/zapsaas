@@ -1,14 +1,16 @@
 import Sidebar from "../../components/dashboard/Sidebar";
 import AuthGuard from "../../components/dashboard/AuthGuard";
+import AiCopilot from "../../components/dashboard/AiCopilot";
 
-export const metadata = { title: "ZapFlow — Painel" };
+export const metadata = { title: "Wayvo — Painel" };
 
 export default function DashboardLayout({ children }) {
   return (
     <AuthGuard>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen flex-col md:flex-row">
         <Sidebar />
-        <main className="flex-1 min-w-0">{children}</main>
+        <main className="flex-1 min-w-0 pb-24 md:pb-0">{children}</main>
+        <AiCopilot />
       </div>
     </AuthGuard>
   );

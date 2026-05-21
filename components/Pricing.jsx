@@ -1,103 +1,301 @@
+"use client";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
 const plans = [
   {
     name: "Starter",
+    tagline: "Pra testar",
     price: "Grátis",
     period: "para sempre",
-    desc: "Pra testar e ativar suas primeiras vendas no automático.",
+    desc: "Comece sem cartão de crédito e ative suas primeiras vendas hoje.",
     cta: "Começar grátis",
-    features: [
-      "Até 3 disparos personalizados",
-      "Sistema de vendas 24h ativo",
-      "Templates prontos por nicho",
-      "Painel completo de controle",
-      "Suporte por e-mail",
-    ],
     href: "/register",
     highlighted: false,
   },
   {
     name: "Pro",
-    price: "R$ 47",
-    period: "/mês",
-    desc: "Para quem quer escalar e vender todos os dias no automático.",
-    cta: "Assinar Pro agora",
-    features: [
-      "Disparos ilimitados",
-      "Sistema de vendas 24h ativo",
-      "Setup incluso e templates premium",
-      "Listas de contatos ilimitadas",
-      "Histórico completo e relatórios",
-      "Suporte prioritário no WhatsApp",
-    ],
-    href: "/register",
+    tagline: "Pra escalar",
+    price: "Sob consulta",
+    period: "",
+    desc: "Campanhas ilimitadas, balanceamento inteligente entre canais, CRM conversacional e Wayvo AI.",
+    cta: "Consultar preço",
     highlighted: true,
     badge: "Mais escolhido",
+    socialProof: "Junte-se a 200+ negócios",
   },
 ];
 
+const FEATURES = [
+  { label: "Campanhas por mês", free: "3", pro: "Ilimitadas" },
+  { label: "Canais conectados", free: "1 canal", pro: "2 canais (balanceamento inteligente)" },
+  { label: "Leads / CRM conversacional", free: "Até 50", pro: "Ilimitados" },
+  { label: "Listas e segmentação", free: "1 lista", pro: "Ilimitadas" },
+  { label: "Mídia (foto/vídeo/áudio/PDF)", free: true, pro: true },
+  { label: "Templates prontos por nicho", free: true, pro: true },
+  { label: "Painel operacional completo", free: true, pro: true },
+  { label: "Wayvo AI Copilot", free: "Básico", pro: "Completo" },
+  { label: "Workflow Builder + IA monta o fluxo", free: false, pro: true },
+  { label: "Revenue Ops (ROI por campanha)", free: false, pro: true },
+  { label: "Relatórios e analytics em tempo real", free: false, pro: true },
+  { label: "Export de relatórios em Excel", free: false, pro: true },
+  { label: "API oficial WhatsApp (Canal Oficial)", free: false, pro: true },
+  { label: "Suporte prioritário", free: false, pro: true },
+];
+
+const DISPAROS_OPTS = [
+  { value: "ate_1000", label: "Até 1.000" },
+  { value: "1001_5000", label: "1.001 a 5.000" },
+  { value: "5001_20000", label: "5.001 a 20.000" },
+  { value: "20001_50000", label: "20.001 a 50.000" },
+  { value: "acima_50000", label: "Acima de 50.000" },
+];
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://delivery-full-production.up.railway.app";
+
+function ConsultarPrecoModal({ open, onClose }) {
+  const [form, setForm] = useState({ nome: "", whatsapp: "", email: "", disparos: "", usaApi: "" });
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState("");
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  async function submit() {
+    if (!form.nome.trim() || !form.whatsapp.trim() || !form.email.trim() || !form.disparos || !form.usaApi) {
+      setErr("Preencha todos os campos para continuar."); return;
+    }
+    setSending(true); setErr("");
+    try {
+      await fetch(`${API_URL}/api/lead-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+    } catch (_) {}
+    setSent(true); setSending(false);
+  }
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B1120] shadow-2xl overflow-hidden"
+      >
+        <div className="h-1 w-full bg-gradient-to-r from-[#00FFAE] to-[#3B82F6]" />
+        <div className="p-6">
+          {sent ? (
+            <div className="text-center py-6 space-y-3">
+              <div className="text-4xl">🎉</div>
+              <h3 className="text-lg font-bold text-white">Recebemos sua solicitação!</h3>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Nossa equipe vai entrar em contato com você em breve no WhatsApp informado com a melhor proposta personalizada.
+              </p>
+              <button onClick={onClose} className="mt-4 px-6 py-2 rounded-xl bg-[#00FFAE]/15 border border-[#00FFAE]/30 text-[#00FFAE] text-sm font-semibold hover:bg-[#00FFAE]/25 transition-colors">
+                Fechar
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-base font-bold text-white">Consultar preço</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Preencha e nossa equipe entra em contato</p>
+                </div>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { key: "nome", label: "Nome", placeholder: "Seu nome completo" },
+                  { key: "whatsapp", label: "WhatsApp", placeholder: "(11) 99999-9999" },
+                  { key: "email", label: "E-mail", placeholder: "seu@email.com", type: "email" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">{f.label} *</label>
+                    <input value={form[f.key]} onChange={e => set(f.key, e.target.value)}
+                      placeholder={f.placeholder} type={f.type || "text"}
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-[#00FFAE]/50 transition-colors placeholder:text-gray-600" />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Disparos mensais *</label>
+                  <select value={form.disparos} onChange={e => set("disparos", e.target.value)}
+                    className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-[#00FFAE]/50 transition-colors appearance-none cursor-pointer">
+                    <option value="">Selecione...</option>
+                    {DISPAROS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Usa API oficial da Meta? *</label>
+                  <div className="flex gap-3">
+                    {["sim", "nao"].map(v => (
+                      <button key={v} type="button" onClick={() => set("usaApi", v)}
+                        className={`flex-1 py-2 rounded-xl border text-[13px] font-semibold transition-colors ${form.usaApi === v ? "border-[#00FFAE]/50 bg-[#00FFAE]/15 text-[#00FFAE]" : "border-white/10 bg-white/[0.04] text-gray-400 hover:border-white/20"}`}>
+                        {v === "sim" ? "✓ Sim" : "✕ Não"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {err && <p className="text-[12px] text-red-400 font-medium">{err}</p>}
+                <button onClick={submit} disabled={sending}
+                  className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-[#00FFAE] to-[#3B82F6] text-black font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60">
+                  {sending ? "Enviando..." : "Solicitar proposta personalizada →"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function Pricing() {
+  const [showModal, setShowModal] = useState(false);
+
   return (
     <section id="planos" className="py-24 border-t border-white/[0.06]">
       <div className="container-x">
         <div className="max-w-2xl mx-auto text-center mb-14">
-          <div className="eyebrow mb-4 mx-auto">Planos</div>
-          <h2 className="text-h2">Escolha o plano que cabe no seu momento</h2>
+          <div className="eyebrow justify-center mb-4">
+            <span className="size-1.5 rounded-full bg-primary animate-pulse" />
+            Planos transparentes
+          </div>
+          <h2 className="text-h2">Comece grátis. Escale<br />quando quiser.</h2>
           <p className="mt-4 text-ink-300 text-lg">
-            Comece grátis hoje. Suba para o Pro quando quiser escalar.
+            Sem letra miúda. Cancele com 1 clique.
           </p>
         </div>
+
+        {/* Plan cards */}
         <div className="grid md:grid-cols-2 gap-5 max-w-4xl mx-auto">
           {plans.map((p) => (
             <div
               key={p.name}
-              className={`relative card p-8 ${
+              className={`relative glass p-8 ${
                 p.highlighted
-                  ? "border-primary/40 bg-gradient-to-b from-primary/[0.04] to-card shadow-glow"
+                  ? "border-primary/40 bg-gradient-to-b from-primary/[0.06] to-card shadow-glow scale-[1.02]"
                   : ""
               }`}
             >
               {p.badge && (
-                <div className="absolute -top-3 left-8 bg-primary text-bg text-xs font-bold px-3 py-1 rounded-full">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-bg text-xs font-bold px-4 py-1 rounded-full shadow-lg shadow-primary/30">
                   {p.badge}
                 </div>
               )}
-              <div className="text-sm text-ink-300 font-medium">{p.name}</div>
-              <div className="mt-3 flex items-baseline gap-1">
-                <span className="text-5xl font-bold">{p.price}</span>
-                <span className="text-ink-500">{p.period}</span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-ink-300 font-medium">{p.name}</div>
+                  <div className="text-xs text-ink-500 mt-0.5">{p.tagline}</div>
+                </div>
+                {p.socialProof && (
+                  <div className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-full font-semibold">
+                    {p.socialProof}
+                  </div>
+                )}
               </div>
-              <p className="mt-3 text-ink-300">{p.desc}</p>
-              <a
-                href={p.href}
-                className={p.highlighted ? "btn-primary w-full mt-6" : "btn-ghost w-full mt-6"}
-              >
-                {p.cta}
-              </a>
-              <ul className="mt-7 space-y-3">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-sm text-ink-100">
-                    <svg
-                      className="size-5 text-primary shrink-0 mt-0.5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3-3a1 1 0 011.4-1.4L9 11.6l6.3-6.3a1 1 0 011.4 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    {f}
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-5 flex items-baseline gap-1">
+                <span className="text-4xl font-bold tracking-tight">{p.price}</span>
+                {p.period && <span className="text-ink-500 ml-1">{p.period}</span>}
+              </div>
+              <p className="mt-3 text-ink-300 text-sm">{p.desc}</p>
+              {p.highlighted ? (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="btn-primary w-full mt-6"
+                >
+                  {p.cta} →
+                </button>
+              ) : (
+                <a href={p.href} className="btn-ghost w-full mt-6">
+                  {p.cta} →
+                </a>
+              )}
+              {p.highlighted && (
+                <div className="mt-3 text-center text-xs text-ink-500">
+                  ⚡ Proposta personalizada · Sem fidelidade
+                </div>
+              )}
             </div>
           ))}
         </div>
-        <p className="text-center text-sm text-ink-500 mt-8">
-          Pagamento seguro via Stripe · Cancele quando quiser
-        </p>
+
+        {/* Tabela comparativa */}
+        <div className="mt-16 max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h3 className="text-2xl font-bold">Compare os planos</h3>
+            <p className="text-ink-400 text-sm mt-2">Tudo que vem em cada um — sem surpresa</p>
+          </div>
+          <div className="glass overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-white/[0.03] border-b border-white/[0.08]">
+                <tr>
+                  <th className="text-left px-5 py-4 text-xs uppercase tracking-wider text-ink-400 font-semibold">Recurso</th>
+                  <th className="px-5 py-4 text-xs uppercase tracking-wider text-ink-400 font-semibold">Starter</th>
+                  <th className="px-5 py-4 text-center bg-primary/[0.04]">
+                    <div className="text-xs uppercase tracking-wider text-primary font-bold">Pro</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {FEATURES.map((f) => (
+                  <tr key={f.label} className="hover:bg-white/[0.02]">
+                    <td className="px-5 py-3.5 text-sm text-ink-200">{f.label}</td>
+                    <td className="px-5 py-3.5 text-center text-sm">
+                      <Cell value={f.free} />
+                    </td>
+                    <td className="px-5 py-3.5 text-center text-sm bg-primary/[0.02]">
+                      <Cell value={f.pro} highlighted />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Trust badges */}
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-6 text-xs text-ink-400">
+          <span className="inline-flex items-center gap-2">
+            <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+            Proposta personalizada
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+            Sem fidelidade
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <svg className="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            LGPD compliant
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span>📞</span>
+            Suporte humano em PT-BR
+          </span>
+        </div>
       </div>
+
+      <AnimatePresence>
+        {showModal && <ConsultarPrecoModal open={showModal} onClose={() => setShowModal(false)} />}
+      </AnimatePresence>
     </section>
   );
+}
+
+function Cell({ value, highlighted }) {
+  if (value === true) {
+    return (
+      <span className={`inline-flex size-6 rounded-full items-center justify-center ${highlighted ? "bg-primary/20 text-primary" : "bg-white/5 text-primary"}`}>
+        <svg className="size-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3-3a1 1 0 011.4-1.4L9 11.6l6.3-6.3a1 1 0 011.4 0z" clipRule="evenodd"/></svg>
+      </span>
+    );
+  }
+  if (value === false) {
+    return <span className="text-ink-500 text-base">—</span>;
+  }
+  return <span className={`font-medium ${highlighted ? "text-primary" : "text-ink-200"}`}>{value}</span>;
 }

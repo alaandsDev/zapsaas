@@ -1,56 +1,217 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Logo from "../Logo";
+import { useEffect, useRef, useState } from "react";
+import {
+  LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
+  Workflow, Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
+} from "lucide-react";
+import { api } from "../../lib/api";
 
-const nav = [
-  { href: "/dashboard", label: "Início", icon: "M3 12l9-9 9 9v9a2 2 0 01-2 2h-4a2 2 0 01-2-2v-4a1 1 0 00-1-1h-2a1 1 0 00-1 1v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-9z" },
-  { href: "/dashboard/disparos", label: "Disparos", icon: "M13 2L4 14h7l-1 8 9-12h-7l1-8z" },
-  { href: "/dashboard/conversas", label: "Conversas", icon: "M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" },
-  { href: "/dashboard/automacao", label: "Automação", icon: "M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" },
-  { href: "/dashboard/contatos", label: "Contatos", icon: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" },
-  { href: "/dashboard/configuracoes", label: "Configurações", icon: "M12 15a3 3 0 100-6 3 3 0 000 6zm7.4-3a7.4 7.4 0 00-.1-1.2l2-1.6-2-3.4-2.4.9a7.5 7.5 0 00-2-1.2L14.5 3h-5l-.4 2.5a7.5 7.5 0 00-2 1.2l-2.4-.9-2 3.4 2 1.6a7.4 7.4 0 000 2.4l-2 1.6 2 3.4 2.4-.9a7.5 7.5 0 002 1.2l.4 2.5h5l.4-2.5a7.5 7.5 0 002-1.2l2.4.9 2-3.4-2-1.6c.07-.4.1-.8.1-1.2z" },
+const SECTIONS = [
+  {
+    title: "Operacional",
+    items: [
+      { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard, exact: true },
+      { href: "/dashboard/conversas", label: "Conversas", Icon: MessageSquare },
+      { href: "/dashboard/leads", label: "Leads", Icon: Users },
+      { href: "/dashboard/vendas", label: "Vendas", Icon: DollarSign },
+    ],
+  },
+  {
+    title: "Automação",
+    items: [
+      { href: "/dashboard/campanhas", label: "Campanhas", Icon: Megaphone },
+      { href: "/dashboard/workflow", label: "Workflow", Icon: Workflow, highlight: true },
+    ],
+  },
+  {
+    title: "Infraestrutura",
+    items: [
+      { href: "/dashboard/canais", label: "Canais", Icon: Radio },
+      { href: "/dashboard/canal-oficial", label: "Canal Oficial", Icon: BadgeCheck },
+    ],
+  },
+  {
+    title: "Sistema",
+    items: [
+      { href: "/dashboard/suporte", label: "Suporte", Icon: LifeBuoy },
+      { href: "/dashboard/workspace", label: "Workspace", Icon: Settings2 },
+    ],
+  },
 ];
+const ALL = SECTIONS.flatMap((s) => s.items);
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [usage, setUsage] = useState(null);
+  const [pinned, setPinned] = useState(false);
+  const [hover, setHover] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => { api("/api/usage").then(setUsage).catch(() => {}); }, [pathname]);
+  useEffect(() => { if (localStorage.getItem("sidebar_pinned") === "1") setPinned(true); }, []);
+  useEffect(() => { localStorage.setItem("sidebar_pinned", pinned ? "1" : "0"); }, [pinned]);
+
+  const expanded = pinned || hover;
+  const floating = hover && !pinned;
+  const isPro = usage?.plan === "pro";
+  const used = usage?.dispatches?.used ?? 0;
+  const limit = usage?.dispatches?.limit ?? 3;
+  const pct = isPro ? 100 : Math.min(100, (used / Math.max(limit, 1)) * 100);
+  const isActive = (it) => (it.exact ? pathname === it.href : pathname.startsWith(it.href));
+
+  const openCopilot = () => window.dispatchEvent(new CustomEvent("wayvo:open-copilot"));
+
+  const NavLink = ({ item }) => {
+    const active = isActive(item);
+    const { Icon } = item;
+    return (
+      <Link
+        href={item.href}
+        title={!expanded ? item.label : undefined}
+        className={`group relative flex items-center gap-3 rounded-xl text-sm transition-all duration-150
+          ${expanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center"}
+          ${active ? "text-primary" : "text-ink-300 hover:text-ink-50"}`}
+      >
+        {active && (
+          <>
+            <span className="absolute inset-0 rounded-xl bg-primary/10 border border-primary/20" />
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary shadow-[0_0_10px_rgba(0,255,136,0.7)]" />
+          </>
+        )}
+        {!active && <span className="absolute inset-0 rounded-xl bg-white/0 group-hover:bg-white/[0.04] transition-colors" />}
+        <Icon className={`relative size-[18px] shrink-0 transition-transform group-hover:scale-110 ${item.highlight && !active ? "text-secondary" : ""}`} />
+        {expanded && (
+          <span className="relative font-medium whitespace-nowrap overflow-hidden flex-1">{item.label}</span>
+        )}
+        {expanded && item.highlight && !active && (
+          <span className="relative badge-purple text-[9px] py-0 px-1.5">PRO</span>
+        )}
+      </Link>
+    );
+  };
+
   return (
-    <aside className="w-64 shrink-0 border-r border-white/[0.06] bg-bg/50 backdrop-blur-sm h-screen sticky top-0 flex flex-col">
-      <div className="px-6 h-16 flex items-center border-b border-white/[0.06]">
-        <Link href="/dashboard"><Logo /></Link>
-      </div>
-      <nav className="flex-1 px-3 py-5 space-y-1">
-        {nav.map((item) => {
-          const active = item.href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                active
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-ink-300 hover:text-ink-100 hover:bg-white/5 border border-transparent"
-              }`}
+    <>
+      <div className={`hidden md:block shrink-0 transition-[width] duration-300 ease-out ${pinned ? "w-64" : "w-16"}`} aria-hidden="true" />
+
+      <aside
+        ref={ref}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        className={`hidden md:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-white/[0.06] bg-bg/95 backdrop-blur-xl transition-[width,box-shadow] duration-300 ease-out
+          ${expanded ? "w-64" : "w-16"} ${floating ? "shadow-elevated" : ""}`}
+      >
+        {/* Logo */}
+        <div className={`h-16 flex items-center border-b border-white/[0.06] gap-2 ${expanded ? "px-4 justify-between" : "px-0 justify-center"}`}>
+          <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
+            <img src="/wayvo-icon.png" alt="Wayvo" width={28} height={28}
+              className="size-7 object-contain shrink-0 select-none" draggable={false} />
+            {expanded && <span className="font-black text-base tracking-tight whitespace-nowrap">Wayvo</span>}
+          </Link>
+          {expanded && (
+            <button
+              onClick={() => setPinned((v) => !v)}
+              className={`size-8 flex items-center justify-center rounded-lg transition-all ${pinned ? "bg-primary/15 text-primary" : "hover:bg-white/[0.04] text-ink-400 hover:text-ink-200"}`}
+              title={pinned ? "Desafixar" : "Fixar menu"}
             >
-              <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d={item.icon} />
-              </svg>
-              <span className="font-medium">{item.label}</span>
+              <Pin className={`size-4 transition-transform ${pinned ? "rotate-45" : ""}`} />
+            </button>
+          )}
+        </div>
+
+        {/* AI Copilot launcher */}
+        <div className="px-2 pt-3">
+          <button
+            onClick={openCopilot}
+            title={!expanded ? "Wayvo AI" : undefined}
+            className={`w-full group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-secondary/30 transition-all
+              ${expanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center"}`}
+            style={{ background: "linear-gradient(120deg, rgba(124,58,237,0.18), rgba(0,209,255,0.08))" }}
+          >
+            <span className="absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ boxShadow: "inset 0 0 0 1px rgba(124,58,237,0.5)" }} />
+            <Sparkles className="relative size-[18px] text-secondary shrink-0" />
+            {expanded && (
+              <span className="relative flex-1 text-left">
+                <span className="block text-[13px] font-semibold text-ink-50">Wayvo AI</span>
+                <span className="block text-[10px] text-ink-400">Copiloto operacional</span>
+              </span>
+            )}
+            {expanded && <kbd className="relative text-[10px] text-ink-400 border border-white/10 rounded px-1">⌘K</kbd>}
+          </button>
+        </div>
+
+        {/* Nav por categorias */}
+        <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden space-y-4">
+          {SECTIONS.map((sec) => (
+            <div key={sec.title}>
+              {expanded ? (
+                <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-600">{sec.title}</div>
+              ) : (
+                <div className="mx-3 mb-1.5 h-px bg-white/[0.06]" />
+              )}
+              <div className="space-y-0.5">
+                {sec.items.map((item) => <NavLink key={item.href} item={item} />)}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Plan footer */}
+        <div className="shrink-0 p-2 border-t border-white/[0.06]">
+          {isPro ? (
+            <Link href="/dashboard/workspace"
+              title={!expanded ? "Plano Pro" : undefined}
+              className={`flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors ${expanded ? "px-3 py-2.5" : "p-2.5 justify-center"}`}>
+              <div className="size-6 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
+                <Sparkles className="size-3.5 text-bg" />
+              </div>
+              {expanded && <span className="text-sm font-bold text-primary">Plano Pro</span>}
             </Link>
-          );
-        })}
+          ) : expanded ? (
+            <Link href="/dashboard/workspace" className="block px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] transition-colors">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-ink-200">Plano Gratuito</span>
+                <span className="text-[10px] text-primary font-bold">Upgrade →</span>
+              </div>
+              <div className="text-[10px] text-ink-500 mb-1.5">{used}/{limit} campanhas usadas</div>
+              <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+              </div>
+            </Link>
+          ) : (
+            <Link href="/dashboard/workspace"
+              title={`Plano Gratuito · ${used}/${limit}`}
+              className="flex items-center justify-center p-2.5 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors">
+              <Sparkles className="size-4 text-primary" />
+            </Link>
+          )}
+        </div>
+      </aside>
+
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.06] bg-bg/95 backdrop-blur-xl">
+        <div className="flex gap-1 overflow-x-auto px-2 py-2 hide-scrollbar">
+          {ALL.map((item) => {
+            const active = isActive(item);
+            const { Icon } = item;
+            return (
+              <Link key={item.href} href={item.href}
+                className={`min-w-[60px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] transition-all
+                  ${active ? "text-primary bg-primary/10" : "text-ink-400"}`}>
+                <Icon className="size-5 shrink-0" />
+                <span className="truncate max-w-[56px]">{item.label}</span>
+              </Link>
+            );
+          })}
+          <button onClick={openCopilot} className="min-w-[60px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] text-secondary">
+            <Sparkles className="size-5 shrink-0" />
+            <span>Wayvo AI</span>
+          </button>
+        </div>
       </nav>
-      <div className="p-4 border-t border-white/[0.06]">
-        <Link href="/dashboard/configuracoes" className="card p-3 flex items-center gap-3 hover:border-primary/30 transition-all">
-          <div className="size-9 rounded-full bg-gradient-to-br from-primary to-accent-blue text-bg font-bold flex items-center justify-center text-sm">⚡</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">Plano</div>
-            <div className="text-xs text-ink-500">Ver detalhes</div>
-          </div>
-        </Link>
-      </div>
-    </aside>
+    </>
   );
 }

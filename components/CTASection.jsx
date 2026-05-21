@@ -1,6 +1,6 @@
 export default function CTASection({
-  title = "Seu WhatsApp pode estar te fazendo perder dinheiro todos os dias",
-  subtitle = "Cada cliente que não responde rápido vira venda do concorrente. Ative o ZapFlow e transforme cada conversa em faturamento — no automático.",
+  title = "Sua operação no WhatsApp pode estar perdendo receita todo dia",
+  subtitle = "Cada conversa sem resposta vira venda do concorrente. Com a Wayvo, CRM conversacional + automação + IA transformam cada contato em receita previsível.",
   cta = { label: "Ativar agora — começar grátis", href: "/register" },
 }) {
   return (
@@ -18,7 +18,7 @@ export default function CTASection({
               </a>
             </div>
             <p className="mt-5 text-sm text-ink-500">
-              Sem cartão · Cancele quando quiser · Resultado já no primeiro disparo
+              Sem cartão · Cancele quando quiser · Operação no ar em 5 minutos
             </p>
           </div>
         </div>

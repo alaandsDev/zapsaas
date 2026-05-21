@@ -12,7 +12,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md bg-bg/70 border-b border-white/[0.06]">
       <div className="container-x flex items-center justify-between h-16">
-        <Link href="/" aria-label="ZapFlow"><Logo /></Link>
+        <Link href="/" aria-label="Wayvo"><Logo /></Link>
         <nav className="hidden md:flex items-center gap-1">
           {links.map((l) => (
             <Link
