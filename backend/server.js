@@ -37,11 +37,20 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['https://zapsaas.vercel.app', 'https://delivery-full-production.up.railway.app', 'http://localhost:3000', 'http://localhost:5500'];
 
+// Aceita origens da allowlist + qualquer subdomínio *.vercel.app (Preview deploys).
+// Server-to-server (sem header Origin) também passa — necessário p/ webhooks da Meta/Stripe.
+const VERCEL_PREVIEW_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    if (
+      !origin ||
+      allowedOrigins.includes('*') ||
+      allowedOrigins.includes(origin) ||
+      VERCEL_PREVIEW_RE.test(origin)
+    ) {
       cb(null, true);
     } else {
+      console.warn('[cors] bloqueado:', origin);
       cb(new Error(`CORS bloqueado para origem: ${origin}`));
     }
   },
