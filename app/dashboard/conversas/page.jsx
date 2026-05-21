@@ -101,14 +101,17 @@ function ChannelBadge({ slot, tiny = false }) {
   );
 }
 
-// Toast simples
-function Toast({ msg, onClose }) {
-  useEffect(() => { const t = setTimeout(onClose, 2500); return () => clearTimeout(t); }, [onClose]);
+// Toast simples (1500ms para troca de canal, 2500ms padrão)
+function Toast({ msg, duration = 2500, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, duration); return () => clearTimeout(t); }, [onClose, duration]);
   return (
-    <motion.div initial={{ opacity: 0, y: 16, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 8 }}
-      className="fixed bottom-6 right-6 z-[200] bg-bg2 border border-white/10 rounded-xl px-4 py-3 text-sm shadow-xl flex items-center gap-2">
-      <Check className="size-4 text-primary" /> {msg}
+    <motion.div initial={{ opacity: 0, x: 20, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 20, scale: 0.95 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className="fixed bottom-6 right-6 z-[200] bg-[#0F172A] border border-white/10 rounded-xl px-4 py-3 text-sm shadow-2xl flex items-center gap-2.5">
+      <Check className="size-4 text-primary shrink-0" />
+      <span className="text-ink-100">{msg}</span>
     </motion.div>
   );
 }
@@ -117,12 +120,24 @@ function Toast({ msg, onClose }) {
 const ChatItem = memo(function ChatItem({ chat, isActive, showChannel, onClick }) {
   const c = slotColor(chat.slot);
   return (
-    <button onClick={onClick}
-      className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors mb-0.5 ${
+    <motion.button onClick={onClick}
+      initial={{ opacity: 0, x: -6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
+      className={`relative w-full text-left pl-4 pr-3 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-[180ms] mb-0.5 overflow-hidden ${
         isActive
-          ? "bg-primary/[0.08] border border-primary/20"
-          : "border border-transparent hover:bg-white/[0.03]"
+          ? "bg-primary/[0.07] border border-primary/20"
+          : "border border-transparent hover:bg-white/[0.04] hover:border-white/[0.04]"
       }`}>
+      {/* Barra lateral colorida — conversa ativa */}
+      {isActive && (
+        <motion.span
+          layoutId="chat-active-bar"
+          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+          style={{ background: c.hex }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        />
+      )}
       <div className="relative shrink-0">
         <Avatar src={chat.profile_pic_url} name={chat.name || chat.phone} size={44} />
         {showChannel && (
@@ -132,22 +147,29 @@ const ChatItem = memo(function ChatItem({ chat, isActive, showChannel, onClick }
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <div className="font-medium text-sm truncate">{chat.name || `+${chat.phone}`}</div>
-          <span className="text-[10px] text-ink-500 shrink-0">{fmtTime(chat.last_message_at)}</span>
+          <div className="font-semibold text-sm truncate">{chat.name || `+${chat.phone}`}</div>
+          <span className="text-[10px] text-ink-500 shrink-0">{fmtRelative(chat.last_message_at)}</span>
         </div>
-        <div className="flex items-center justify-between gap-2 mt-0.5">
+        <div className="flex items-center justify-between gap-2 mt-1">
           <div className="flex items-center gap-1.5 min-w-0">
             {showChannel && <ChannelBadge slot={chat.slot} tiny />}
             <div className="text-xs text-ink-400 truncate">{chat.last_message || "—"}</div>
           </div>
-          {chat.unread > 0 && (
-            <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-bg text-[10px] font-bold flex items-center justify-center">
-              {chat.unread > 99 ? "99+" : chat.unread}
-            </span>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Micro indicadores */}
+            {chat.is_ai    && <span title="Respondido por IA" className="text-[9px] text-accent-blue">⚡</span>}
+            {chat.lead_id  && <span title="Com lead" className="text-[9px] text-amber-400">🏷</span>}
+            {chat.unread > 0 ? (
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-bg text-[10px] font-bold flex items-center justify-center">
+                {chat.unread > 99 ? "99+" : chat.unread}
+              </span>
+            ) : chat.last_direction === "out" ? (
+              <Check className="size-3 text-ink-600" title="Respondido" />
+            ) : null}
+          </div>
         </div>
       </div>
-    </button>
+    </motion.button>
   );
 });
 
@@ -173,6 +195,7 @@ function ChannelGroup({ slot, sessionPhone, chats, activeChat, onSelect }) {
         <ChatItem key={chat.id} chat={chat} isActive={activeChat?.id === chat.id}
           showChannel={false} onClick={() => onSelect(chat)} />
       ))}
+
     </div>
   );
 }
@@ -190,7 +213,7 @@ export default function Conversas() {
   const [sending,     setSending]     = useState(false);
   const [loading,     setLoading]     = useState(true);
   const [copied,      setCopied]      = useState(false);
-  const [toast,       setToast]       = useState(null);
+  const [toast,       setToast]       = useState(null);  // { msg, duration }
   const [showFilters, setShowFilters] = useState(false);
 
   // Filtros operacionais (combinável)
@@ -217,8 +240,20 @@ export default function Conversas() {
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
-  // Persistir preferências
-  useEffect(() => { localStorage.setItem(LS_CHANNEL, channelFilter); }, [channelFilter]);
+  // Persistir preferências + toast ao trocar canal
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    localStorage.setItem(LS_CHANNEL, channelFilter);
+    if (isFirstMount.current) { isFirstMount.current = false; return; }
+    if (channelFilter === "all") {
+      setToast({ msg: "Mostrando todos os canais", duration: 1500 });
+    } else {
+      const sess = connectedSessions.find((s) => String(s.slot) === channelFilter);
+      const label = sess?.phone ? `+${sess.phone}` : slotColor(Number(channelFilter)).label;
+      setToast({ msg: `Mudou para ${label}`, duration: 1500 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelFilter]);
   useEffect(() => { localStorage.setItem(LS_GROUP, groupMode); }, [groupMode]);
 
   // Debounce de busca
@@ -469,7 +504,10 @@ export default function Conversas() {
 
       {/* Toast */}
       <AnimatePresence>
-        {toast && <Toast key="toast" msg={toast} onClose={() => setToast(null)} />}
+        {toast && (
+          <Toast key="toast" msg={toast.msg} duration={toast.duration}
+            onClose={() => setToast(null)} />
+        )}
       </AnimatePresence>
 
       <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] xl:grid-cols-[340px_1fr_320px] overflow-hidden">
@@ -481,50 +519,72 @@ export default function Conversas() {
           style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)" }}>
 
           {/* ── Seletor de canal ── */}
-          <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <div className="px-4 pt-4 pb-3 border-b border-white/[0.06]">
+            {/* Label + total */}
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">Inbox</span>
+              <span className="text-[11px] text-ink-500">
+                {filteredChats.length} conversa{filteredChats.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+            {/* Chips — altura 44px */}
+            <div className="flex flex-col gap-1.5">
               {/* Chip "Todas" */}
               <button
                 onClick={() => setChannelFilter("all")}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
+                className={`flex items-center gap-2.5 px-3.5 rounded-xl text-[12px] font-semibold transition-all duration-[180ms] border h-11 ${
                   channelFilter === "all"
-                    ? "bg-white/10 border-white/20 text-ink-100"
-                    : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.03]"
+                    ? "bg-white/[0.08] border-white/20 text-ink-100"
+                    : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.04]"
                 }`}>
-                <Layers className="size-3" />
-                Todas
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  channelFilter === "all" ? "bg-white/10 text-ink-300" : "bg-white/[0.05] text-ink-500"
+                <Layers className="size-3.5 shrink-0" />
+                <span className="flex-1 text-left">Todas</span>
+                <span className={`text-[11px] tabular-nums px-2 py-0.5 rounded-full ${
+                  channelFilter === "all" ? "bg-white/10 text-ink-300" : "bg-white/[0.05] text-ink-600"
                 }`}>
                   {channelCounts.all?.total || 0}
                 </span>
                 {(channelCounts.all?.unread || 0) > 0 && (
-                  <span className="size-2 rounded-full bg-primary animate-pulse" />
+                  <span className="size-2 rounded-full bg-primary animate-pulse shrink-0" />
                 )}
               </button>
 
               {/* Chips por canal */}
               {connectedSessions.map((s) => {
-                const key   = String(s.slot);
-                const c     = slotColor(s.slot);
-                const count = channelCounts[key] || { total: 0, unread: 0 };
+                const key    = String(s.slot);
+                const c      = slotColor(s.slot);
+                const count  = channelCounts[key] || { total: 0, unread: 0 };
                 const active = channelFilter === key;
                 return (
                   <button key={s.slot}
                     onClick={() => setChannelFilter(key)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
-                      active ? "border-opacity-50 text-ink-100" : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.03]"
+                    className={`flex items-center gap-2.5 px-3.5 rounded-xl text-[12px] font-semibold transition-all duration-[180ms] border h-11 ${
+                      active ? "" : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.04]"
                     }`}
-                    style={active ? { borderColor: `${c.hex}50`, background: `${c.hex}15`, color: c.hex } : {}}>
-                    <span className="size-2 rounded-full shrink-0"
-                      style={{ background: active ? c.hex : "#8B8B8B" }} />
-                    <span>{c.label}</span>
-                    {s.phone && <span className="text-[10px] opacity-60 hidden sm:inline">·{s.phone.slice(-4)}</span>}
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      active ? "bg-white/10" : "bg-white/[0.05] text-ink-500"
+                    style={active ? {
+                      borderColor: `${c.hex}40`,
+                      background: `${c.hex}12`,
+                      color: c.hex,
+                    } : {}}>
+                    {/* Dot de status */}
+                    <span className="size-2.5 rounded-full shrink-0 transition-colors"
+                      style={{ background: active ? c.hex : "#4B5563",
+                               boxShadow: active ? `0 0 6px ${c.hex}80` : "none" }} />
+                    {/* Label */}
+                    <span className="flex-1 text-left">{c.label}</span>
+                    {/* Últimos 4 dígitos */}
+                    {s.phone && (
+                      <span className="text-[10px] opacity-50 hidden sm:inline tabular-nums">
+                        ···{s.phone.slice(-4)}
+                      </span>
+                    )}
+                    {/* Total */}
+                    <span className={`text-[11px] tabular-nums px-2 py-0.5 rounded-full ${
+                      active ? "bg-white/10" : "bg-white/[0.05] text-ink-600"
                     }`}>{count.total}</span>
+                    {/* Não lidas */}
                     {count.unread > 0 && (
-                      <span className="min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold text-bg flex items-center justify-center"
+                      <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold text-bg flex items-center justify-center shrink-0"
                         style={{ background: c.hex }}>
                         {count.unread > 99 ? "99+" : count.unread}
                       </span>
@@ -536,7 +596,7 @@ export default function Conversas() {
           </div>
 
           {/* ── Busca + controles ── */}
-          <div className="px-3 pt-2.5 pb-1 space-y-2">
+          <div className="px-4 pt-3 pb-1 space-y-2">
             <div className="flex items-center gap-2">
               <div className="relative flex-1 group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-ink-500 group-focus-within:text-primary transition-colors" />
@@ -591,7 +651,7 @@ export default function Conversas() {
           </div>
 
           {/* ── Lista de conversas ── */}
-          <div className="flex-1 overflow-y-auto px-2 pb-2 mt-1">
+          <div className="flex-1 overflow-y-auto px-2 pb-2 mt-1.5">
             {!filteredChats.length ? (
               <div className="p-8 text-center">
                 <MessageSquare className="size-8 mx-auto mb-3 text-ink-700" />
@@ -632,18 +692,24 @@ export default function Conversas() {
 
           {/* ── Resumo por canal (rodapé) ── */}
           {connectedSessions.length > 1 && (
-            <div className="border-t border-white/[0.06] px-3 py-2 flex gap-3 overflow-x-auto scrollbar-none">
+            <div className="border-t border-white/[0.06] px-4 py-3 flex gap-4 overflow-x-auto scrollbar-none">
               {connectedSessions.map((s) => {
                 const c     = slotColor(s.slot);
-                const count = channelCounts[String(s.slot)] || { unread: 0 };
+                const count = channelCounts[String(s.slot)] || { unread: 0, total: 0 };
                 return (
                   <button key={s.slot} onClick={() => setChannelFilter(String(s.slot))}
-                    className="flex items-center gap-2 shrink-0 text-[10px] hover:opacity-80 transition-opacity">
-                    <span className="size-2 rounded-full" style={{ background: c.hex }} />
-                    <span style={{ color: c.hex }}>{c.label}</span>
-                    {count.unread > 0 && (
-                      <span className="font-bold" style={{ color: c.hex }}>{count.unread} não lidas</span>
-                    )}
+                    className="flex items-center gap-2.5 shrink-0 hover:opacity-80 transition-opacity group">
+                    <span className="size-2.5 rounded-full shrink-0 group-hover:scale-125 transition-transform"
+                      style={{ background: c.hex, boxShadow: `0 0 6px ${c.hex}60` }} />
+                    <div className="text-left">
+                      <div className="text-[11px] font-semibold" style={{ color: c.hex }}>{c.label}</div>
+                      <div className="text-[10px] text-ink-500">
+                        {count.unread > 0
+                          ? <span style={{ color: c.hex }}>{count.unread} não lidas</span>
+                          : <span>{count.total} conversas</span>
+                        }
+                      </div>
+                    </div>
                   </button>
                 );
               })}
@@ -784,15 +850,32 @@ export default function Conversas() {
               </div>
 
               {/* Input */}
-              <div className="border-t border-white/[0.06] p-3 bg-white/[0.02]">
+              <div className="border-t border-white/[0.06] px-4 py-3 bg-white/[0.02]">
                 <div className="flex gap-2 items-end">
+                  {/* Ícones esquerdos */}
+                  <div className="flex items-center gap-1 pb-2 shrink-0">
+                    <button className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors" title="Anexar">
+                      <Paperclip className="size-4" />
+                    </button>
+                    <button className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors" title="Emoji">
+                      <span className="text-[15px] leading-none">😊</span>
+                    </button>
+                    <button className="flex items-center gap-1 px-2 h-8 rounded-lg text-[11px] font-semibold text-accent-blue hover:bg-accent-blue/10 transition-colors" title="Sugestão de IA">
+                      <Zap className="size-3.5" /> IA
+                    </button>
+                  </div>
+
+                  {/* Textarea */}
                   <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                    placeholder="Digite sua mensagem..."
+                    placeholder="Digite uma mensagem..."
                     rows={1}
-                    className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-2.5 text-sm outline-none focus:border-primary/50 resize-none" />
+                    style={{ minHeight: 44, maxHeight: 120 }}
+                    className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm outline-none focus:border-primary/50 focus:shadow-[0_0_20px_-10px_rgba(0,255,136,0.4)] resize-none transition-all" />
+
+                  {/* Enviar */}
                   <button onClick={send} disabled={!draft.trim() || sending}
-                    className="size-10 rounded-xl flex items-center justify-center text-bg disabled:opacity-50 hover:scale-105 transition-transform"
+                    className="mb-0.5 size-11 rounded-xl flex items-center justify-center text-bg disabled:opacity-40 hover:scale-105 active:scale-95 transition-transform shrink-0 shadow-lg"
                     style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }} aria-label="Enviar">
                     {sending ? <Clock className="size-4" /> : <SendIcon className="size-4" />}
                   </button>
@@ -812,25 +895,37 @@ export default function Conversas() {
               <p className="text-xs text-ink-600">Selecione uma conversa para ver os dados do contato</p>
             </div>
           ) : (
-            <div className="p-5 space-y-5">
+            <div className="p-6 space-y-5">
               <div className="text-sm font-semibold text-ink-300">Dados do contato</div>
 
               {/* Avatar + nome */}
               <div className="text-center">
                 <div className="inline-block">
                   <Avatar src={activeChat.profile_pic_url}
-                    name={activeChat.name || activeChat.phone} size={72} />
+                    name={activeChat.name || activeChat.phone} size={76} />
                 </div>
-                <div className="mt-3 font-bold">{activeChat.name || `+${activeChat.phone}`}</div>
-                <div className="flex items-center justify-center gap-2 mt-1.5 flex-wrap">
-                  <ChannelBadge slot={activeChat.slot} />
-                  {activeChat.lead_tag && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                <div className="mt-3 font-bold text-base">{activeChat.name || `+${activeChat.phone}`}</div>
+                {/* Canal em destaque — grande, logo abaixo do nome */}
+                {(() => {
+                  const c = slotColor(activeChat.slot);
+                  const sess = connectedSessions.find((s) => s.slot === activeChat.slot);
+                  return (
+                    <div className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm border"
+                      style={{ color: c.hex, borderColor: `${c.hex}40`, background: `${c.hex}12` }}>
+                      <span className="size-2 rounded-full" style={{ background: c.hex, boxShadow: `0 0 8px ${c.hex}80` }} />
+                      Atendido pelo {c.label}
+                      {sess?.phone && <span className="opacity-60 text-[11px]">···{sess.phone.slice(-4)}</span>}
+                    </div>
+                  );
+                })()}
+                {activeChat.lead_tag && (
+                  <div className="mt-2">
+                    <span className="text-[11px] px-2.5 py-1 rounded-full font-semibold"
                       style={{ color: "#F59E0B", background: "#F59E0B15", border: "1px solid #F59E0B40" }}>
-                      {activeChat.lead_tag}
+                      🏷 {activeChat.lead_tag}
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
               {/* Telefone */}
