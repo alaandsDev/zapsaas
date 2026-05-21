@@ -19,19 +19,30 @@ import { api, API_URL, getToken } from "../../../lib/api";
 
 const POLL_MS = 30_000;
 const SEARCH_DEBOUNCE = 220;
-const LS_CHANNEL  = "conversation_channel_filter";
-const LS_GROUP    = "conversation_group_mode";
+const LS_CHANNEL   = "conversation_channel_filter";
+const LS_GROUP     = "conversation_group_mode";
+const LS_INBOX_COL = "conversation_inbox_collapsed";
 
 // Cor fixa por slot (1-indexed)
 const SLOT_COLOR = {
-  1: { hex: "#00FF88", cls: "bg-primary",   text: "text-primary",   ring: "border-primary/40",   label: "Nº1" },
-  2: { hex: "#7C3AED", cls: "bg-secondary", text: "text-secondary", ring: "border-secondary/40", label: "Nº2" },
-  3: { hex: "#00D1FF", cls: "bg-accent-blue",text: "text-accent-blue",ring: "border-accent-blue/40",label: "Nº3" },
-  4: { hex: "#F59E0B", cls: "bg-amber-400", text: "text-amber-400", ring: "border-amber-400/40", label: "Nº4" },
-  5: { hex: "#EF4444", cls: "bg-red-400",   text: "text-red-400",   ring: "border-red-400/40",   label: "Nº5" },
+  1: { hex: "#00FF88", cls: "bg-primary",    text: "text-primary",    ring: "border-primary/40",    label: "Nº1", name: "Número 1" },
+  2: { hex: "#7C3AED", cls: "bg-secondary",  text: "text-secondary",  ring: "border-secondary/40",  label: "Nº2", name: "Número 2" },
+  3: { hex: "#00D1FF", cls: "bg-accent-blue",text: "text-accent-blue",ring: "border-accent-blue/40",label: "Nº3", name: "Número 3" },
+  4: { hex: "#F59E0B", cls: "bg-amber-400",  text: "text-amber-400",  ring: "border-amber-400/40",  label: "Nº4", name: "Número 4" },
+  5: { hex: "#EF4444", cls: "bg-red-400",    text: "text-red-400",    ring: "border-red-400/40",    label: "Nº5", name: "Número 5" },
 };
 function slotColor(slot) {
-  return SLOT_COLOR[slot] ?? { hex: "#8B8B8B", cls: "bg-ink-500", text: "text-ink-400", ring: "border-white/20", label: `Nº${slot}` };
+  return SLOT_COLOR[slot] ?? { hex: "#8B8B8B", cls: "bg-ink-500", text: "text-ink-400", ring: "border-white/20", label: `Nº${slot}`, name: `Número ${slot}` };
+}
+
+// Estado operacional da conversa baseado em dados disponíveis
+function chatStatus(chat) {
+  if (chat?.is_ai)                          return { dot: "#F59E0B", label: "IA respondendo" };
+  if (chat?.last_direction === "out")       return { dot: "#00FF88", label: "Atendendo agora" };
+  if (!chat?.last_message_at)              return { dot: "#4B5563", label: "Sem atividade" };
+  const diff = Date.now() - new Date(chat.last_message_at).getTime();
+  if (diff < 3_600_000)                    return { dot: "#00FF88", label: "Atendendo agora" };
+  return { dot: "#4B5563", label: "Sem atividade" };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -213,8 +224,16 @@ export default function Conversas() {
   const [sending,     setSending]     = useState(false);
   const [loading,     setLoading]     = useState(true);
   const [copied,      setCopied]      = useState(false);
-  const [toast,       setToast]       = useState(null);  // { msg, duration }
-  const [showFilters, setShowFilters] = useState(false);
+  const [toast,          setToast]          = useState(null);  // { msg, duration }
+  const [showFilters,    setShowFilters]    = useState(false);
+  const [inboxCollapsed, setInboxCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const stored = localStorage.getItem(LS_INBOX_COL);
+    if (stored !== null) return stored === "true";
+    return window.innerWidth < 768; // recolhido no mobile por padrão
+  });
+  const [syncStatus, setSyncStatus] = useState("idle"); // "idle" | "syncing" | "updated"
+  const syncTimer = useRef(null);
 
   // Filtros operacionais (combinável)
   const [filterUnread,    setFilterUnread]    = useState(false);
@@ -255,6 +274,7 @@ export default function Conversas() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelFilter]);
   useEffect(() => { localStorage.setItem(LS_GROUP, groupMode); }, [groupMode]);
+  useEffect(() => { localStorage.setItem(LS_INBOX_COL, String(inboxCollapsed)); }, [inboxCollapsed]);
 
   // Debounce de busca
   useEffect(() => {
@@ -280,6 +300,7 @@ export default function Conversas() {
   // ── Carrega chats de TODOS os canais conectados ────────────────────────────
   const loadAllChats = useCallback(async (connected) => {
     if (!connected?.length) return;
+    setSyncStatus("syncing");
     try {
       const results = await Promise.allSettled(
         connected.map((s) =>
@@ -290,10 +311,12 @@ export default function Conversas() {
       const merged = results
         .filter((r) => r.status === "fulfilled")
         .flatMap((r) => r.value);
-      // Ordena por última mensagem (mais recente primeiro)
       merged.sort((a, b) => new Date(b.last_message_at || 0) - new Date(a.last_message_at || 0));
       setAllChats(merged);
-    } catch {}
+      setSyncStatus("updated");
+      clearTimeout(syncTimer.current);
+      syncTimer.current = setTimeout(() => setSyncStatus("idle"), 4000);
+    } catch { setSyncStatus("idle"); }
   }, []);
 
   const loadMsgs = useCallback(async () => {
@@ -510,89 +533,97 @@ export default function Conversas() {
         )}
       </AnimatePresence>
 
-      <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[340px_1fr] xl:grid-cols-[340px_1fr_320px] overflow-hidden">
+      <div className="h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_288px] overflow-hidden">
 
         {/* ══════════════════════════════════════════════════
             LISTA LATERAL
         ══════════════════════════════════════════════════ */}
-        <aside className="border-r border-white/[0.06] flex flex-col min-h-0"
+        <aside className="border-r border-white/[0.06] flex flex-col min-h-0 overflow-hidden"
           style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)" }}>
 
-          {/* ── Seletor de canal ── */}
-          <div className="px-4 pt-4 pb-3 border-b border-white/[0.06]">
-            {/* Label + total */}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">Inbox</span>
-              <span className="text-[11px] text-ink-500">
-                {filteredChats.length} conversa{filteredChats.length !== 1 ? "s" : ""}
+          {/* ── Seletor de canal (colapsável) ── */}
+          <div className="border-b border-white/[0.06]">
+            {/* Header clicável do bloco */}
+            <button
+              onClick={() => setInboxCollapsed((v) => !v)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-white/[0.02] transition-colors group">
+              <Layers className="size-3.5 text-ink-500 group-hover:text-ink-300 transition-colors shrink-0" />
+              <span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-widest text-ink-500 group-hover:text-ink-300 transition-colors">
+                Inbox
               </span>
-            </div>
-            {/* Chips — altura 44px */}
-            <div className="flex flex-col gap-1.5">
-              {/* Chip "Todas" */}
-              <button
-                onClick={() => setChannelFilter("all")}
-                className={`flex items-center gap-2.5 px-3.5 rounded-xl text-[12px] font-semibold transition-all duration-[180ms] border h-11 ${
-                  channelFilter === "all"
-                    ? "bg-white/[0.08] border-white/20 text-ink-100"
-                    : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.04]"
-                }`}>
-                <Layers className="size-3.5 shrink-0" />
-                <span className="flex-1 text-left">Todas</span>
-                <span className={`text-[11px] tabular-nums px-2 py-0.5 rounded-full ${
-                  channelFilter === "all" ? "bg-white/10 text-ink-300" : "bg-white/[0.05] text-ink-600"
-                }`}>
-                  {channelCounts.all?.total || 0}
+              {/* Contagem compacta quando recolhido */}
+              {inboxCollapsed && (
+                <span className="text-[11px] tabular-nums text-ink-500 mr-1">{allChats.length}</span>
+              )}
+              {/* Unread global quando recolhido */}
+              {inboxCollapsed && (channelCounts.all?.unread || 0) > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-bg text-[9px] font-bold flex items-center justify-center mr-1">
+                  {channelCounts.all.unread > 99 ? "99+" : channelCounts.all.unread}
                 </span>
-                {(channelCounts.all?.unread || 0) > 0 && (
-                  <span className="size-2 rounded-full bg-primary animate-pulse shrink-0" />
-                )}
-              </button>
+              )}
+              <motion.span
+                animate={{ rotate: inboxCollapsed ? -90 : 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}>
+                <ChevronDown className="size-3.5 text-ink-600" />
+              </motion.span>
+            </button>
 
-              {/* Chips por canal */}
-              {connectedSessions.map((s) => {
-                const key    = String(s.slot);
-                const c      = slotColor(s.slot);
-                const count  = channelCounts[key] || { total: 0, unread: 0 };
-                const active = channelFilter === key;
-                return (
-                  <button key={s.slot}
-                    onClick={() => setChannelFilter(key)}
-                    className={`flex items-center gap-2.5 px-3.5 rounded-xl text-[12px] font-semibold transition-all duration-[180ms] border h-11 ${
-                      active ? "" : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.04]"
-                    }`}
-                    style={active ? {
-                      borderColor: `${c.hex}40`,
-                      background: `${c.hex}12`,
-                      color: c.hex,
-                    } : {}}>
-                    {/* Dot de status */}
-                    <span className="size-2.5 rounded-full shrink-0 transition-colors"
-                      style={{ background: active ? c.hex : "#4B5563",
-                               boxShadow: active ? `0 0 6px ${c.hex}80` : "none" }} />
-                    {/* Label */}
-                    <span className="flex-1 text-left">{c.label}</span>
-                    {/* Últimos 4 dígitos */}
-                    {s.phone && (
-                      <span className="text-[10px] opacity-50 hidden sm:inline tabular-nums">
-                        ···{s.phone.slice(-4)}
+            {/* Chips expansíveis */}
+            <AnimatePresence initial={false}>
+              {!inboxCollapsed && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="overflow-hidden">
+                  <div className="flex flex-col gap-1 px-3 pb-3">
+                    {/* Chip "Todas" */}
+                    <button
+                      onClick={() => setChannelFilter("all")}
+                      className={`flex items-center gap-2.5 px-3 rounded-xl text-[12px] font-semibold transition-all duration-[150ms] border h-10 ${
+                        channelFilter === "all"
+                          ? "bg-white/[0.07] border-white/15 text-ink-100"
+                          : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.04]"
+                      }`}>
+                      <Layers className="size-3.5 shrink-0 text-ink-500" />
+                      <span className="flex-1 text-left">Todas</span>
+                      <span className="text-[11px] tabular-nums text-ink-500">
+                        {channelCounts.all?.total || 0}
+                        {(channelCounts.all?.unread || 0) > 0 &&
+                          <span className="text-primary"> · {channelCounts.all.unread} não lidas</span>}
                       </span>
-                    )}
-                    {/* Total */}
-                    <span className={`text-[11px] tabular-nums px-2 py-0.5 rounded-full ${
-                      active ? "bg-white/10" : "bg-white/[0.05] text-ink-600"
-                    }`}>{count.total}</span>
-                    {/* Não lidas */}
-                    {count.unread > 0 && (
-                      <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold text-bg flex items-center justify-center shrink-0"
-                        style={{ background: c.hex }}>
-                        {count.unread > 99 ? "99+" : count.unread}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+
+                    {/* Chips por canal */}
+                    {connectedSessions.map((s) => {
+                      const key    = String(s.slot);
+                      const c      = slotColor(s.slot);
+                      const count  = channelCounts[key] || { total: 0, unread: 0 };
+                      const active = channelFilter === key;
+                      return (
+                        <button key={s.slot}
+                          onClick={() => setChannelFilter(key)}
+                          className={`flex items-center gap-2.5 px-3 rounded-xl text-[12px] font-semibold transition-all duration-[150ms] border h-10 ${
+                            active ? "" : "border-transparent text-ink-400 hover:text-ink-200 hover:bg-white/[0.04]"
+                          }`}
+                          style={active ? { borderColor: `${c.hex}35`, background: `${c.hex}10`, color: c.hex } : {}}>
+                          <span className="size-2 rounded-full shrink-0"
+                            style={{ background: active ? c.hex : "#4B5563",
+                                     boxShadow: active ? `0 0 5px ${c.hex}70` : "none" }} />
+                          <span className="flex-1 text-left">{c.name}</span>
+                          <span className={`text-[11px] tabular-nums ${active ? "opacity-70" : "text-ink-600"}`}>
+                            {count.total}
+                            {count.unread > 0 &&
+                              <span style={{ color: c.hex }}> · {count.unread} não lidas</span>}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* ── Busca + controles ── */}
@@ -733,7 +764,6 @@ export default function Conversas() {
             <>
               {/* Header da conversa */}
               <div className="border-b border-white/[0.06] backdrop-blur-xl bg-white/[0.02]">
-                {/* Linha principal */}
                 <div className="h-16 flex items-center px-5 gap-3">
                   <Avatar src={activeChat.profile_pic_url}
                     name={activeChat.name || activeChat.phone} size={40} />
@@ -741,45 +771,82 @@ export default function Conversas() {
                     <div className="font-semibold text-sm truncate">
                       {activeChat.name || `+${activeChat.phone}`}
                     </div>
+                    {/* Sub-linha: canal + status operacional + respondendo como + interação */}
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <ChannelBadge slot={activeChat.slot} />
+                      {/* Estado operacional */}
+                      {(() => {
+                        const st = chatStatus(activeChat);
+                        return (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium"
+                            style={{ color: st.dot }}>
+                            <span className="size-1.5 rounded-full" style={{ background: st.dot }} />
+                            {st.label}
+                          </span>
+                        );
+                      })()}
                       {activeChat.lead_tag && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold"
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full border font-semibold"
                           style={{ color: "#F59E0B", borderColor: "#F59E0B40", background: "#F59E0B15" }}>
-                          {activeChat.lead_tag}
+                          🏷 {activeChat.lead_tag}
                         </span>
                       )}
-                      <span className="text-[10px] text-ink-500">
-                        Última interação: {fmtRelative(activeChat.last_message_at)}
+                      <span className="text-[10px] text-ink-500 hidden lg:inline">
+                        · {fmtRelative(activeChat.last_message_at)}
                       </span>
                     </div>
                   </div>
+
+                  {/* Sync status — topo direito */}
+                  <div className="hidden md:flex items-center mr-1">
+                    <AnimatePresence mode="wait">
+                      {syncStatus === "syncing" && (
+                        <motion.span key="sync" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          className="flex items-center gap-1 text-[10px] text-ink-500">
+                          <RefreshCw className="size-3 animate-spin" /> Sincronizando
+                        </motion.span>
+                      )}
+                      {syncStatus === "updated" && (
+                        <motion.span key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          className="flex items-center gap-1 text-[10px] text-primary">
+                          <span className="size-1.5 rounded-full bg-primary" /> Atualizado agora
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
                   {/* Botões de ação */}
                   <div className="flex items-center gap-1 shrink-0">
-                    <Link href={`/dashboard/leads?q=${activeChat.phone}`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:border-primary/30 transition-colors">
-                      <Users className="size-3.5" /> CRM
+                    <Link href={`/dashboard/leads?q=${activeChat.phone}`} title="Ver no CRM"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:border-primary/30 hover:bg-primary/5 transition-all">
+                      <Users className="size-3.5" /> <span className="hidden lg:inline">CRM</span>
                     </Link>
-                    <Link href="/dashboard/campanhas"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:border-secondary/30 transition-colors">
-                      <Megaphone className="size-3.5" /> Campanha
+                    <Link href="/dashboard/campanhas" title="Criar campanha"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:border-secondary/30 hover:bg-secondary/5 transition-all">
+                      <Megaphone className="size-3.5" /> <span className="hidden lg:inline">Campanha</span>
                     </Link>
                     <a href={`https://wa.me/${activeChat.phone}`} target="_blank" rel="noreferrer"
-                      className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 transition-colors">
-                      <ExternalLink className="size-3.5" /> WA Web
+                      title="Abrir no WhatsApp Web"
+                      className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:bg-white/[0.04] transition-all">
+                      <ExternalLink className="size-3.5" />
                     </a>
-                    <button
-                      className="size-8 rounded-lg border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 transition-colors">
+                    <button title="Mais opções"
+                      className="size-8 rounded-lg border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
                       <MoreHorizontal className="size-4" />
                     </button>
                   </div>
                 </div>
-                {/* Indicador: respondendo como */}
-                <div className="px-5 pb-2 flex items-center gap-1.5 text-[10px] text-ink-500">
-                  <span>Respondendo como:</span>
-                  <span className="inline-flex items-center gap-1 font-semibold" style={{ color: replyColor.hex }}>
-                    <span className="size-1.5 rounded-full" style={{ background: replyColor.hex }} />
-                    {activeSession?.phone ? `+${activeSession.phone}` : replyColor.label}
+                {/* Respondendo como — badge compacta abaixo do header */}
+                <div className="px-5 pb-2 flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1 text-[10px] text-ink-600">
+                    Via
+                    <span className="inline-flex items-center gap-1 font-semibold ml-0.5" style={{ color: replyColor.hex }}>
+                      <span className="size-1.5 rounded-full" style={{ background: replyColor.hex }} />
+                      {activeSession?.phone ? `+${activeSession.phone}` : replyColor.name}
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-ink-600 lg:hidden">
+                    · {fmtRelative(activeChat.last_message_at)}
                   </span>
                 </div>
               </div>
@@ -866,12 +933,20 @@ export default function Conversas() {
                   </div>
 
                   {/* Textarea */}
-                  <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                    placeholder="Digite uma mensagem..."
-                    rows={1}
-                    style={{ minHeight: 44, maxHeight: 120 }}
-                    className="flex-1 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm outline-none focus:border-primary/50 focus:shadow-[0_0_20px_-10px_rgba(0,255,136,0.4)] resize-none transition-all" />
+                  <div className="relative flex-1 group/input">
+                    <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                      placeholder="Digite uma mensagem..."
+                      rows={1}
+                      style={{ minHeight: 44, maxHeight: 120 }}
+                      className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm outline-none focus:border-primary/50 focus:shadow-[0_0_20px_-10px_rgba(0,255,136,0.4)] resize-none transition-all" />
+                    {/* Dica de atalho — aparece no hover quando vazio */}
+                    {!draft && (
+                      <span className="absolute right-3 bottom-2.5 text-[10px] text-ink-700 pointer-events-none opacity-0 group-hover/input:opacity-100 transition-opacity duration-150 select-none">
+                        ↵ enviar · Shift+↵ nova linha
+                      </span>
+                    )}
+                  </div>
 
                   {/* Enviar */}
                   <button onClick={send} disabled={!draft.trim() || sending}
@@ -941,20 +1016,31 @@ export default function Conversas() {
               {/* Informações */}
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Informações</div>
-                <div className="space-y-2.5 text-sm">
+                <div className="space-y-2 text-sm">
                   {[
                     ["Última interação", fmtRelative(activeChat.last_message_at) || "—"],
                     ["Não lidas",        String(activeChat.unread || 0)],
-                    ["Canal",           slotColor(activeChat.slot).label],
-                    ["Origem",          activeChat.origin || "WhatsApp"],
-                    ["Criado em",       fmtTime(activeChat.created_at) || "—"],
+                    ["Origem",           activeChat.origin || "WhatsApp"],
+                    ["Criado em",        fmtTime(activeChat.created_at) || "—"],
+                    ...(activeChat.last_campaign ? [["Última campanha", activeChat.last_campaign]] : []),
+                    ...(activeChat.lead_score    ? [["Lead score",      `${activeChat.lead_score}/100`]] : []),
                   ].map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between gap-3">
-                      <span className="text-ink-500 text-xs">{k}</span>
-                      <span className="text-ink-100 text-xs font-medium">{v}</span>
+                    <div key={k} className="flex items-start justify-between gap-3">
+                      <span className="text-ink-500 text-[11px] shrink-0">{k}</span>
+                      <span className="text-ink-100 text-[11px] font-medium text-right">{v}</span>
                     </div>
                   ))}
                 </div>
+                {/* Tags do contato */}
+                {activeChat.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-3">
+                    {activeChat.tags.map((t) => (
+                      <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.05] text-ink-400 border border-white/[0.06]">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Histórico */}
@@ -997,28 +1083,50 @@ export default function Conversas() {
               {/* Ações rápidas */}
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 mb-2">Ações rápidas</div>
-                <div className="space-y-1">
-                  <a href={`https://wa.me/${activeChat.phone}`} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5">
-                    <span className="size-5 rounded-md bg-primary/15 flex items-center justify-center">
-                      <ExternalLink className="size-3 text-primary" />
-                    </span>
-                    Abrir no WhatsApp Web
-                  </a>
-                  <Link href="/dashboard/workflow"
-                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5">
-                    <span className="size-5 rounded-md bg-secondary/15 flex items-center justify-center">
-                      <Zap className="size-3 text-secondary" />
-                    </span>
-                    Criar automação
-                  </Link>
-                  <button onClick={() => {}}
-                    className="flex items-center gap-2 text-[12px] text-ink-300 hover:text-ink-100 transition-colors py-1.5 w-full text-left">
-                    <span className="size-5 rounded-md bg-accent-blue/15 flex items-center justify-center">
-                      <Tag className="size-3 text-accent-blue" />
-                    </span>
-                    Adicionar tag
-                  </button>
+                <div className="space-y-0.5">
+                  {[
+                    {
+                      href: `https://wa.me/${activeChat.phone}`,
+                      external: true,
+                      icon: <ExternalLink className="size-3.5" />,
+                      iconBg: "bg-primary/15 text-primary",
+                      label: "Abrir no WhatsApp Web",
+                      tip: "Abre esta conversa no WhatsApp Web",
+                    },
+                    {
+                      href: "/dashboard/workflow",
+                      icon: <Zap className="size-3.5" />,
+                      iconBg: "bg-secondary/15 text-secondary",
+                      label: "Criar automação",
+                      tip: "Criar workflow automatizado para este contato",
+                    },
+                    {
+                      onClick: () => {},
+                      icon: <Tag className="size-3.5" />,
+                      iconBg: "bg-accent-blue/15 text-accent-blue",
+                      label: "Adicionar tag",
+                      tip: "Adicionar etiqueta a este contato",
+                    },
+                    {
+                      href: "/dashboard/campanhas",
+                      icon: <Megaphone className="size-3.5" />,
+                      iconBg: "bg-amber-400/15 text-amber-400",
+                      label: "Enviar campanha",
+                      tip: "Criar campanha para este número",
+                    },
+                  ].map(({ href, external, onClick, icon, iconBg, label, tip }) => {
+                    const cls = "group/action flex items-center gap-2.5 text-[11px] text-ink-400 hover:text-ink-100 hover:bg-white/[0.04] transition-all rounded-lg px-2 py-2 w-full text-left";
+                    const inner = (
+                      <>
+                        <span className={`size-6 rounded-md flex items-center justify-center shrink-0 transition-colors ${iconBg}`}>{icon}</span>
+                        <span className="flex-1">{label}</span>
+                        <span className="opacity-0 group-hover/action:opacity-100 text-[9px] text-ink-600 transition-opacity hidden xl:block" title={tip}>?</span>
+                      </>
+                    );
+                    if (onClick) return <button key={label} onClick={onClick} className={cls} title={tip}>{inner}</button>;
+                    if (external) return <a key={label} href={href} target="_blank" rel="noreferrer" className={cls} title={tip}>{inner}</a>;
+                    return <Link key={label} href={href} className={cls} title={tip}>{inner}</Link>;
+                  })}
                 </div>
               </div>
             </div>
