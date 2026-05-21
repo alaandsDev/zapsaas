@@ -79,6 +79,16 @@ async function createTemplate({ token, businessAccountId }, { name, language = '
   });
 }
 
+// Info da conta WABA (verificação empresarial, nome)
+async function getAccount({ token, businessAccountId }) {
+  return call(token, `/${businessAccountId}?fields=id,name,business_verification_status`);
+}
+
+// Qualidade + tier de limite de mensagens do número
+async function getQuality({ token, phoneNumberId }) {
+  return call(token, `/${phoneNumberId}?fields=quality_rating,messaging_limit_tier,code_verification_status,display_phone_number,verified_name`);
+}
+
 // Valida assinatura HMAC do webhook (X-Hub-Signature-256)
 function verifyWebhookSignature(rawBody, signatureHeader, appSecret) {
   if (!signatureHeader || !appSecret) return false;
@@ -86,4 +96,7 @@ function verifyWebhookSignature(rawBody, signatureHeader, appSecret) {
   try { return crypto.timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expected)); } catch { return false; }
 }
 
-module.exports = { sendTemplate, sendText, verify, listTemplates, createTemplate, verifyWebhookSignature, clean };
+module.exports = {
+  sendTemplate, sendText, verify, listTemplates, createTemplate,
+  verifyWebhookSignature, clean, getAccount, getQuality,
+};

@@ -1715,7 +1715,105 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
       { name, language: language || 'pt_BR', category, components }
     );
     res.json(r);
-  } catch (e) { res.status(400).json({ error: e.message }); }
+    // Log criação de template
+    await supabase.from('wpp_cloud_logs').insert({
+      user_id: req.user.id, action: 'template_created',
+      result: 'ok', details: { name, category, language: language || 'pt_BR' }
+    }).catch(() => {});
+  } catch (e) {
+    // Log erro de template
+    await supabase.from('wpp_cloud_logs').insert({
+      user_id: (await getCloudConfig(req.user?.id).catch(() => null))?.user_id || req.user?.id,
+      action: 'template_created', result: 'error', error_msg: e.message
+    }).catch(() => {});
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Conta WABA — verificação empresarial
+app.get('/api/wpp-cloud/account', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
+    if (!c.business_account_id) return res.status(400).json({ error: 'WABA ID não configurado' });
+    const r = await wppCloud.getAccount({ token: c.access_token, businessAccountId: c.business_account_id });
+    res.json({ id: r.id, name: r.name, verification_status: r.business_verification_status || 'not_verified' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Qualidade + tier de limite do número
+app.get('/api/wpp-cloud/quality', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
+    const r = await wppCloud.getQuality({ token: c.access_token, phoneNumberId: c.phone_number_id });
+    res.json({
+      quality_rating: r.quality_rating || 'UNKNOWN',
+      messaging_limit_tier: r.messaging_limit_tier || null,
+      code_verification_status: r.code_verification_status || null,
+      display_phone: r.display_phone_number || null,
+      verified_name: r.verified_name || null,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sincronização paralela de todos os dados Meta
+app.post('/api/wpp-cloud/sync', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(req.user.id);
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
+
+    const [verifyR, accountR, templatesR, qualityR] = await Promise.allSettled([
+      wppCloud.verify({ token: c.access_token, phoneNumberId: c.phone_number_id }),
+      c.business_account_id
+        ? wppCloud.getAccount({ token: c.access_token, businessAccountId: c.business_account_id })
+        : Promise.resolve(null),
+      c.business_account_id
+        ? wppCloud.listTemplates({ token: c.access_token, businessAccountId: c.business_account_id })
+        : Promise.resolve(null),
+      wppCloud.getQuality({ token: c.access_token, phoneNumberId: c.phone_number_id }),
+    ]);
+
+    const synced = [];
+    if (verifyR.status === 'fulfilled') synced.push('verify');
+    if (accountR.status === 'fulfilled' && accountR.value) synced.push('account');
+    if (templatesR.status === 'fulfilled' && templatesR.value) synced.push('templates');
+    if (qualityR.status === 'fulfilled') synced.push('quality');
+
+    await supabase.from('wpp_cloud_logs').insert({
+      user_id: req.user.id, action: 'sync', result: 'ok',
+      details: { synced, total: synced.length }
+    }).catch(() => {});
+
+    res.json({
+      verify:    verifyR.status    === 'fulfilled' ? verifyR.value    : null,
+      account:   accountR.status   === 'fulfilled' ? accountR.value   : null,
+      templates: templatesR.status === 'fulfilled' ? (templatesR.value?.data || []) : null,
+      quality:   qualityR.status   === 'fulfilled' ? qualityR.value   : null,
+      synced_at: new Date().toISOString(),
+      errors: {
+        verify:    verifyR.status    === 'rejected' ? verifyR.reason?.message    : null,
+        account:   accountR.status   === 'rejected' ? accountR.reason?.message   : null,
+        templates: templatesR.status === 'rejected' ? templatesR.reason?.message : null,
+        quality:   qualityR.status   === 'rejected' ? qualityR.reason?.message   : null,
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Logs de eventos do canal oficial
+app.get('/api/wpp-cloud/logs', requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const { data, error } = await supabase
+      .from('wpp_cloud_logs')
+      .select('id, action, result, details, error_msg, created_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ═══════════════════════════════════════════════════════════════
