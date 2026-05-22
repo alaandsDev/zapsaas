@@ -803,6 +803,14 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
     const useCloud = channel === 'cloud' || (!hasBaileys && hasCloud);
     const useBaileys = !useCloud && hasBaileys && useWhatsapp !== false;
     const via = useCloud ? 'cloud_api' : useBaileys ? 'baileys' : 'simulated';
+
+    // Bloqueia disparo sem canal real disponível — nunca simula silenciosamente
+    if (!useCloud && !useBaileys) {
+      return res.status(409).json({
+        error: 'Nenhum canal WhatsApp conectado. Conecte um número em Canais antes de disparar.',
+        code: 'no_channel',
+      });
+    }
     if (useBaileys && sourceSessionSlot && !connectedForDispatch.some(s => s.slot === parseInt(sourceSessionSlot))) {
       return res.status(400).json({ error: `Número ${sourceSessionSlot} não está conectado.` });
     }
