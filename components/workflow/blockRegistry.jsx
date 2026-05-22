@@ -761,6 +761,74 @@ function GotoPreview({ data }) {
 }
 
 /* ─────────────────────────────────────────────
+   WEBHOOK
+───────────────────────────────────────────── */
+const HTTP_METHODS = ["POST", "GET", "PUT", "PATCH"];
+function WebhookEditor({ data, onChange }) {
+  const set = (p) => onChange({ ...data, ...p });
+  return (
+    <div className="space-y-4">
+      <F label="URL do webhook *" hint="O endpoint que receberá a requisição HTTP">
+        <Inp
+          value={data.url || ""}
+          onChange={(e) => set({ url: e.target.value })}
+          placeholder="https://hooks.exemplo.com/wayvo"
+        />
+      </F>
+      <F label="Método HTTP">
+        <Sel value={data.method || "POST"} onChange={(e) => set({ method: e.target.value })}>
+          {HTTP_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+        </Sel>
+      </F>
+      <F
+        label="Body (JSON template)"
+        hint={`Variáveis disponíveis: ${VARS.join(", ")}`}
+      >
+        <Txt
+          rows={4}
+          value={data.bodyTemplate || ""}
+          onChange={(e) => set({ bodyTemplate: e.target.value })}
+          placeholder={'{\n  "nome": "{nome}",\n  "numero": "{numero}"\n}'}
+          className="font-mono text-[12px]"
+        />
+      </F>
+      <F label="Headers extras (JSON, opcional)" hint='Ex: {"Authorization":"Bearer TOKEN"}'>
+        <Txt
+          rows={2}
+          value={data.headers || ""}
+          onChange={(e) => set({ headers: e.target.value })}
+          placeholder='{"X-API-Key": "sua-chave"}'
+          className="font-mono text-[12px]"
+        />
+      </F>
+    </div>
+  );
+}
+function WebhookPreview({ data }) {
+  const method = data.method || "POST";
+  const url = data.url || "";
+  const shortUrl = url.replace(/^https?:\/\//, "").slice(0, 38);
+  return (
+    <div className="flex items-start gap-2 px-3 py-2 rounded-xl border border-[#60A5FA]/20 bg-[#60A5FA]/05">
+      <span className="text-base mt-0.5">🔗</span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#60A5FA]/20 text-[#60A5FA]">{method}</span>
+          {shortUrl ? (
+            <span className="text-[11px] text-ink-300 truncate">{shortUrl}</span>
+          ) : (
+            <span className="text-[11px] text-ink-500 italic">URL não configurada</span>
+          )}
+        </div>
+        {data.bodyTemplate && (
+          <div className="text-[10px] text-ink-500 mt-0.5 truncate font-mono">{data.bodyTemplate.slice(0, 50)}…</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    BLOCK REGISTRY
 ───────────────────────────────────────────── */
 // BLOCK_REGISTRY merges pure metadata from blockMeta with JSX editors/previews
@@ -775,6 +843,7 @@ const EDITORS = {
   choice:    { Editor: ChoiceEditor,    Preview: ChoicePreview    },
   ia:        { Editor: IAEditor,        Preview: IAPreview        },
   tag:       { Editor: TagEditor,       Preview: TagPreview       },
+  webhook:   { Editor: WebhookEditor,   Preview: WebhookPreview   },
   redirect:  { Editor: RedirectEditor,  Preview: RedirectPreview  },
   goto:      { Editor: GotoEditor,      Preview: GotoPreview      },
 };
