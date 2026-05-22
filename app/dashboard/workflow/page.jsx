@@ -138,6 +138,7 @@ function Builder() {
   const [aiOpen, setAiOpen] = useState(false);
   const [flows, setFlows] = useState([]);
   const [flowsOpen, setFlowsOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [slotId, setSlotId] = useState(null); // null = todos os chips
   const [connectedSessions, setConnectedSessions] = useState([]);
   const [testOpen, setTestOpen] = useState(false);
@@ -299,9 +300,9 @@ function Builder() {
 
   const delFlow = useCallback(async (id, e) => {
     e?.stopPropagation();
-    if (!window.confirm("Excluir este fluxo? Esta ação não pode ser desfeita.")) return;
     try {
       await api(`/api/workflows/${id}`, { method: "DELETE" });
+      setConfirmDeleteId(null);
       const arr = await loadFlows();
       if (id === wfId) {
         if (arr.length) openFlow(arr[0].id); else newFlow();
@@ -444,7 +445,7 @@ function Builder() {
               <AnimatePresence>
                 {flowsOpen && (
                   <>
-                    <div className="fixed inset-0 z-[60]" onClick={() => setFlowsOpen(false)} />
+                    <div className="fixed inset-0 z-[60]" onClick={() => { setFlowsOpen(false); setConfirmDeleteId(null); }} />
                     <motion.div
                       initial={{ opacity: 0, y: -8, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -484,10 +485,24 @@ function Builder() {
                                   Definir entrada
                                 </button>
                               )}
-                              <button onClick={(e) => delFlow(f.id, e)}
-                                className="text-[11px] px-2 py-0.5 rounded-md border border-red-500/30 text-red-400 hover:bg-red-500/10 ml-auto">
-                                Excluir
-                              </button>
+                              {confirmDeleteId === f.id ? (
+                                <div className="ml-auto flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <span className="text-[10px] text-ink-400">Confirmar?</span>
+                                  <button onClick={(e) => delFlow(f.id, e)}
+                                    className="text-[11px] px-2 py-0.5 rounded-md border border-red-500/50 text-red-400 bg-red-500/10 hover:bg-red-500/20 font-semibold">
+                                    Sim
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                                    className="text-[11px] px-2 py-0.5 rounded-md border border-white/10 text-ink-400 hover:text-ink-200">
+                                    Não
+                                  </button>
+                                </div>
+                              ) : (
+                                <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(f.id); }}
+                                  className="text-[11px] px-2 py-0.5 rounded-md border border-red-500/30 text-red-400 hover:bg-red-500/10 ml-auto">
+                                  Excluir
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
