@@ -2814,40 +2814,78 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
 // Envia mensagem por uma sessão específica e persiste
 app.post('/api/chats/send', requireAuth, async (req, res) => {
   try {
-    const { slot, phone, message } = req.body;
-    if (!phone || !message) return res.status(400).json({ error: 'phone e message obrigatórios' });
+    const { slot, phone, message, mediaUrl, mediaMimetype, mediaFilename } = req.body;
+    if (!phone || (!message && !mediaUrl)) return res.status(400).json({ error: 'phone e message ou mediaUrl obrigatórios' });
     const useSlot = slot ? parseInt(slot) : 1;
     const key = sessionKey(req.user.id, useSlot);
     const status = wpp.getStatus(key);
     if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
 
-    const r = await wpp.sendMessage(key, phone, message);
-    // O hook messages.upsert (fromMe) também persiste, mas assegura aqui
+    // Monta mídia se houver URL
+    let media = null;
+    if (mediaUrl) {
+      try {
+        let buffer;
+        if (mediaUrl.includes('/storage/v1/object/public/media/')) {
+          const filePath = decodeURIComponent(mediaUrl.split('/storage/v1/object/public/media/')[1]);
+          const { data: fileData } = await supabase.storage.from('media').download(filePath);
+          buffer = Buffer.from(await fileData.arrayBuffer());
+        } else {
+          const resp = await fetch(mediaUrl);
+          buffer = Buffer.from(await resp.arrayBuffer());
+        }
+        media = {
+          buffer,
+          mimetype: mediaMimetype || 'application/octet-stream',
+          filename: mediaFilename || 'arquivo',
+          caption: message || '',
+        };
+      } catch (mErr) {
+        console.warn('[chats/send] erro ao baixar mídia:', mErr.message);
+      }
+    }
+
+    const r = await wpp.sendMessage(key, phone, message || '', media);
+
+    // Persiste no banco (o hook fromMe também persiste, mas garantimos aqui)
     const cleanedPhone = String(phone).replace(/\D/g, '');
     const ts = new Date().toISOString();
+    const msgType = media
+      ? (mediaMimetype?.startsWith('image/') ? 'image'
+        : mediaMimetype?.startsWith('video/') ? 'video'
+        : mediaMimetype?.startsWith('audio/') ? 'audio'
+        : 'document')
+      : 'text';
+    const lastPreview = media ? `📎 ${mediaFilename || 'Arquivo'}` : message;
+
     let { data: chat } = await supabase.from('chats').select('id')
       .eq('user_id', req.user.id).eq('session_slot', useSlot).eq('phone', cleanedPhone).maybeSingle();
     if (!chat) {
       const { data: created } = await supabase.from('chats').insert({
         user_id: req.user.id, session_slot: useSlot, phone: cleanedPhone,
-        last_message: message, last_message_at: ts, unread: 0
+        last_message: lastPreview, last_message_at: ts, unread: 0
       }).select('id').single();
       chat = created;
     } else {
-      await supabase.from('chats').update({ last_message: message, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
+      await supabase.from('chats').update({ last_message: lastPreview, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
     }
     if (chat?.id) {
       await supabase.from('chat_messages').insert({
         chat_id: chat.id, user_id: req.user.id,
-        direction: 'out', type: 'text', text: message,
-        status: 'sent', timestamp: ts
+        direction: 'out', type: msgType,
+        text: message || null,
+        media_url: mediaUrl || null,
+        media_filename: mediaFilename || null,
+        status: 'sent', timestamp: ts,
       });
       sseSend(req.user.id, 'message', {
         chatId: chat.id, slot: useSlot, phone: cleanedPhone,
-        direction: 'out', type: 'text', text: message, timestamp: ts,
+        direction: 'out', type: msgType,
+        text: message || null, media_url: mediaUrl || null,
+        media_filename: mediaFilename || null, timestamp: ts,
       });
     }
-    res.json({ ok: true, sentTo: r.to });
+    res.json({ ok: true, sentTo: r?.to });
   } catch (e) {
     console.error('[chats/send]', e);
     res.status(500).json({ error: e.message });
