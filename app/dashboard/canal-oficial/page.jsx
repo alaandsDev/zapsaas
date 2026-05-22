@@ -999,7 +999,10 @@ export default function CanalOficialPage() {
                 ))}
               </div>
               <p className="text-[10px] text-ink-600 mt-3 leading-relaxed">
-                ⚠ Estimativa sujeita à tabela Meta. Valores em BRL para {COUNTRIES.find(c => c.code === estCountry)?.label}.
+                ⚠ Estimativa baseada na tabela Meta vigente para {COUNTRIES.find(c => c.code === estCountry)?.label} (Marketing R$0,34 · Utility R$0,04). Preços podem variar — confirme em{" "}
+                <a href="https://business.facebook.com/billing/payment-settings" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  business.facebook.com
+                </a>.
               </p>
             </section>
 

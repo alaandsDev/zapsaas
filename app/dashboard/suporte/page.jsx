@@ -59,21 +59,16 @@ export default function SuportePage() {
           </div>
         </div>
 
-        <div className="card p-6 flex items-start gap-4">
+        <div className="card p-6 flex items-start gap-4 opacity-60">
           <div className="size-10 rounded-xl bg-secondary/15 border border-secondary/30 flex items-center justify-center shrink-0 text-xl">📚</div>
           <div>
             <h3 className="font-semibold text-sm">Documentação</h3>
             <p className="text-xs text-ink-400 mt-1 leading-relaxed">
-              Acesse nossa base de conhecimento completa com tutoriais, guias de integração e referência da API.
+              Em breve — nossa base de conhecimento com tutoriais e guias de integração estará disponível aqui.
             </p>
-            <a
-              href="https://docs.wayvo.com.br"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-primary hover:underline"
-            >
-              Acessar documentação →
-            </a>
+            <span className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold text-ink-500 cursor-not-allowed select-none">
+              Em construção 🚧
+            </span>
           </div>
         </div>
       </div>

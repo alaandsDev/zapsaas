@@ -119,6 +119,114 @@ function Avatar({ name, url, size = 40 }) {
   );
 }
 
+/* ── Tab Conversas: chats reais filtrados pelo telefone do lead ── */
+function LeadConversas({ lead }) {
+  const [chats, setChats] = useState(null);
+  useEffect(() => {
+    if (!lead?.phone) { setChats([]); return; }
+    api("/api/chats")
+      .then((all) => {
+        const clean = String(lead.phone).replace(/\D/g, "");
+        const matched = (Array.isArray(all) ? all : []).filter(
+          (c) => String(c.phone).replace(/\D/g, "") === clean
+        );
+        setChats(matched);
+      })
+      .catch(() => setChats([]));
+  }, [lead?.phone]);
+
+  if (chats === null) return <p className="text-xs text-ink-500 py-4 text-center">Carregando conversas…</p>;
+  if (!chats.length) return (
+    <div className="text-center py-6 space-y-2">
+      <MessageSquare className="size-8 text-ink-700 mx-auto" />
+      <p className="text-xs text-ink-500">Nenhuma conversa encontrada para este contato.</p>
+      <a href="/dashboard/conversas" className="inline-block text-xs font-semibold text-primary hover:underline">Abrir Conversas →</a>
+    </div>
+  );
+
+  const SLOT_COLOR = { 0: "#60A5FA", 1: "#00FF88", 2: "#7C3AED", 3: "#00D1FF", 4: "#F59E0B", 5: "#EF4444" };
+  return (
+    <div className="space-y-2">
+      {chats.map((chat) => {
+        const color = SLOT_COLOR[chat.session_slot] ?? "#8B8B8B";
+        const label = chat.session_slot === 0 ? "Canal Oficial" : `Chip ${chat.session_slot}`;
+        return (
+          <a key={chat.id} href="/dashboard/conversas"
+            className="block p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-primary/20 transition-colors">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
+                style={{ color, borderColor: `${color}40`, background: `${color}15` }}>{label}</span>
+              <span className="text-[10px] text-ink-500">{fmtDate(chat.last_message_at)}</span>
+            </div>
+            <p className="text-[12px] text-ink-400 truncate">{chat.last_message || "Sem mensagens"}</p>
+            {chat.unread > 0 && (
+              <span className="inline-flex mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
+                {chat.unread} não lida{chat.unread > 1 ? "s" : ""}
+              </span>
+            )}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Tab Automação: fluxo de entrada vinculado ao lead ── */
+function LeadAutomacao({ lead }) {
+  const [workflows, setWorkflows] = useState(null);
+  useEffect(() => {
+    api("/api/workflows").then(setWorkflows).catch(() => setWorkflows([]));
+  }, []);
+
+  if (workflows === null) return <p className="text-xs text-ink-500 py-4 text-center">Carregando…</p>;
+
+  const entryFlow = (workflows || []).find((w) => w.is_entry);
+  if (!entryFlow) return (
+    <div className="text-center py-6 space-y-2">
+      <Zap className="size-8 text-ink-700 mx-auto" />
+      <p className="text-xs text-ink-500">Nenhum fluxo de entrada configurado.</p>
+      <a href="/dashboard/workflow" className="inline-block text-xs font-semibold text-primary hover:underline">Criar fluxo →</a>
+    </div>
+  );
+
+  const isActive = entryFlow.enabled !== false && entryFlow.status === "published";
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="p-3 rounded-xl border border-primary/20 bg-primary/5">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">Fluxo de entrada</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${isActive ? "border-primary/30 bg-primary/10 text-primary" : "border-white/10 text-ink-500"}`}>
+            {isActive ? "Ativo" : "Inativo"}
+          </span>
+        </div>
+        <p className="text-[12px] text-ink-200 font-medium">{entryFlow.name}</p>
+        <p className="text-[10px] text-ink-500 mt-0.5">
+          {isActive
+            ? "Dispara automaticamente quando este contato enviar a primeira mensagem."
+            : "Publique e ative o fluxo para disparar automaticamente."}
+        </p>
+      </div>
+      {(workflows || []).filter((w) => !w.is_entry).length > 0 && (
+        <div>
+          <p className="text-[10px] text-ink-500 uppercase tracking-wide mb-1.5">Outros fluxos</p>
+          {workflows.filter((w) => !w.is_entry).slice(0, 3).map((w) => (
+            <div key={w.id} className="flex items-center justify-between py-1.5 text-[12px]">
+              <span className="text-ink-300 truncate flex-1">{w.name}</span>
+              <span className={`text-[10px] ml-2 ${w.enabled !== false && w.status === "published" ? "text-primary" : "text-ink-600"}`}>
+                {w.enabled !== false && w.status === "published" ? "ativo" : "inativo"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <a href="/dashboard/workflow"
+        className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border border-white/10 text-xs text-ink-400 hover:text-ink-200 hover:border-white/20 transition-colors">
+        <Zap className="size-3.5" /> Gerenciar fluxos
+      </a>
+    </div>
+  );
+}
+
 /* ════════════════════ PÁGINA ════════════════════ */
 export default function LeadsPage() {
   const searchParams = useSearchParams();
@@ -645,16 +753,8 @@ export default function LeadsPage() {
                         </div>
                       </div>
                     )}
-                    {tab === "conversas" && (
-                      <PanelEmpty icon={MessageSquare}
-                        text="Histórico de conversa centralizado em Conversas."
-                        href="/dashboard/conversas" cta="Abrir Conversas" />
-                    )}
-                    {tab === "automacao" && (
-                      <PanelEmpty icon={Zap}
-                        text="Nenhuma automação vinculada a este lead ainda."
-                        href="/dashboard/workflow" cta="Criar fluxo" />
-                    )}
+                    {tab === "conversas" && <LeadConversas lead={selected} />}
+                    {tab === "automacao" && <LeadAutomacao lead={selected} />}
                     {tab === "notas" && (
                       <div>
                         <div className="flex items-center gap-1.5 text-[11px] text-ink-500 mb-2">
