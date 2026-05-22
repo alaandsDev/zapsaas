@@ -1886,7 +1886,7 @@ app.get('/api/workflows', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('workflows')
-      .select('id, name, status, enabled, is_entry, updated_at')
+      .select('id, name, status, enabled, is_entry, session_slot, updated_at')
       .eq('user_id', req.user.id)
       .order('updated_at', { ascending: false });
     if (error) throw error;
@@ -1905,12 +1905,13 @@ app.get('/api/workflows/:id', requireAuth, async (req, res) => {
 
 app.post('/api/workflows', requireAuth, async (req, res) => {
   try {
-    const { name, nodes, edges, status } = req.body;
+    const { name, nodes, edges, status, session_slot } = req.body;
     const { data, error } = await supabase.from('workflows').insert({
       name: name || 'Novo fluxo',
       nodes: nodes || [],
       edges: edges || [],
       status: status === 'published' ? 'published' : 'draft',
+      session_slot: session_slot != null ? Number(session_slot) : null,
       user_id: req.user.id,
     }).select().single();
     if (error) throw error;
@@ -1920,7 +1921,7 @@ app.post('/api/workflows', requireAuth, async (req, res) => {
 
 app.put('/api/workflows/:id', requireAuth, async (req, res) => {
   try {
-    const { name, nodes, edges, status, enabled, is_entry } = req.body;
+    const { name, nodes, edges, status, enabled, is_entry, session_slot } = req.body;
     const patch = { updated_at: new Date().toISOString() };
     if (name !== undefined) patch.name = name;
     if (nodes !== undefined) patch.nodes = nodes;
@@ -1928,6 +1929,7 @@ app.put('/api/workflows/:id', requireAuth, async (req, res) => {
     if (status !== undefined) patch.status = status === 'published' ? 'published' : 'draft';
     if (enabled !== undefined) patch.enabled = !!enabled;
     if (is_entry !== undefined) patch.is_entry = !!is_entry;
+    if ('session_slot' in req.body) patch.session_slot = session_slot != null ? Number(session_slot) : null;
     // Apenas 1 fluxo de entrada por usuário
     if (is_entry === true) {
       await supabase.from('workflows')
@@ -1962,6 +1964,13 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
     if (!connected.length) {
       return res.status(409).json({ error: 'Nenhum canal WhatsApp conectado. Conecte em Canais.' });
     }
+    // Usa o slot vinculado ao fluxo; se não tiver, usa o primeiro conectado
+    let sessionKey = connected[0].key;
+    if (wf.session_slot != null) {
+      const bound = connected.find((s) => s.slot === Number(wf.session_slot));
+      if (!bound) return res.status(409).json({ error: `O chip ${wf.session_slot} vinculado a este fluxo não está conectado.` });
+      sessionKey = bound.key;
+    }
     // Resolver para o bloco "Ir para fluxo" (carrega outro fluxo do usuário)
     const loadFlow = async (flowId) => {
       const { data } = await supabase.from('workflows')
@@ -1969,7 +1978,7 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
         .eq('id', flowId).eq('user_id', req.user.id).single();
       return data || null;
     };
-    const result = await workflowEngine.testRun(wf, connected[0].key, phone, name, loadFlow);
+    const result = await workflowEngine.testRun(wf, sessionKey, phone, name, loadFlow);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2562,7 +2571,7 @@ async function uploadIncomingMedia(userId, evt) {
 const entryFlowCooldown = new Map(); // `${userId}:${phone}` -> ts
 const ENTRY_FLOW_COOLDOWN_MS = 30 * 1000;
 
-function maybeRunEntryWorkflow(userId, evt, isNewConversation) {
+function maybeRunEntryWorkflow(userId, evt, isNewConversation, slot) {
   try {
     const phone = String(evt.phone || '').replace(/\D/g, '');
     if (!userId || phone.length < 10) return; // ignora grupos/jids estranhos
@@ -2575,13 +2584,16 @@ function maybeRunEntryWorkflow(userId, evt, isNewConversation) {
     const now = Date.now();
     if (now - (entryFlowCooldown.get(key) || 0) < ENTRY_FLOW_COOLDOWN_MS) return;
 
+    // Busca fluxo vinculado ao slot específico; fallback para fluxos sem slot definido
+    const slotNum = slot != null ? Number(slot) : null;
     supabase.from('workflows')
-      .select('id, name, nodes, edges')
+      .select('id, name, nodes, edges, session_slot')
       .eq('user_id', userId)
       .eq('is_entry', true)
       .eq('enabled', true)
       .eq('status', 'published')
-      .order('updated_at', { ascending: false })
+      .or(slotNum != null ? `session_slot.eq.${slotNum},session_slot.is.null` : 'session_slot.is.null,session_slot.gte.0')
+      .order('session_slot', { ascending: false, nullsFirst: false }) // slot específico tem prioridade
       .limit(1)
       .maybeSingle()
       .then(async ({ data: wf }) => {
@@ -2719,7 +2731,7 @@ wpp.on('message', async (evt) => {
         .catch(e => console.error('[chat] erro ao atualizar lead:', e.message));
 
       // Gatilho automático do fluxo de entrada (não bloqueia o chat)
-      maybeRunEntryWorkflow(userId, evt, isNewConversation);
+      maybeRunEntryWorkflow(userId, evt, isNewConversation, slot);
     }
   } catch (e) {
     console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');
