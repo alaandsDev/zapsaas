@@ -1978,7 +1978,8 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
         .eq('id', flowId).eq('user_id', req.user.id).single();
       return data || null;
     };
-    const result = await workflowEngine.testRun(wf, sessionKey, phone, name, loadFlow);
+    const applyTag = (toPhone, tags) => applyTagsToLead(req.user.id, toPhone, tags).catch(() => {});
+    const result = await workflowEngine.testRun(wf, sessionKey, phone, name, loadFlow, applyTag);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2565,6 +2566,20 @@ async function uploadIncomingMedia(userId, evt) {
   } catch (e) { console.warn('[chat media] erro:', e.message); return null; }
 }
 
+// ── Helper: aplica tags a um lead pelo phone (usado no workflow engine) ──
+async function applyTagsToLead(userId, phone, tags) {
+  if (!userId || !phone || !tags?.length) return;
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  const { data: lead } = await supabase
+    .from('leads').select('id, tags')
+    .eq('user_id', userId).eq('phone', cleanPhone)
+    .maybeSingle();
+  if (!lead) return; // lead não existe — tag silenciosa
+  const existing = Array.isArray(lead.tags) ? lead.tags : [];
+  const merged = [...new Set([...existing, ...tags])];
+  await supabase.from('leads').update({ tags: merged }).eq('id', lead.id);
+}
+
 // ── Gatilho automático: fluxo de ENTRADA em conversas reais ──────
 // Fire-and-forget, totalmente protegido. Só age se houver um workflow
 // is_entry=true + enabled + published. Sem isso, comportamento inalterado.
@@ -2606,6 +2621,7 @@ function maybeRunEntryWorkflow(userId, evt, isNewConversation, slot) {
           return data || null;
         };
         const sendText = (to, text) => wpp.sendMessage(evt.sessionId, to, text);
+        const applyTag = (toPhone, tags) => applyTagsToLead(userId, toPhone, tags).catch(() => {});
         const onDelay = async ({ flowId, resumeNodeIds, delayMs }) => {
           if (!resumeNodeIds?.length) return;
           await supabase.from('workflow_jobs').insert({
@@ -2620,7 +2636,7 @@ function maybeRunEntryWorkflow(userId, evt, isNewConversation, slot) {
         };
         const r = await workflowEngine.runFlow(
           { id: wf.id, nodes: wf.nodes || [], edges: wf.edges || [] },
-          { phone, name: evt.pushName || '', sendText, loadFlow, onDelay }
+          { phone, name: evt.pushName || '', sendText, loadFlow, onDelay, applyTag }
         );
         console.log(`[entry-flow] user=${userId} phone=${phone} fluxo="${wf.name}" blocos=${r?.steps || 0}`);
       })

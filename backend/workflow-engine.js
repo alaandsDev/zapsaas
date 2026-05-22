@@ -34,7 +34,7 @@ function delayMs(d) {
 }
 const LIVE_INLINE_MAX_MS = 10000; // delays curtos rodam inline; acima disso agenda
 
-async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, startNodeIds }) {
+async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, applyTag, startNodeIds }) {
   const vars = { name: name || '', phone };
   const log = [];
   const ctx = { steps: 0, jumps: 0, visitedFlows: new Set() };
@@ -147,7 +147,19 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, sta
             break; // o fluxo destino assume a continuação
           }
 
-          case 'tag':
+          case 'tag': {
+            const tags = Array.isArray(d.tags) ? d.tags.filter(Boolean) : (d.tag ? [d.tag] : []);
+            if (!tags.length) {
+              log.push({ node: id, kind, status: 'skipped', info: 'nenhuma tag configurada' });
+            } else if (applyTag) {
+              await applyTag(phone, tags);
+              log.push({ node: id, kind, status: 'ok', info: `tags aplicadas: ${tags.join(', ')}` });
+            } else {
+              log.push({ node: id, kind, status: 'ok', info: `tag (sem callback): ${tags.join(', ')}` });
+            }
+            break;
+          }
+
           case 'webhook':
           case 'api':
           case 'redirect':
@@ -172,11 +184,11 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, sta
 }
 
 // Manual test run: envia pela sessão WhatsApp conectada.
-async function testRun(workflow, sessionKey, phone, name, loadFlow) {
+async function testRun(workflow, sessionKey, phone, name, loadFlow, applyTag) {
   const sendText = (to, text) => wpp.sendMessage(sessionKey, to, text);
   return runFlow(
     { id: workflow.id, nodes: workflow.nodes || [], edges: workflow.edges || [] },
-    { phone, name, sendText, loadFlow }
+    { phone, name, sendText, loadFlow, applyTag }
   );
 }
 
