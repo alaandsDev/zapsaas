@@ -22,27 +22,15 @@ export default function SuportePage() {
           <p className="text-sm text-ink-300 mt-2 max-w-md mx-auto">
             Precisa de ajuda? Entre em contato pelo e-mail ou WhatsApp abaixo. Respondemos em até 24h úteis.
           </p>
-          <div className="mt-6 grid sm:grid-cols-2 gap-3 max-w-md mx-auto">
+          <div className="mt-6 flex justify-center max-w-md mx-auto">
             <a
               href="mailto:suporte@wayvo.com.br"
-              className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-primary/30 transition-all text-left"
+              className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-primary/30 transition-all text-left w-full max-w-xs"
             >
               <div className="size-10 rounded-lg bg-accent-blue/15 flex items-center justify-center text-xl shrink-0">📧</div>
               <div>
                 <div className="text-sm font-semibold">E-mail</div>
                 <div className="text-xs text-primary">suporte@wayvo.com.br</div>
-              </div>
-            </a>
-            <a
-              href="https://wa.me/5548991793071?text=Olá! Preciso de suporte no Wayvo."
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-primary/30 transition-all text-left"
-            >
-              <div className="size-10 rounded-lg bg-primary/15 flex items-center justify-center text-xl shrink-0">💬</div>
-              <div>
-                <div className="text-sm font-semibold">WhatsApp</div>
-                <div className="text-xs text-primary">Abrir conversa</div>
               </div>
             </a>
           </div>
