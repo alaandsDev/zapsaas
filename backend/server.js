@@ -2816,6 +2816,57 @@ wpp.on('message', async (evt) => {
 
 // ── Endpoints de Conversas ────────────────────────────────────
 // Lista conversas (filtrável por slot)
+// Marcar conversa como não lida
+app.post('/api/chats/:id/unread', requireAuth, async (req, res) => {
+  try {
+    await supabase.from('chats').update({ unread: 1 })
+      .eq('id', req.params.id).eq('user_id', req.user.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sugestão de resposta por IA — últimas mensagens da conversa
+app.post('/api/ai-suggest', requireAuth, rateLimit(60 * 1000, 20), async (req, res) => {
+  try {
+    const { chatId } = req.body;
+    if (!chatId) return res.status(400).json({ error: 'chatId obrigatório' });
+
+    // Garante que o chat pertence ao usuário
+    const { data: chat } = await supabase.from('chats')
+      .select('id, name, phone').eq('id', chatId).eq('user_id', req.user.id).maybeSingle();
+    if (!chat) return res.status(404).json({ error: 'Conversa não encontrada' });
+
+    // Busca as últimas 12 mensagens para contexto
+    const { data: msgs } = await supabase.from('chat_messages')
+      .select('direction, text, type, timestamp')
+      .eq('chat_id', chatId)
+      .not('text', 'is', null)
+      .order('timestamp', { ascending: false })
+      .limit(12);
+
+    const history = (msgs || []).reverse();
+    if (!history.length) return res.json({ suggestion: '' });
+
+    const formatted = history.map((m) =>
+      `${m.direction === 'in' ? (chat.name || 'Cliente') : 'Atendente'}: ${m.text}`
+    ).join('\n');
+
+    const system = [
+      'Você é um assistente de atendimento via WhatsApp para uma empresa brasileira.',
+      'Com base no histórico da conversa, sugira UMA resposta curta, natural e profissional para o atendente enviar.',
+      'Responda APENAS com o texto da mensagem, sem explicações, sem aspas, sem prefixos.',
+      `Nome do cliente: ${chat.name || 'Cliente'}. Número: ${chat.phone}.`,
+    ].join(' ');
+
+    const { callAI } = require('./ai');
+    const suggestion = await callAI(system, `Histórico:\n${formatted}\n\nSugira a próxima resposta do Atendente:`);
+    res.json({ suggestion: suggestion || '' });
+  } catch (e) {
+    console.warn('[ai-suggest]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/chats', requireAuth, async (req, res) => {
   try {
     const slot = req.query.slot ? parseInt(req.query.slot) : null;

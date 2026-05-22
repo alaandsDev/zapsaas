@@ -258,6 +258,8 @@ export default function Conversas() {
   const searchTimer   = useRef(null);
   const fileInputRef  = useRef(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
+  const [aiLoading,    setAiLoading]      = useState(false);
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
@@ -510,6 +512,25 @@ export default function Conversas() {
     if (chat.unread > 0) {
       setAllChats((prev) => prev.map((c) => c.id === chat.id ? { ...c, unread: 0 } : c));
     }
+  }
+
+  function markUnread() {
+    if (!activeChat) return;
+    setMoreMenuOpen(false);
+    setAllChats((prev) => prev.map((c) => c.id === activeChat.id ? { ...c, unread: 1 } : c));
+    api(`/api/chats/${activeChat.id}/unread`, { method: "POST" }).catch(() => {});
+  }
+
+  async function suggestAI() {
+    if (!activeChat?.id || aiLoading) return;
+    setAiLoading(true);
+    try {
+      const r = await api("/api/ai-suggest", { method: "POST", body: { chatId: activeChat.id } });
+      if (r?.suggestion) setDraft(r.suggestion);
+      else setToast({ msg: "IA não retornou sugestão — configure OPENAI_API_KEY", duration: 3000 });
+    } catch (e) {
+      setToast({ msg: e.message || "Falha na sugestão de IA", duration: 3000 });
+    } finally { setAiLoading(false); }
   }
 
   function copyPhone() {
@@ -871,10 +892,34 @@ export default function Conversas() {
                       className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-white/10 text-ink-300 hover:text-ink-100 hover:bg-white/[0.04] transition-all">
                       <ExternalLink className="size-3.5" />
                     </a>
-                    <button title="Mais opções"
-                      className="size-8 rounded-lg border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
-                      <MoreHorizontal className="size-4" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setMoreMenuOpen((v) => !v)}
+                        title="Mais opções"
+                        className="size-8 rounded-lg border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
+                        <MoreHorizontal className="size-4" />
+                      </button>
+                      {moreMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-30" onClick={() => setMoreMenuOpen(false)} />
+                          <div className="absolute right-0 top-10 z-40 w-48 rounded-xl border border-white/[0.08] bg-[#0B1120] shadow-elevated py-1 animate-scale-in">
+                            <button onClick={markUnread}
+                              className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-ink-300 hover:text-ink-100 hover:bg-white/[0.04] transition-colors">
+                              <MessageSquare className="size-3.5" /> Marcar como não lido
+                            </button>
+                            <button onClick={() => { navigator.clipboard?.writeText(`+${activeChat?.phone}`); setMoreMenuOpen(false); setToast({ msg: "Número copiado", duration: 1500 }); }}
+                              className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-ink-300 hover:text-ink-100 hover:bg-white/[0.04] transition-colors">
+                              <Copy className="size-3.5" /> Copiar número
+                            </button>
+                            <a href={`https://wa.me/${activeChat?.phone}`} target="_blank" rel="noreferrer"
+                              onClick={() => setMoreMenuOpen(false)}
+                              className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-ink-300 hover:text-ink-100 hover:bg-white/[0.04] transition-colors">
+                              <ExternalLink className="size-3.5" /> Abrir no WhatsApp Web
+                            </a>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {/* Respondendo como — badge compacta abaixo do header */}
@@ -980,8 +1025,12 @@ export default function Conversas() {
                     <button className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors" title="Emoji">
                       <span className="text-[15px] leading-none">😊</span>
                     </button>
-                    <button className="flex items-center gap-1 px-2 h-8 rounded-lg text-[11px] font-semibold text-accent-blue hover:bg-accent-blue/10 transition-colors" title="Sugestão de IA">
-                      <Zap className="size-3.5" /> IA
+                    <button
+                      onClick={suggestAI}
+                      disabled={aiLoading}
+                      className="flex items-center gap-1 px-2 h-8 rounded-lg text-[11px] font-semibold text-accent-blue hover:bg-accent-blue/10 transition-colors disabled:opacity-40"
+                      title="Sugestão de resposta por IA">
+                      {aiLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />} IA
                     </button>
                   </div>
 
