@@ -34,7 +34,7 @@ export default function SuportePage() {
               </div>
             </a>
             <a
-              href="https://wa.me/5511999999999?text=Olá! Preciso de suporte no Wayvo."
+              href="https://wa.me/5548991793071?text=Olá! Preciso de suporte no Wayvo."
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-primary/30 transition-all text-left"

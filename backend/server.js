@@ -256,10 +256,62 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
       }
     }
 
-    // Mensagens recebidas (responses) — só loga; engine de automação plug aqui depois
+    // Mensagens recebidas — persiste no inbox e emite SSE
     if (change.messages) {
+      const contacts = change.contacts || [];
       for (const msg of change.messages) {
-        console.log(`[wpp-cloud] msg de ${msg.from}: ${msg.text?.body || msg.type}`);
+        try {
+          const phone = String(msg.from).replace(/\D/g, '');
+          const pushName = contacts.find(c => c.wa_id === msg.from)?.profile?.name || null;
+          const ts = msg.timestamp ? new Date(Number(msg.timestamp) * 1000).toISOString() : new Date().toISOString();
+
+          let msgType = msg.type || 'text';
+          let msgText = null;
+          let mediaUrl = null;
+          if (msg.type === 'text') { msgText = msg.text?.body || ''; }
+          else if (msg.type === 'image')    { msgText = msg.image?.caption || null; msgType = 'image'; }
+          else if (msg.type === 'video')    { msgText = msg.video?.caption || null; msgType = 'video'; }
+          else if (msg.type === 'audio')    { msgType = 'audio'; }
+          else if (msg.type === 'document') { msgText = msg.document?.filename || null; msgType = 'document'; }
+          else if (msg.type === 'sticker')  { msgType = 'sticker'; }
+
+          const preview = msgText || { image: '📷 Foto', video: '🎬 Vídeo', audio: '🎵 Áudio', document: '📄 Documento', sticker: '🌟 Figurinha' }[msgType] || '';
+
+          // Upsert chat (slot 0 = Canal Oficial)
+          const CLOUD_SLOT = 0;
+          const { data: existing } = await supabase.from('chats')
+            .select('id, unread').eq('user_id', config.user_id).eq('session_slot', CLOUD_SLOT).eq('phone', phone).maybeSingle();
+
+          let chatId = existing?.id;
+          if (!chatId) {
+            const { data: created } = await supabase.from('chats').upsert({
+              user_id: config.user_id, session_slot: CLOUD_SLOT, phone,
+              name: pushName || null, last_message: preview, last_message_at: ts, unread: 1,
+            }, { onConflict: 'user_id,session_slot,phone' }).select('id').single();
+            chatId = created?.id;
+          } else {
+            await supabase.from('chats').update({
+              name: pushName || undefined, last_message: preview, last_message_at: ts,
+              unread: (existing.unread || 0) + 1, updated_at: new Date().toISOString(),
+            }).eq('id', chatId);
+          }
+
+          if (chatId) {
+            await supabase.from('chat_messages').insert({
+              chat_id: chatId, user_id: config.user_id,
+              direction: 'in', type: msgType, text: msgText,
+              media_url: mediaUrl, status: 'received', timestamp: ts,
+              external_id: msg.id,
+            });
+            sseSend(config.user_id, 'message', {
+              chatId, slot: CLOUD_SLOT, phone, direction: 'in',
+              type: msgType, text: msgText, media_url: mediaUrl, timestamp: ts,
+            });
+          }
+          console.log(`[wpp-cloud] msg de ${phone} (${msgType}): ${preview.slice(0, 40)}`);
+        } catch (mErr) {
+          console.warn('[wpp-cloud] erro ao persistir msg:', mErr.message);
+        }
       }
     }
 
@@ -815,6 +867,14 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
     const useCloud = channel === 'cloud' || (!hasBaileys && hasCloud);
     const useBaileys = !useCloud && hasBaileys && useWhatsapp !== false;
     const via = useCloud ? 'cloud_api' : useBaileys ? 'baileys' : 'simulated';
+
+    // Bloqueia disparo sem canal real disponível — nunca simula silenciosamente
+    if (!useCloud && !useBaileys) {
+      return res.status(409).json({
+        error: 'Nenhum canal WhatsApp conectado. Conecte um número em Canais antes de disparar.',
+        code: 'no_channel',
+      });
+    }
     if (useBaileys && sourceSessionSlot && !connectedForDispatch.some(s => s.slot === parseInt(sourceSessionSlot))) {
       return res.status(400).json({ error: `Número ${sourceSessionSlot} não está conectado.` });
     }
@@ -2818,40 +2878,78 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
 // Envia mensagem por uma sessão específica e persiste
 app.post('/api/chats/send', requireAuth, async (req, res) => {
   try {
-    const { slot, phone, message } = req.body;
-    if (!phone || !message) return res.status(400).json({ error: 'phone e message obrigatórios' });
+    const { slot, phone, message, mediaUrl, mediaMimetype, mediaFilename } = req.body;
+    if (!phone || (!message && !mediaUrl)) return res.status(400).json({ error: 'phone e message ou mediaUrl obrigatórios' });
     const useSlot = slot ? parseInt(slot) : 1;
     const key = sessionKey(req.user.id, useSlot);
     const status = wpp.getStatus(key);
     if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
 
-    const r = await wpp.sendMessage(key, phone, message);
-    // O hook messages.upsert (fromMe) também persiste, mas assegura aqui
+    // Monta mídia se houver URL
+    let media = null;
+    if (mediaUrl) {
+      try {
+        let buffer;
+        if (mediaUrl.includes('/storage/v1/object/public/media/')) {
+          const filePath = decodeURIComponent(mediaUrl.split('/storage/v1/object/public/media/')[1]);
+          const { data: fileData } = await supabase.storage.from('media').download(filePath);
+          buffer = Buffer.from(await fileData.arrayBuffer());
+        } else {
+          const resp = await fetch(mediaUrl);
+          buffer = Buffer.from(await resp.arrayBuffer());
+        }
+        media = {
+          buffer,
+          mimetype: mediaMimetype || 'application/octet-stream',
+          filename: mediaFilename || 'arquivo',
+          caption: message || '',
+        };
+      } catch (mErr) {
+        console.warn('[chats/send] erro ao baixar mídia:', mErr.message);
+      }
+    }
+
+    const r = await wpp.sendMessage(key, phone, message || '', media);
+
+    // Persiste no banco (o hook fromMe também persiste, mas garantimos aqui)
     const cleanedPhone = String(phone).replace(/\D/g, '');
     const ts = new Date().toISOString();
+    const msgType = media
+      ? (mediaMimetype?.startsWith('image/') ? 'image'
+        : mediaMimetype?.startsWith('video/') ? 'video'
+        : mediaMimetype?.startsWith('audio/') ? 'audio'
+        : 'document')
+      : 'text';
+    const lastPreview = media ? `📎 ${mediaFilename || 'Arquivo'}` : message;
+
     let { data: chat } = await supabase.from('chats').select('id')
       .eq('user_id', req.user.id).eq('session_slot', useSlot).eq('phone', cleanedPhone).maybeSingle();
     if (!chat) {
       const { data: created } = await supabase.from('chats').insert({
         user_id: req.user.id, session_slot: useSlot, phone: cleanedPhone,
-        last_message: message, last_message_at: ts, unread: 0
+        last_message: lastPreview, last_message_at: ts, unread: 0
       }).select('id').single();
       chat = created;
     } else {
-      await supabase.from('chats').update({ last_message: message, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
+      await supabase.from('chats').update({ last_message: lastPreview, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
     }
     if (chat?.id) {
       await supabase.from('chat_messages').insert({
         chat_id: chat.id, user_id: req.user.id,
-        direction: 'out', type: 'text', text: message,
-        status: 'sent', timestamp: ts
+        direction: 'out', type: msgType,
+        text: message || null,
+        media_url: mediaUrl || null,
+        media_filename: mediaFilename || null,
+        status: 'sent', timestamp: ts,
       });
       sseSend(req.user.id, 'message', {
         chatId: chat.id, slot: useSlot, phone: cleanedPhone,
-        direction: 'out', type: 'text', text: message, timestamp: ts,
+        direction: 'out', type: msgType,
+        text: message || null, media_url: mediaUrl || null,
+        media_filename: mediaFilename || null, timestamp: ts,
       });
     }
-    res.json({ ok: true, sentTo: r.to });
+    res.json({ ok: true, sentTo: r?.to });
   } catch (e) {
     console.error('[chats/send]', e);
     res.status(500).json({ error: e.message });

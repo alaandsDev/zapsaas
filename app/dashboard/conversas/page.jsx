@@ -256,6 +256,8 @@ export default function Conversas() {
   const msgsEndRef    = useRef(null);
   const activeChatRef = useRef(null);
   const searchTimer   = useRef(null);
+  const fileInputRef  = useRef(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
@@ -462,6 +464,45 @@ export default function Conversas() {
     } catch {
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
     } finally { setSending(false); }
+  }
+
+  async function sendFile(file) {
+    if (!file || !activeChat) return;
+    setUploadingFile(true);
+    const tempId = `tmp_${Date.now()}`;
+    const isImage = file.type.startsWith("image/");
+    setMsgs((m) => [...m, {
+      id: tempId, direction: "out",
+      type: isImage ? "image" : "document",
+      text: file.name, status: "pending", timestamp: new Date().toISOString(),
+    }]);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const token = (await import("../../../lib/api")).getToken();
+      const upRes = await fetch(`${API_URL}/api/media/upload`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
+      });
+      if (!upRes.ok) throw new Error("Falha no upload");
+      const { url, mimetype, originalname } = await upRes.json();
+      await api("/api/chats/send", {
+        method: "POST",
+        body: {
+          slot: activeChat.slot,
+          phone: activeChat.phone,
+          message: "",
+          mediaUrl: url,
+          mediaMimetype: mimetype,
+          mediaFilename: originalname,
+        },
+      });
+      setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "sent", media_url: url } : msg));
+    } catch {
+      setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   function selectChat(chat) {
@@ -921,8 +962,20 @@ export default function Conversas() {
                 <div className="flex gap-2 items-end">
                   {/* Ícones esquerdos */}
                   <div className="flex items-center gap-1 pb-2 shrink-0">
-                    <button className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors" title="Anexar">
-                      <Paperclip className="size-4" />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.zip"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) sendFile(f); }}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingFile}
+                      className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors disabled:opacity-40"
+                      title="Anexar arquivo"
+                    >
+                      {uploadingFile ? <RefreshCw className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
                     </button>
                     <button className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors" title="Emoji">
                       <span className="text-[15px] leading-none">😊</span>
