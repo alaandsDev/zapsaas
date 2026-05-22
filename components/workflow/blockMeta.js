@@ -98,6 +98,17 @@ export const BLOCK_META = {
       return (d.tags || []).length > 0 ? `${action}: ${d.tags.join(", ")}` : "Tag não configurada";
     },
   },
+  webhook: {
+    label: "Webhook",
+    color: "#60A5FA",
+    defaultData: { url: "", method: "POST", headers: "", bodyTemplate: "" },
+    validate: (d) => {
+      if (!d.url?.trim()) return "URL do webhook é obrigatória";
+      try { new URL(d.url); } catch { return "URL inválida"; }
+      return null;
+    },
+    summary: (d) => d.url ? `🔗 ${d.method || "POST"} ${d.url.replace(/^https?:\/\//, "").slice(0, 40)}` : "URL não configurada",
+  },
   redirect: {
     label: "Redirecionar",
     color: "#F87171",

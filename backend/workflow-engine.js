@@ -160,7 +160,42 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, app
             break;
           }
 
-          case 'webhook':
+          case 'webhook': {
+            const url = d.url?.trim();
+            if (!url) { log.push({ node: id, kind, status: 'skipped', info: 'URL não configurada' }); break; }
+            const method = (d.method || 'POST').toUpperCase();
+            // Aplica variáveis no body template
+            let body = undefined;
+            if (d.bodyTemplate?.trim()) {
+              const rendered = applyVars(d.bodyTemplate, vars);
+              try { body = JSON.parse(rendered); }
+              catch { body = { raw: rendered }; }
+            } else if (method !== 'GET') {
+              body = { phone, name: vars.name, numero: phone };
+            }
+            // Headers extras
+            let extraHeaders = {};
+            if (d.headers?.trim()) {
+              try { extraHeaders = JSON.parse(d.headers); } catch { /* ignora headers inválidos */ }
+            }
+            const ctrl = new AbortController();
+            const timeout = setTimeout(() => ctrl.abort(), 10000);
+            try {
+              const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', ...extraHeaders },
+                body: body != null ? JSON.stringify(body) : undefined,
+                signal: ctrl.signal,
+              });
+              clearTimeout(timeout);
+              log.push({ node: id, kind, status: res.ok ? 'ok' : 'warn', info: `HTTP ${res.status} ${method} ${url.slice(0, 50)}` });
+            } catch (fetchErr) {
+              clearTimeout(timeout);
+              log.push({ node: id, kind, status: 'error', info: `Webhook falhou: ${fetchErr.message}` });
+            }
+            break;
+          }
+
           case 'api':
           case 'redirect':
             log.push({ node: id, kind, status: 'ok', info: `${kind} (simulado no teste)` });
