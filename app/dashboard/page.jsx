@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import {
   Users, MessageSquare, Zap, ArrowUpRight, Phone, ChevronRight,
-  Sparkles, Send, Radio, DollarSign,
+  Sparkles, Send, Radio, DollarSign, CheckCircle2, Circle, X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Topbar from "../../components/dashboard/Topbar";
@@ -87,6 +87,120 @@ function Sparkline({ data, color }) {
           fill={`url(#${id})`} dot={false} isAnimationActive />
       </AreaChart>
     </ResponsiveContainer>
+  );
+}
+
+/* ════════════════════ ONBOARDING CHECKLIST ════════════════════ */
+const OB_KEY = "wayvo_onboarding_dismissed";
+
+const OB_STEPS = [
+  { id: "connect",   icon: Phone,         label: "Conectar WhatsApp",     desc: "Vincule ao menos 1 número para disparar mensagens.",   href: "/dashboard/canais" },
+  { id: "leads",     icon: Users,         label: "Adicionar leads",        desc: "Importe ou cadastre seus primeiros contatos.",          href: "/dashboard/leads" },
+  { id: "campaign",  icon: Send,          label: "Enviar primeira campanha", desc: "Crie e dispare uma campanha para seus leads.",        href: "/dashboard/campanhas" },
+  { id: "workflow",  icon: Zap,           label: "Criar uma automação",   desc: "Monte um fluxo automático para atender no piloto.",     href: "/dashboard/workflow" },
+];
+
+function OnboardingChecklist({ connectedSlots, stats, dispatches }) {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(OB_KEY) === "1"; } catch { return false; }
+  });
+  const [workflows, setWorkflows] = useState(null);
+
+  useEffect(() => {
+    if (dismissed) return;
+    api("/api/workflows").then((r) => setWorkflows(Array.isArray(r) ? r : r?.data || [])).catch(() => setWorkflows([]));
+  }, [dismissed]);
+
+  if (dismissed) return null;
+
+  const done = {
+    connect:  connectedSlots > 0,
+    leads:    (stats.leads || 0) > 0,
+    campaign: dispatches.length > 0,
+    workflow: Array.isArray(workflows) && workflows.some((w) => w.active),
+  };
+  const completedCount = Object.values(done).filter(Boolean).length;
+
+  if (completedCount === 4) return null; // auto-hide when fully complete
+
+  const dismiss = () => {
+    try { localStorage.setItem(OB_KEY, "1"); } catch {}
+    setDismissed(true);
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key="onboarding"
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ delay: 0.05 }}
+        className="relative rounded-2xl border border-white/[0.08] overflow-hidden"
+        style={{ background: "linear-gradient(135deg,rgba(0,255,136,0.04) 0%,rgba(5,8,22,0.6) 60%,rgba(0,209,255,0.04) 100%)" }}
+      >
+        {/* dismiss */}
+        <button onClick={dismiss}
+          className="absolute top-4 right-4 size-7 flex items-center justify-center rounded-lg text-ink-500 hover:text-ink-200 hover:bg-white/[0.06] transition-all z-10">
+          <X className="size-4" />
+        </button>
+
+        <div className="p-5 lg:p-6">
+          {/* header */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="size-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `${NEON}18`, border: `1px solid ${NEON}30` }}>
+              <Sparkles className="size-4" style={{ color: NEON }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm">Primeiros passos</h3>
+              <p className="text-xs text-ink-400">{completedCount} de 4 concluídos</p>
+            </div>
+          </div>
+
+          {/* progress bar */}
+          <div className="h-1.5 rounded-full bg-white/[0.07] mb-5 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: `linear-gradient(90deg,${NEON},${CYAN})` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${(completedCount / 4) * 100}%` }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </div>
+
+          {/* steps */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {OB_STEPS.map((step) => {
+              const isDone = done[step.id];
+              const Icon = step.icon;
+              return (
+                <Link key={step.id} href={isDone ? "#" : step.href}
+                  onClick={isDone ? (e) => e.preventDefault() : undefined}
+                  className={`group flex flex-col gap-2.5 p-4 rounded-xl border transition-all ${
+                    isDone
+                      ? "border-white/[0.05] opacity-60 cursor-default"
+                      : "border-white/[0.08] hover:border-primary/30 hover:bg-white/[0.03]"
+                  }`}>
+                  <div className="flex items-center justify-between">
+                    <div className={`size-8 rounded-lg flex items-center justify-center ${isDone ? "bg-white/[0.06]" : "bg-white/[0.06] group-hover:bg-primary/10"} transition-colors`}>
+                      <Icon className="size-4" style={{ color: isDone ? "#4ade80" : step.id === "connect" ? NEON : step.id === "leads" ? CYAN : step.id === "campaign" ? "#F59E0B" : "#7C3AED" }} />
+                    </div>
+                    {isDone
+                      ? <CheckCircle2 className="size-4 text-green-400 shrink-0" />
+                      : <Circle className="size-4 text-ink-600 shrink-0" />}
+                  </div>
+                  <div>
+                    <p className={`text-xs font-semibold ${isDone ? "line-through text-ink-500" : "text-ink-100"}`}>{step.label}</p>
+                    {!isDone && <p className="text-[11px] text-ink-500 mt-0.5 leading-relaxed">{step.desc}</p>}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -305,6 +419,15 @@ export default function DashboardHome() {
             </div>
           </div>
         </motion.div>
+
+        {/* ── Onboarding checklist ── */}
+        {!loading && (
+          <OnboardingChecklist
+            connectedSlots={connectedSlots}
+            stats={stats}
+            dispatches={dispatches}
+          />
+        )}
 
         {/* ── Saúde operacional + IA ── */}
         <motion.div
