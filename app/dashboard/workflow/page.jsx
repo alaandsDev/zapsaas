@@ -23,6 +23,64 @@ import { BlockEditorPanel, WorkflowWhatsappPreview, BLOCK_REGISTRY } from "../..
 import { validateWorkflow } from "../../../components/workflow/blockMeta";
 import { api } from "../../../lib/api";
 
+// ── Modal: telefone de teste ─────────────────────────────────────
+function TestModal({ open, onClose, onConfirm, sessions }) {
+  const [phone, setPhone] = useState("");
+  const [slot, setSlot] = useState(sessions[0]?.slot ?? "");
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0B1120] shadow-2xl overflow-hidden"
+      >
+        <div className="h-1 w-full bg-gradient-to-r from-primary to-accent-blue" />
+        <div className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-ink-100">Testar fluxo</h3>
+            <button onClick={onClose} className="text-ink-500 hover:text-ink-300 text-lg leading-none">✕</button>
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-400 mb-1.5">Número de destino</label>
+            <input
+              autoFocus
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="11999998888"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
+            />
+            <p className="text-[10px] text-ink-600 mt-1">Apenas números, com DDD. Ex: 11999998888</p>
+          </div>
+          {sessions.length > 1 && (
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-400 mb-1.5">Enviar pelo chip</label>
+              <select
+                value={slot}
+                onChange={(e) => setSlot(e.target.value)}
+                className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-primary/50 transition-colors appearance-none cursor-pointer"
+              >
+                {sessions.map((s) => (
+                  <option key={s.slot} value={s.slot}>Chip {s.slot}{s.phone ? ` · +${s.phone}` : ""}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <button
+            disabled={!phone.trim()}
+            onClick={() => { if (phone.trim()) onConfirm(phone.trim(), slot); }}
+            className="w-full py-2.5 rounded-xl bg-primary text-bg font-bold text-sm hover:bg-primary/90 transition-colors disabled:opacity-40"
+          >
+            Disparar teste
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 let idSeq = 100;
 const nextId = () => `n${idSeq++}`;
 
@@ -80,6 +138,9 @@ function Builder() {
   const [aiOpen, setAiOpen] = useState(false);
   const [flows, setFlows] = useState([]);
   const [flowsOpen, setFlowsOpen] = useState(false);
+  const [slotId, setSlotId] = useState(null); // null = todos os chips
+  const [connectedSessions, setConnectedSessions] = useState([]);
+  const [testOpen, setTestOpen] = useState(false);
 
   const loadFlows = useCallback(() => {
     return api("/api/workflows")
@@ -182,12 +243,19 @@ function Builder() {
   }
 
   useEffect(() => {
+    // Carrega sessões conectadas
+    api("/api/sessions").then((list) => {
+      const connected = (Array.isArray(list) ? list : []).filter((s) => s.status === "connected" || s.connected);
+      setConnectedSessions(connected);
+    }).catch(() => {});
+
     loadFlows()
       .then(async (list) => {
         if (!list?.length) return;
         const full = await api(`/api/workflows/${list[0].id}`);
         setWfId(full.id);
         setWfName(full.name || "Meu fluxo");
+        setSlotId(full.session_slot ?? null);
         if (full.nodes?.length) setNodes(full.nodes);
         if (full.edges) setEdges(full.edges);
       })
@@ -201,6 +269,7 @@ function Builder() {
       const full = await api(`/api/workflows/${id}`);
       setWfId(full.id);
       setWfName(full.name || "Fluxo");
+      setSlotId(full.session_slot ?? null);
       setNodes(full.nodes?.length ? full.nodes : []);
       setEdges(full.edges || []);
       setSelectedId(null);
@@ -253,7 +322,7 @@ function Builder() {
       const action = status === "published" ? "publish" : "save";
       setBusy(action);
       try {
-        const payload = { name: wfName, nodes, edges, status };
+        const payload = { name: wfName, nodes, edges, status, session_slot: slotId ?? null };
         let saved;
         if (wfId) {
           saved = await api(`/api/workflows/${wfId}`, { method: "PUT", body: payload });
@@ -271,12 +340,11 @@ function Builder() {
         setBusy(null);
       }
     },
-    [wfId, wfName, nodes, edges, flash, loadFlows]
+    [wfId, wfName, nodes, edges, slotId, flash, loadFlows]
   );
 
-  const testRun = useCallback(async () => {
-    const phone = window.prompt("Número de teste (com DDD). Ex: 11999998888");
-    if (!phone) return;
+  const runTest = useCallback(async (phone, slot) => {
+    setTestOpen(false);
     setBusy("test");
     try {
       const saved = wfId ? { id: wfId } : await persist("draft");
@@ -350,6 +418,22 @@ function Builder() {
               onChange={(e) => setWfName(e.target.value)}
               className="hidden md:block w-44 rounded-lg bg-bg/60 border border-white/10 px-3 py-2 text-sm outline-none focus:border-primary/60"
             />
+            {/* Seletor de chip */}
+            {connectedSessions.length > 0 && (
+              <select
+                value={slotId ?? ""}
+                onChange={(e) => setSlotId(e.target.value === "" ? null : Number(e.target.value))}
+                title="Vincular fluxo a um chip específico"
+                className="hidden sm:block rounded-lg bg-bg/60 border border-white/10 px-2.5 py-2 text-[12px] text-ink-200 outline-none focus:border-primary/60 cursor-pointer appearance-none"
+              >
+                <option value="">📡 Todos os chips</option>
+                {connectedSessions.map((s) => (
+                  <option key={s.slot} value={s.slot}>
+                    🟢 Chip {s.slot}{s.phone ? ` · +${s.phone}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="relative">
               <button
                 onClick={() => setFlowsOpen((v) => !v)}
@@ -452,7 +536,7 @@ function Builder() {
                 )}
               </AnimatePresence>
             </div>
-            <Button variant="ghost" loading={busy === "test"} onClick={testRun} className="!py-2 !px-3 text-sm">
+            <Button variant="ghost" loading={busy === "test"} onClick={() => setTestOpen(true)} className="!py-2 !px-3 text-sm">
               Testar fluxo
             </Button>
             <Button variant="ghost" loading={busy === "save"} onClick={() => persist("draft")} className="!py-2 !px-3 text-sm">
@@ -480,6 +564,17 @@ function Builder() {
           </motion.div>
         )}
       </AnimatePresence>
+      <AnimatePresence>
+        {testOpen && (
+          <TestModal
+            open={testOpen}
+            sessions={connectedSessions}
+            onClose={() => setTestOpen(false)}
+            onConfirm={runTest}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         <NodePalette onAdd={(k) => addNode(k)} />
 
