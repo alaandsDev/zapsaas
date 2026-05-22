@@ -256,10 +256,62 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
       }
     }
 
-    // Mensagens recebidas (responses) — só loga; engine de automação plug aqui depois
+    // Mensagens recebidas — persiste no inbox e emite SSE
     if (change.messages) {
+      const contacts = change.contacts || [];
       for (const msg of change.messages) {
-        console.log(`[wpp-cloud] msg de ${msg.from}: ${msg.text?.body || msg.type}`);
+        try {
+          const phone = String(msg.from).replace(/\D/g, '');
+          const pushName = contacts.find(c => c.wa_id === msg.from)?.profile?.name || null;
+          const ts = msg.timestamp ? new Date(Number(msg.timestamp) * 1000).toISOString() : new Date().toISOString();
+
+          let msgType = msg.type || 'text';
+          let msgText = null;
+          let mediaUrl = null;
+          if (msg.type === 'text') { msgText = msg.text?.body || ''; }
+          else if (msg.type === 'image')    { msgText = msg.image?.caption || null; msgType = 'image'; }
+          else if (msg.type === 'video')    { msgText = msg.video?.caption || null; msgType = 'video'; }
+          else if (msg.type === 'audio')    { msgType = 'audio'; }
+          else if (msg.type === 'document') { msgText = msg.document?.filename || null; msgType = 'document'; }
+          else if (msg.type === 'sticker')  { msgType = 'sticker'; }
+
+          const preview = msgText || { image: '📷 Foto', video: '🎬 Vídeo', audio: '🎵 Áudio', document: '📄 Documento', sticker: '🌟 Figurinha' }[msgType] || '';
+
+          // Upsert chat (slot 0 = Canal Oficial)
+          const CLOUD_SLOT = 0;
+          const { data: existing } = await supabase.from('chats')
+            .select('id, unread').eq('user_id', config.user_id).eq('session_slot', CLOUD_SLOT).eq('phone', phone).maybeSingle();
+
+          let chatId = existing?.id;
+          if (!chatId) {
+            const { data: created } = await supabase.from('chats').upsert({
+              user_id: config.user_id, session_slot: CLOUD_SLOT, phone,
+              name: pushName || null, last_message: preview, last_message_at: ts, unread: 1,
+            }, { onConflict: 'user_id,session_slot,phone' }).select('id').single();
+            chatId = created?.id;
+          } else {
+            await supabase.from('chats').update({
+              name: pushName || undefined, last_message: preview, last_message_at: ts,
+              unread: (existing.unread || 0) + 1, updated_at: new Date().toISOString(),
+            }).eq('id', chatId);
+          }
+
+          if (chatId) {
+            await supabase.from('chat_messages').insert({
+              chat_id: chatId, user_id: config.user_id,
+              direction: 'in', type: msgType, text: msgText,
+              media_url: mediaUrl, status: 'received', timestamp: ts,
+              external_id: msg.id,
+            });
+            sseSend(config.user_id, 'message', {
+              chatId, slot: CLOUD_SLOT, phone, direction: 'in',
+              type: msgType, text: msgText, media_url: mediaUrl, timestamp: ts,
+            });
+          }
+          console.log(`[wpp-cloud] msg de ${phone} (${msgType}): ${preview.slice(0, 40)}`);
+        } catch (mErr) {
+          console.warn('[wpp-cloud] erro ao persistir msg:', mErr.message);
+        }
       }
     }
 
