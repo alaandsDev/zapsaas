@@ -7,6 +7,20 @@
 // url, options, amount/unit...). Suporta o bloco "goto" (Ir para fluxo).
 
 const wpp = require('./whatsapp');
+const { callAI } = require('./ai');
+
+const GOALS = {
+  qualify_lead:     'Qualifique o lead, entenda seu objetivo e a urgência de compra',
+  answer_question:  'Responda à dúvida do contato de forma clara e objetiva',
+  classify_intent:  'Identifique a intenção do contato e classifique como quente, morno ou frio',
+  summarize:        'Resuma a situação da conversa de forma concisa',
+  suggest_offer:    'Sugira a melhor oferta disponível com base no perfil do contato',
+};
+const TONES = {
+  friendly:     'amigável, próximo e descontraído',
+  professional: 'profissional, direto e confiante',
+  formal:       'formal, respeitoso e cuidadoso',
+};
 
 const MAX_STEPS = 80;          // total de blocos executados (anti-loop global)
 const MAX_FLOW_JUMPS = 5;      // quantos "Ir para fluxo" encadeados
@@ -84,9 +98,30 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, app
           }
 
           case 'ia': {
-            const t = applyVars(d.prompt ?? d.body, vars);
-            if (t.trim()) { await sendText(phone, t); log.push({ node: id, kind, status: 'sent', info: 'resposta IA (simulada)' }); }
-            else log.push({ node: id, kind, status: 'skipped', info: 'sem instrução' });
+            const instruction = applyVars(d.prompt ?? d.body, vars);
+            if (!instruction.trim()) { log.push({ node: id, kind, status: 'skipped', info: 'sem instrução' }); break; }
+            try {
+              const goalLabel = GOALS[d.goal || 'qualify_lead'] || 'Ajude o contato';
+              const toneLabel = TONES[d.tone || 'friendly']     || 'amigável';
+              const system = [
+                'Você é um assistente de vendas e atendimento via WhatsApp.',
+                `Objetivo: ${goalLabel}.`,
+                `Tom: ${toneLabel}.`,
+                'Responda de forma concisa (no máximo 2 parágrafos curtos), sem formatação markdown.',
+                `Nome do contato: ${vars.name || 'contato'}. Número: ${vars.phone}.`,
+              ].join(' ');
+              const reply = await callAI(system, instruction);
+              if (reply) {
+                await sendText(phone, reply);
+                log.push({ node: id, kind, status: 'sent', info: `IA: "${reply.slice(0, 60)}…"` });
+              } else {
+                log.push({ node: id, kind, status: 'skipped', info: 'IA retornou resposta vazia' });
+              }
+            } catch (aiErr) {
+              // Fallback: envia a instrução como texto simples (comportamento anterior)
+              await sendText(phone, instruction);
+              log.push({ node: id, kind, status: 'warn', info: `IA indisponível (${aiErr.message}) — enviou instrução como texto` });
+            }
             break;
           }
 
