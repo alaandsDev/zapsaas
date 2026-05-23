@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Topbar from "../../../components/dashboard/Topbar";
 import { Field, Input, Textarea, Button } from "../../../components/ui/Field";
-import { api, API_URL, getToken } from "../../../lib/api";
+import { api } from "../../../lib/api";
 
 const MAX_SLOTS = 2;
 
@@ -36,33 +36,27 @@ export default function Conexoes() {
     return () => stopPoll();
   }, []);
 
-  // SSE — atualização instantânea do status da conexão
+  // Eventos de conexão via event bus global (NotificationProvider gerencia o SSE)
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    let es;
-    try { es = new EventSource(`${API_URL}/api/chats/stream?token=${encodeURIComponent(token)}`); } catch { return; }
-
-    es.addEventListener("connection", (e) => {
-      try {
-        const d = JSON.parse(e.data);
-        setSessions((prev) => prev.map((s) =>
-          s.slot === d.slot
-            ? { ...s, status: d.status, qr: d.qr ?? (d.status === "connected" ? null : s.qr), phone: d.phone ?? s.phone }
-            : s
-        ));
-        // Garantia: re-busca completa após poucos ms (caso o evento chegue antes da persistência)
-        setTimeout(refresh, 300);
-      } catch {}
-    });
-
-    es.onerror = () => { /* navegador reconecta sozinho */ };
-    return () => { try { es.close(); } catch {} };
+    const handler = (e) => {
+      const d = e.detail || {};
+      setSessions((prev) => prev.map((s) =>
+        s.slot === d.slot
+          ? { ...s, status: d.status, qr: d.qr ?? (d.status === "connected" ? null : s.qr), phone: d.phone ?? s.phone }
+          : s
+      ));
+      // Re-busca completa após poucos ms para garantir consistência
+      if (d.status === "connected" || d.status === "disconnected") {
+        setTimeout(refresh, 400);
+      }
+    };
+    window.addEventListener("wayvo:connection-update", handler);
+    return () => window.removeEventListener("wayvo:connection-update", handler);
   }, [refresh]);
 
-  // Para polling quando todas as sessões estão conectadas ou desconectadas (sem QR pendente)
+  // Mantém polling enquanto houver sessão em transição (connecting, qr_ready, reconnecting)
   useEffect(() => {
-    const hasPending = sessions.some(s => s.status === "connecting" || s.status === "qr_ready");
+    const hasPending = sessions.some(s => ["connecting", "qr_ready", "reconnecting"].includes(s.status));
     if (!hasPending) stopPoll();
     else startPoll();
   }, [sessions]);
@@ -140,6 +134,7 @@ function SessionCard({ session, loading, onConnect, onDisconnect, onRefresh }) {
   const isConnected = status === "connected";
   const hasQR = status === "qr_ready" && qr;
   const isConnecting = status === "connecting";
+  const isReconnecting = status === "reconnecting";
 
   return (
     <div className="card p-6">
@@ -186,6 +181,12 @@ function SessionCard({ session, loading, onConnect, onDisconnect, onRefresh }) {
             <div className="text-5xl mb-3 animate-pulse">⏳</div>
             <p className="text-sm text-ink-300">Gerando QR Code...</p>
           </>
+        ) : isReconnecting ? (
+          <>
+            <div className="text-5xl mb-3 animate-spin" style={{ display: "inline-block" }}>🔄</div>
+            <p className="text-sm text-ink-300 mt-2">Reconectando automaticamente...</p>
+            <p className="text-xs text-ink-500 mt-1">Aguarde — sem ação necessária</p>
+          </>
         ) : (
           <>
             <div className="text-5xl mb-3">💬</div>
@@ -205,10 +206,11 @@ function StatusBadge({ status, loading }) {
     </span>
   );
   const map = {
-    connected:    { label: "Conectado",     cls: "bg-primary/15 text-primary border-primary/30",       dot: "bg-primary" },
-    qr_ready:     { label: "Aguardando QR", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30", dot: "bg-yellow-300" },
-    connecting:   { label: "Conectando...", cls: "bg-blue-500/15 text-blue-300 border-blue-500/30",    dot: "bg-blue-300 animate-pulse" },
-    disconnected: { label: "Desconectado",  cls: "bg-white/5 text-ink-400 border-white/10",            dot: "bg-ink-500" },
+    connected:     { label: "Conectado",        cls: "bg-primary/15 text-primary border-primary/30",          dot: "bg-primary" },
+    qr_ready:      { label: "Aguardando QR",    cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30", dot: "bg-yellow-300" },
+    connecting:    { label: "Conectando...",    cls: "bg-blue-500/15 text-blue-300 border-blue-500/30",       dot: "bg-blue-300 animate-pulse" },
+    reconnecting:  { label: "Reconectando...", cls: "bg-orange-500/15 text-orange-300 border-orange-500/30", dot: "bg-orange-300 animate-pulse" },
+    disconnected:  { label: "Desconectado",    cls: "bg-white/5 text-ink-400 border-white/10",               dot: "bg-ink-500" },
   };
   const s = map[status] || map.disconnected;
   return (

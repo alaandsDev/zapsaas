@@ -2549,6 +2549,11 @@ wpp.on('connected', ({ sessionId, phone }) => {
   if (!userId) return;
   sseSend(userId, 'connection', { slot, status: 'connected', phone });
 });
+wpp.on('reconnecting', ({ sessionId, attempt, delayMs }) => {
+  const { userId, slot } = parseSessionId(sessionId);
+  if (!userId) return;
+  sseSend(userId, 'connection', { slot, status: 'reconnecting', attempt, delayMs });
+});
 wpp.on('disconnected', ({ sessionId }) => {
   const { userId, slot } = parseSessionId(sessionId);
   if (!userId) return;

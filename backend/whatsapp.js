@@ -190,16 +190,26 @@ class WhatsAppManager extends EventEmitter {
           sessionData.status = 'disconnected';
         } else {
           // Desconexão temporária — reconecta com backoff exponencial
-          sessionData.status = 'disconnected';
+          sessionData.status = 'reconnecting';
           const attempts = (this.reconnectAttempts.get(sessionId) || 0) + 1;
           this.reconnectAttempts.set(sessionId, attempts);
           const delay = this._getReconnectDelay(sessionId);
           console.log(`[WPP] 🔄 Reconectando ${sessionId} em ${delay/1000}s (tentativa ${attempts})...`);
+          this.emit('reconnecting', { sessionId, attempt: attempts, delayMs: delay });
           setTimeout(async () => {
             // Só reconecta se a sessão ainda existe e não foi explicitamente removida
-            if (this.sessions.has(sessionId) || fs.existsSync(path.join(this.AUTH_DIR, sessionId, 'creds.json'))) {
-              await this.createSession(sessionId);
+            // Verifica também no Supabase (Railway não tem filesystem persistente)
+            let hasState = this.sessions.has(sessionId);
+            if (!hasState) {
+              hasState = fs.existsSync(path.join(this.AUTH_DIR, sessionId, 'creds.json'));
             }
+            if (!hasState && _supabase) {
+              try {
+                const { data } = await _supabase.from('wpp_sessions').select('session_id').eq('session_id', sessionId).single();
+                hasState = !!data;
+              } catch {}
+            }
+            if (hasState) await this.createSession(sessionId);
           }, delay);
         }
       }

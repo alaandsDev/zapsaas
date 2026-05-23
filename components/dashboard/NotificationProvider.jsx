@@ -143,9 +143,16 @@ export default function NotificationProvider() {
         const data = JSON.parse(e.data);
         if (data.type === "message") {
           notify(data.phone || "cliente", data.text || "");
-          // propaga para outros listeners da página (dashboard, conversas)
           window.dispatchEvent(new CustomEvent("wayvo:new-message", { detail: data }));
         }
+      } catch {}
+    });
+
+    // Repassa eventos de status de conexão WhatsApp
+    es.addEventListener("connection", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        window.dispatchEvent(new CustomEvent("wayvo:connection-update", { detail: data }));
       } catch {}
     });
 
