@@ -37,7 +37,7 @@ const SECTIONS = [
     title: "Sistema",
     items: [
       { href: "/dashboard/suporte", label: "Suporte", Icon: LifeBuoy },
-      { href: "/dashboard/workspace", label: "Workspace", Icon: Settings2 },
+      { href: "/dashboard/configuracoes", label: "Equipe", Icon: Users },
     ],
   },
 ];
@@ -174,7 +174,7 @@ export default function Sidebar() {
         {/* Plan footer */}
         <div className="shrink-0 p-2 border-t border-white/[0.06]">
           {isPro ? (
-            <Link href="/dashboard/workspace"
+            <Link href="/dashboard/configuracoes"
               title={!expanded ? "Plano Pro" : undefined}
               className={`flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors ${expanded ? "px-3 py-2.5" : "p-2.5 justify-center"}`}>
               <div className="size-6 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
@@ -183,7 +183,7 @@ export default function Sidebar() {
               {expanded && <span className="text-sm font-bold text-primary">Plano Pro</span>}
             </Link>
           ) : expanded ? (
-            <Link href="/dashboard/workspace" className="block px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] transition-colors">
+            <Link href="/dashboard/configuracoes" className="block px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] transition-colors">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-semibold text-ink-200">Plano Gratuito</span>
                 <span className="text-[10px] text-primary font-bold">Upgrade →</span>
@@ -194,7 +194,7 @@ export default function Sidebar() {
               </div>
             </Link>
           ) : (
-            <Link href="/dashboard/workspace"
+            <Link href="/dashboard/configuracoes"
               title={`Plano Gratuito · ${used}/${limit}`}
               className="flex items-center justify-center p-2.5 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/15 transition-colors">
               <Sparkles className="size-4 text-primary" />

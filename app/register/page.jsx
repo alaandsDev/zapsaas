@@ -64,7 +64,10 @@ export default function Register() {
         {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
         <Button type="submit" loading={loading} className="w-full">Criar conta grátis →</Button>
         <p className="text-xs text-ink-500 text-center">
-          Ao continuar você concorda com nossos termos.
+          Ao criar sua conta você concorda com nossos{" "}
+          <Link href="/termos" target="_blank" className="text-primary hover:underline">Termos de Uso</Link>
+          {" "}e{" "}
+          <Link href="/privacidade" target="_blank" className="text-primary hover:underline">Política de Privacidade</Link>.
         </p>
       </form>
     </AuthShell>
