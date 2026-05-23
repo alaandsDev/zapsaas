@@ -9,6 +9,7 @@ const wppCloud = require('./whatsapp_cloud');
 const zenvia = require('./zenvia');
 const Stripe = require('stripe');
 const cron = require('node-cron');
+const { sendWelcome, sendCampaignCompleted, sendSessionDisconnected } = require('./email');
 
 const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -669,6 +670,9 @@ app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) =>
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     });
 
+    // E-mail de boas-vindas (fire-and-forget — não bloqueia o cadastro)
+    sendWelcome({ to: normalizedEmail, name }).catch(() => {});
+
     console.log('[register] Novo usuário:', normalizedEmail);
     res.json({ token, user: userData, message: 'Conta criada com sucesso' });
   } catch (e) {
@@ -1094,6 +1098,18 @@ async function executeRealDispatch(dispatchId, userId) {
   await updateLeadsInteraction(sentContacts, userId);
 
   console.log(`[dispatch] ${dispatchId} concluído: ${sent} enviados, ${failed} falhas (${sessions.length} sessão(ões) usada(s))`);
+
+  // E-mail de conclusão (fire-and-forget)
+  try {
+    const { data: u } = await supabase.from('users').select('email, name').eq('id', userId).single();
+    if (u?.email) {
+      sendCampaignCompleted({
+        to: u.email, name: u.name || 'Cliente',
+        campaignName: dispatch.message_title || 'Campanha',
+        sent, failed, total: contacts.length,
+      }).catch(() => {});
+    }
+  } catch {}
 }
 
 async function simulateSending(dispatchId) {
@@ -1636,6 +1652,18 @@ async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
   await updateLeadsInteraction(sentContacts, userId);
 
   console.log(`[cloud] Dispatch ${dispatchId} concluído: ${sent} enviados, ${failed} falhas`);
+
+  // E-mail de conclusão (fire-and-forget)
+  try {
+    const { data: u } = await supabase.from('users').select('email, name').eq('id', userId).single();
+    if (u?.email) {
+      sendCampaignCompleted({
+        to: u.email, name: u.name || 'Cliente',
+        campaignName: dispatch.message_title || 'Campanha',
+        sent, failed, total: contacts.length,
+      }).catch(() => {});
+    }
+  } catch {}
 }
 
 // Bulk direto via Cloud API (lista de números)
@@ -2554,10 +2582,20 @@ wpp.on('reconnecting', ({ sessionId, attempt, delayMs }) => {
   if (!userId) return;
   sseSend(userId, 'connection', { slot, status: 'reconnecting', attempt, delayMs });
 });
-wpp.on('disconnected', ({ sessionId }) => {
+wpp.on('disconnected', ({ sessionId, isLoggedOut }) => {
   const { userId, slot } = parseSessionId(sessionId);
   if (!userId) return;
   sseSend(userId, 'connection', { slot, status: 'disconnected' });
+
+  // E-mail de alerta só quando é desconexão inesperada (não logout voluntário)
+  if (!isLoggedOut) {
+    supabase.from('users').select('email, name').eq('id', userId).single().then(({ data: u }) => {
+      if (u?.email) {
+        const phone = wpp.getStatus(sessionId)?.phone || null;
+        sendSessionDisconnected({ to: u.email, name: u.name || 'Cliente', slot, phone }).catch(() => {});
+      }
+    }).catch(() => {});
+  }
 
   // Cancela disparos ativos desse slot para não enviar com número desconectado
   supabase.from('dispatches')

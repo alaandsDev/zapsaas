@@ -172,7 +172,7 @@ class WhatsAppManager extends EventEmitter {
         const isBanned = statusCode === 403;
 
         this._stopKeepAlive(sessionId);
-        this.emit('disconnected', { sessionId, code: statusCode });
+        this.emit('disconnected', { sessionId, code: statusCode, isLoggedOut: isLoggedOut || isBanned });
 
         console.log(`[WPP] ❌ Conexão fechada. Código: ${statusCode} | Razão: ${reason}`);
 
