@@ -343,16 +343,12 @@ export default function Conversas() {
 
   useEffect(() => { if (activeChat?.id) loadMsgs(); }, [activeChat?.id, loadMsgs]);
 
-  // ── SSE ─────────────────────────────────────────────────────────────────────
+  // ── Tempo real — ouve evento global do NotificationProvider ─────────────────
+  // (uma única conexão SSE por tab, gerenciada pelo NotificationProvider)
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    const url = `${API_URL}/api/chats/stream?token=${encodeURIComponent(token)}`;
-    let es;
-    try { es = new EventSource(url); } catch { return; }
-    es.addEventListener("message", (e) => {
+    const handler = (e) => {
       try {
-        const data = JSON.parse(e.data);
+        const data = e.detail || {};
         // Atualiza a lista de chats
         setAllChats((prev) => {
           const idx = prev.findIndex((c) => c.id === data.chatId);
@@ -382,9 +378,9 @@ export default function Conversas() {
           });
         }
       } catch {}
-    });
-    es.onerror = () => {};
-    return () => { try { es.close(); } catch {} };
+    };
+    window.addEventListener("wayvo:new-message", handler);
+    return () => window.removeEventListener("wayvo:new-message", handler);
   }, []);
 
   // ── Poll fallback ───────────────────────────────────────────────────────────

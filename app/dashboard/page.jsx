@@ -258,27 +258,24 @@ export default function DashboardHome() {
       .catch(() => setChartData([]));
   }, [range]);
 
-  // SSE tempo real (mantido — funciona no backend da main)
+  // Tempo real — ouve o evento global disparado pelo NotificationProvider
+  // (evita abrir uma segunda conexão SSE desnecessária)
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    const es = new EventSource(`${API_URL}/api/chats/stream?token=${token}`);
-    es.addEventListener("message", (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === "message") {
-          setPulse(true);
-          setTimeout(() => setPulse(false), 1200);
-          setActivity((prev) => [{
-            id: `msg-${Date.now()}`, type: "message",
-            text: `Mensagem de ${data.phone || "cliente"}${data.text ? `: "${data.text.slice(0, 50)}…"` : ""}`,
-            time: new Date().toISOString(),
-          }, ...prev].slice(0, 15));
-          setStats((prev) => ({ ...prev, messagesSent: (prev.messagesSent || 0) + 1 }));
-        }
-      } catch {}
-    });
-    return () => es.close();
+    const handler = (e) => {
+      const data = e.detail || {};
+      if (data.type === "message") {
+        setPulse(true);
+        setTimeout(() => setPulse(false), 1200);
+        setActivity((prev) => [{
+          id: `msg-${Date.now()}`, type: "message",
+          text: `Mensagem de ${data.phone || "cliente"}${data.text ? `: "${data.text.slice(0, 50)}…"` : ""}`,
+          time: new Date().toISOString(),
+        }, ...prev].slice(0, 15));
+        setStats((prev) => ({ ...prev, messagesSent: (prev.messagesSent || 0) + 1 }));
+      }
+    };
+    window.addEventListener("wayvo:new-message", handler);
+    return () => window.removeEventListener("wayvo:new-message", handler);
   }, []);
 
   const connectedSlots = sessions.filter((s) => s.status === "connected").length;
