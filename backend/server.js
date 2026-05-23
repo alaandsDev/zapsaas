@@ -1846,23 +1846,45 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   }
 });
 
-// Conta WABA — verificação empresarial
+// Conta WABA — verificação empresarial (com fallback se token não tem business_management)
 app.get('/api/wpp-cloud/account', requireAuth, async (req, res) => {
   try {
     const c = await getCloudConfig(req.user.id);
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     if (!c.business_account_id) return res.status(400).json({ error: 'WABA ID não configurado' });
-    const r = await wppCloud.getAccount({ token: c.access_token, businessAccountId: c.business_account_id });
+    let r;
+    try {
+      r = await wppCloud.getAccount({ token: c.access_token, businessAccountId: c.business_account_id });
+    } catch (e1) {
+      // business_verification_status exige whatsapp_business_management — tenta sem ele
+      console.warn('[wpp-cloud/account] fallback sem business_verification_status:', e1.message);
+      try {
+        r = await wppCloud.getAccountBasic({ token: c.access_token, businessAccountId: c.business_account_id });
+      } catch (e2) {
+        return res.status(400).json({ error: e2.message });
+      }
+    }
     res.json({ id: r.id, name: r.name, verification_status: r.business_verification_status || 'not_verified' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Qualidade + tier de limite do número
+// Qualidade + tier de limite do número (com fallback para campos básicos)
 app.get('/api/wpp-cloud/quality', requireAuth, async (req, res) => {
   try {
     const c = await getCloudConfig(req.user.id);
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
-    const r = await wppCloud.getQuality({ token: c.access_token, phoneNumberId: c.phone_number_id });
+    let r;
+    try {
+      r = await wppCloud.getQuality({ token: c.access_token, phoneNumberId: c.phone_number_id });
+    } catch (e1) {
+      console.warn('[wpp-cloud/quality] fallback sem campos avançados:', e1.message);
+      try {
+        r = await wppCloud.verify({ token: c.access_token, phoneNumberId: c.phone_number_id });
+        r.quality_rating = r.quality_rating || 'UNKNOWN';
+      } catch (e2) {
+        return res.status(400).json({ error: e2.message });
+      }
+    }
     res.json({
       quality_rating: r.quality_rating || 'UNKNOWN',
       messaging_limit_tier: r.messaging_limit_tier || null,
@@ -1879,15 +1901,23 @@ app.post('/api/wpp-cloud/sync', requireAuth, async (req, res) => {
     const c = await getCloudConfig(req.user.id);
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
 
+    const getAccountSafe = async () => {
+      if (!c.business_account_id) return null;
+      try { return await wppCloud.getAccount({ token: c.access_token, businessAccountId: c.business_account_id }); }
+      catch { return wppCloud.getAccountBasic({ token: c.access_token, businessAccountId: c.business_account_id }); }
+    };
+    const getQualitySafe = async () => {
+      try { return await wppCloud.getQuality({ token: c.access_token, phoneNumberId: c.phone_number_id }); }
+      catch { const v = await wppCloud.verify({ token: c.access_token, phoneNumberId: c.phone_number_id }); return { quality_rating: v.quality_rating || 'UNKNOWN' }; }
+    };
+
     const [verifyR, accountR, templatesR, qualityR] = await Promise.allSettled([
       wppCloud.verify({ token: c.access_token, phoneNumberId: c.phone_number_id }),
-      c.business_account_id
-        ? wppCloud.getAccount({ token: c.access_token, businessAccountId: c.business_account_id })
-        : Promise.resolve(null),
+      getAccountSafe(),
       c.business_account_id
         ? wppCloud.listTemplates({ token: c.access_token, businessAccountId: c.business_account_id })
         : Promise.resolve(null),
-      wppCloud.getQuality({ token: c.access_token, phoneNumberId: c.phone_number_id }),
+      getQualitySafe(),
     ]);
 
     const synced = [];
@@ -1903,7 +1933,9 @@ app.post('/api/wpp-cloud/sync', requireAuth, async (req, res) => {
 
     res.json({
       verify:    verifyR.status    === 'fulfilled' ? verifyR.value    : null,
-      account:   accountR.status   === 'fulfilled' ? accountR.value   : null,
+      account:   accountR.status   === 'fulfilled' && accountR.value
+        ? { id: accountR.value.id, name: accountR.value.name, verification_status: accountR.value.business_verification_status || accountR.value.verification_status || 'not_verified' }
+        : null,
       templates: templatesR.status === 'fulfilled' ? (templatesR.value?.data || []) : null,
       quality:   qualityR.status   === 'fulfilled' ? qualityR.value   : null,
       synced_at: new Date().toISOString(),

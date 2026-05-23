@@ -157,8 +157,8 @@ function HealthScore({ config, account, quality, templates, verify }) {
         key: "conta",
         label: "Conta Meta",
         ok: account?.verification_status === "verified",
-        warn: account?.verification_status === "in_review",
-        detail: account ? (VERIFICATION[account.verification_status]?.label || account.verification_status) : (config?.business_account_id ? "Aguardando sync" : "WABA ID não configurado"),
+        warn: account?.verification_status === "in_review" || !!account?._error,
+        detail: account?._error ? "Token sem permissão de gestão" : account ? (VERIFICATION[account.verification_status]?.label || account.verification_status) : (config?.business_account_id ? "Aguardando sync" : "WABA ID não configurado"),
       },
       {
         key: "templates",
@@ -171,8 +171,8 @@ function HealthScore({ config, account, quality, templates, verify }) {
         key: "quality",
         label: "Qualidade",
         ok: quality?.quality_rating === "GREEN",
-        warn: quality?.quality_rating === "YELLOW",
-        detail: quality ? (QUALITY[quality.quality_rating]?.label || "—") : "Sincronize para ver",
+        warn: quality?.quality_rating === "YELLOW" || !!quality?._error,
+        detail: quality?._error ? "Token sem permissão de mensagens" : quality ? (QUALITY[quality.quality_rating]?.label || "—") : "Sincronize para ver",
       },
     ];
   }, [config, account, quality, templates, verify]);
@@ -374,14 +374,14 @@ export default function CanalOficialPage() {
     if (!config?.has_token || !config?.business_account_id) return;
     api("/api/wpp-cloud/account")
       .then(setAccount)
-      .catch(() => {});
+      .catch((e) => setAccount({ _error: e.message || "Erro ao consultar conta Meta" }));
   }, [config]);
 
   const loadQuality = useCallback(() => {
     if (!config?.has_token) return;
     api("/api/wpp-cloud/quality")
       .then(setQuality)
-      .catch(() => {});
+      .catch((e) => setQuality({ _error: e.message || "Erro ao consultar qualidade" }));
   }, [config]);
 
   const loadLogs = useCallback(() => {
@@ -535,17 +535,17 @@ export default function CanalOficialPage() {
     },
     {
       icon: Building2, label: "Conta Meta",
-      value: account ? `${verInfo.dot} ${verInfo.label}` : (config?.business_account_id ? "Sincronizando…" : "—"),
-      tint: verInfo.color,
-      sub: account?.name || "empresa vinculada",
-      tooltip: "Status de verificação empresarial da Meta",
+      value: account?._error ? "Sem permissão" : account ? `${verInfo.dot} ${verInfo.label}` : (config?.business_account_id ? "Carregando…" : "—"),
+      tint: account?._error ? "#EF4444" : verInfo.color,
+      sub: account?._error ? "Token sem whatsapp_business_management" : (account?.name || "empresa vinculada"),
+      tooltip: account?._error ? account._error : "Status de verificação empresarial da Meta",
     },
     {
       icon: Gauge, label: "Qualidade",
-      value: quality ? `${qualInfo.dot} ${qualInfo.label}` : "—",
-      tint: qualInfo.color,
-      sub: quality?.messaging_limit_tier ? (TIER_LABEL[quality.messaging_limit_tier] || quality.messaging_limit_tier) : "limite de conversas/dia",
-      tooltip: "Qualidade afeta limites de envio e entrega. Verde = sem restrições.",
+      value: quality?._error ? "Sem permissão" : quality ? `${qualInfo.dot} ${qualInfo.label}` : "—",
+      tint: quality?._error ? "#EF4444" : qualInfo.color,
+      sub: quality?._error ? "Token sem whatsapp_business_messaging" : (quality?.messaging_limit_tier ? (TIER_LABEL[quality.messaging_limit_tier] || quality.messaging_limit_tier) : "limite de conversas/dia"),
+      tooltip: quality?._error ? quality._error : "Qualidade afeta limites de envio e entrega. Verde = sem restrições.",
     },
   ];
 

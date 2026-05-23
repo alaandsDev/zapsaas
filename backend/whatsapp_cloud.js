@@ -93,6 +93,11 @@ async function getAccount({ token, businessAccountId }) {
   return call(token, `/${businessAccountId}?fields=id,name,business_verification_status`);
 }
 
+// Fallback: info básica sem business_verification_status (não exige whatsapp_business_management)
+async function getAccountBasic({ token, businessAccountId }) {
+  return call(token, `/${businessAccountId}?fields=id,name`);
+}
+
 // Qualidade + tier de limite de mensagens do número
 async function getQuality({ token, phoneNumberId }) {
   return call(token, `/${phoneNumberId}?fields=quality_rating,messaging_limit_tier,code_verification_status,display_phone_number,verified_name`);
@@ -107,5 +112,5 @@ function verifyWebhookSignature(rawBody, signatureHeader, appSecret) {
 
 module.exports = {
   sendTemplate, sendText, verify, listTemplates, createTemplate,
-  verifyWebhookSignature, clean, getAccount, getQuality,
+  verifyWebhookSignature, clean, getAccount, getAccountBasic, getQuality,
 };
