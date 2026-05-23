@@ -1236,7 +1236,7 @@ app.post('/api/chatbot/message', rateLimit(60 * 1000, 20), async (req, res) => {
 
 app.get('/api/stats', requireAuth, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const userId = uid(req);
     const now = new Date();
     const since7d  = new Date(now - 7  * 24 * 60 * 60 * 1000).toISOString();
     const since30d = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -1246,21 +1246,22 @@ app.get('/api/stats', requireAuth, async (req, res) => {
       { count: activeLeads },
       { count: totalMessages },
       { count: totalDispatches },
-      { data: dispatchData },
+      { count: totalSent },
       { data: lastLeads }
     ] = await Promise.all([
-      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', userId),
       // Leads Novos: criados nos últimos 7 dias
-      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', uid).gte('created_at', since7d),
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', since7d),
       // Leads Ativos: tiveram interação nos últimos 30 dias
-      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', uid).gte('last_interaction_at', since30d),
-      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', uid),
-      supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', uid),
-      supabase.from('dispatches').select('sent').eq('user_id', uid),
-      supabase.from('leads').select('id, name, phone, status, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(5)
+      supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('last_interaction_at', since30d),
+      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+      supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+      // Soma de mensagens enviadas via RPC para não limitar em 1000 linhas
+      supabase.rpc('sum_dispatches_sent', { p_user_id: userId }).then((r) => ({ count: r.data ?? 0 })),
+      supabase.from('leads').select('id, name, phone, status, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
     ]);
 
-    const messagesSent = (dispatchData || []).reduce((acc, d) => acc + (d.sent || 0), 0);
+    const messagesSent = totalSent || 0;
 
     res.json({
       leads: totalLeads || 0,
@@ -1281,20 +1282,20 @@ app.get('/api/stats', requireAuth, async (req, res) => {
 // desempenho por canal (origem dos leads). Só dados reais do usuário.
 app.get('/api/dashboard/insights', requireAuth, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const userId = uid(req);
     const since = new Date();
     since.setDate(since.getDate() - 30);
 
     const [{ data: msgs }, { data: leadRows }] = await Promise.all([
       supabase.from('chat_messages')
         .select('timestamp')
-        .eq('user_id', uid).eq('direction', 'in')
+        .eq('user_id', userId).eq('direction', 'in')
         .gte('timestamp', since.toISOString())
         .order('timestamp', { ascending: false })
         .limit(8000),
       supabase.from('leads')
         .select('source')
-        .eq('user_id', uid)
+        .eq('user_id', userId)
         .limit(20000),
     ]);
 

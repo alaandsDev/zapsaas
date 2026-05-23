@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   AreaChart, Area, BarChart, Bar,
@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import {
   Users, MessageSquare, Zap, ArrowUpRight, Phone, ChevronRight,
-  Sparkles, Send, Radio, DollarSign, CheckCircle2, Circle, X,
+  Sparkles, Send, Radio, DollarSign, CheckCircle2, Circle, X, RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Topbar from "../../components/dashboard/Topbar";
@@ -219,37 +219,42 @@ export default function DashboardHome() {
   const [revenue, setRevenue] = useState(null);
   const feedRef = useRef(null);
 
-  useEffect(() => {
+  const loadStats = useCallback(async () => {
     setUser(getUser());
-    Promise.all([
+    const [s, sess, disp] = await Promise.all([
       api("/api/stats").catch(() => ({})),
       api("/api/whatsapp/sessions").catch(() => []),
       api("/api/dispatches").catch(() => []),
-    ]).then(([s, sess, disp]) => {
-      setStats(s || {});
-      setSessions(Array.isArray(sess) ? sess : []);
-      const ds = Array.isArray(disp) ? disp : disp?.data || [];
-      setDispatches(ds);
+    ]);
+    setStats(s || {});
+    setSessions(Array.isArray(sess) ? sess : []);
+    const ds = Array.isArray(disp) ? disp : disp?.data || [];
+    setDispatches(ds);
 
-      // chartData agora vem do endpoint real /api/dashboard/timeseries
+    const feed = [];
+    (s?.lastLeads || []).slice(0, 4).forEach((l) => feed.push({
+      id: `lead-${l.id}`, type: "lead",
+      text: `Novo lead: ${l.name || l.phone}`,
+      time: l.created_at || l.createdAt,
+    }));
+    ds.slice(0, 4).forEach((d) => feed.push({
+      id: `disp-${d.id}`, type: "dispatch",
+      text: `"${d.message_title || "Campanha"}" · ${d.sent || 0}/${d.total || 0} enviados`,
+      time: d.created_at,
+    }));
+    feed.sort((a, b) => new Date(b.time) - new Date(a.time));
+    setActivity(feed.slice(0, 12));
+  }, []);
 
-      const feed = [];
-      (s?.lastLeads || []).slice(0, 4).forEach((l) => feed.push({
-        id: `lead-${l.id}`, type: "lead",
-        text: `Novo lead: ${l.name || l.phone}`,
-        time: l.created_at || l.createdAt,
-      }));
-      ds.slice(0, 4).forEach((d) => feed.push({
-        id: `disp-${d.id}`, type: "dispatch",
-        text: `"${d.message_title || "Campanha"}" · ${d.sent || 0}/${d.total || 0} enviados`,
-        time: d.created_at,
-      }));
-      feed.sort((a, b) => new Date(b.time) - new Date(a.time));
-      setActivity(feed.slice(0, 12));
-    }).finally(() => setLoading(false));
+  useEffect(() => {
+    loadStats().finally(() => setLoading(false));
     api("/api/dashboard/insights").then(setInsights).catch(() => setInsights({ hours: [], channels: [], hasData: false }));
     api("/api/sales/summary?days=7").then(setRevenue).catch(() => setRevenue({ total: 0 }));
-  }, []);
+
+    // Atualiza stats a cada 2 minutos enquanto o dashboard estiver aberto
+    const interval = setInterval(loadStats, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [loadStats]);
 
   // Série real por data (últimos `range` dias até hoje)
   useEffect(() => {
@@ -494,6 +499,12 @@ export default function DashboardHome() {
         </motion.div>
 
         {/* ── KPIs ── */}
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] text-ink-600 uppercase tracking-wider font-semibold">Visão geral</span>
+          <button onClick={loadStats} className="flex items-center gap-1 text-[11px] text-ink-500 hover:text-primary transition-colors">
+            <RefreshCw className="size-3" /> Atualizar
+          </button>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {KPIs.map((k, i) => {
             const Icon = k.icon;
