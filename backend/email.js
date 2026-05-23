@@ -232,4 +232,4 @@ async function sendSessionDisconnected({ to, name, slot, phone }) {
   return sendEmail({ to, subject, html });
 }
 
-module.exports = { sendWelcome, sendCampaignCompleted, sendSessionDisconnected };
+module.exports = { sendEmail, sendWelcome, sendCampaignCompleted, sendSessionDisconnected };

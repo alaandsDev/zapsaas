@@ -9,7 +9,7 @@ const wppCloud = require('./whatsapp_cloud');
 const zenvia = require('./zenvia');
 const Stripe = require('stripe');
 const cron = require('node-cron');
-const { sendWelcome, sendCampaignCompleted, sendSessionDisconnected } = require('./email');
+const { sendEmail, sendWelcome, sendCampaignCompleted, sendSessionDisconnected } = require('./email');
 
 const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -483,12 +483,27 @@ async function requireAuth(req, res, next) {
     });
 
     req.user = session.user_data;
+
+    // Workspace: se o usuário é agente, o effectiveUserId aponta para o dono
+    // Isso faz todas as queries existentes (user_id = req.user.id) continuarem
+    // funcionando sem mudança — agentes veem dados do workspace do dono.
+    if (session.user_data?.workspace_owner_id) {
+      req.user.effectiveId = session.user_data.workspace_owner_id;
+      req.user.workspaceRole = session.user_data.workspace_role || 'agent';
+    } else {
+      req.user.effectiveId = session.user_data.id;
+      req.user.workspaceRole = 'owner';
+    }
+
     next();
   } catch (e) {
     console.error('[auth] Erro inesperado:', e.message);
     return res.status(500).json({ error: 'Erro de autenticação' });
   }
 }
+
+// Helper: retorna o userId efetivo (owner ID para agentes, próprio ID para owners)
+function uid(req) { return req.user.effectiveId || req.user.id; }
 
 // Limpa cache de auth expirado a cada 5 minutos
 setInterval(() => {
@@ -4066,6 +4081,206 @@ cron.schedule('* * * * *', async () => {
   } catch (e) {
     console.error('[wf-jobs] cron erro:', e.message);
   }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// WORKSPACE — Multi-usuário (equipe)
+// ═══════════════════════════════════════════════════════════════
+
+// Lista membros do workspace
+app.get('/api/workspace/members', requireAuth, async (req, res) => {
+  try {
+    const ownerId = uid(req);
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, workspace_role, created_at')
+      .eq('workspace_owner_id', ownerId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Lista convites pendentes
+app.get('/api/workspace/invites', requireAuth, async (req, res) => {
+  try {
+    const ownerId = uid(req);
+    const { data, error } = await supabase
+      .from('workspace_invites')
+      .select('id, email, role, status, invited_at, expires_at')
+      .eq('owner_id', ownerId)
+      .order('invited_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Enviar convite
+app.post('/api/workspace/invites', requireAuth, rateLimit(60 * 60 * 1000, 20), async (req, res) => {
+  try {
+    // Apenas owners podem convidar
+    if (req.user.workspaceRole !== 'owner') {
+      return res.status(403).json({ error: 'Apenas o dono do workspace pode convidar membros' });
+    }
+    const ownerId = uid(req);
+    const { email, role = 'agent' } = req.body;
+    if (!email) return res.status(400).json({ error: 'E-mail obrigatório' });
+    if (!['admin', 'agent'].includes(role)) return res.status(400).json({ error: 'Role inválido' });
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Verifica se já é membro ativo
+    const { data: existing } = await supabase.from('users').select('id').eq('email', normalizedEmail).eq('workspace_owner_id', ownerId).single();
+    if (existing) return res.status(400).json({ error: 'Este e-mail já é membro do workspace' });
+
+    // Verifica se já tem convite pendente
+    const { data: pending } = await supabase.from('workspace_invites').select('id').eq('owner_id', ownerId).eq('email', normalizedEmail).eq('status', 'pending').single();
+    if (pending) return res.status(400).json({ error: 'Já existe um convite pendente para este e-mail' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const { error } = await supabase.from('workspace_invites').insert({
+      owner_id: ownerId,
+      email: normalizedEmail,
+      role,
+      token,
+      status: 'pending',
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    if (error) throw error;
+
+    // Busca nome do dono para o email
+    const { data: owner } = await supabase.from('users').select('name').eq('id', ownerId).single();
+    const ownerName = owner?.name || 'Um usuário';
+    const acceptUrl = `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/convite/${token}`;
+
+    // Envia email de convite
+    await sendEmail({
+      to: normalizedEmail,
+      subject: `${ownerName} convidou você para o Wayvo`,
+      html: `<!DOCTYPE html><html><body style="background:#0B1120;font-family:sans-serif;padding:40px 20px;">
+        <div style="max-width:520px;margin:0 auto;background:#111827;border-radius:20px;border:1px solid rgba(255,255,255,0.07);padding:40px;">
+          <div style="font-size:24px;font-weight:800;background:linear-gradient(135deg,#00FF88,#00D1FF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:24px;">Wayvo</div>
+          <h1 style="color:#F9FAFB;font-size:20px;margin:0 0 12px;">Você foi convidado! 🎉</h1>
+          <p style="color:#9CA3AF;font-size:15px;line-height:1.7;margin:0 0 24px;">
+            <strong style="color:#F9FAFB;">${ownerName}</strong> convidou você para fazer parte do workspace no Wayvo como <strong style="color:#F9FAFB;">${role === 'admin' ? 'Administrador' : 'Agente'}</strong>.
+          </p>
+          <a href="${acceptUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#00FF88,#00D1FF);color:#0B1120;font-weight:700;text-decoration:none;border-radius:12px;font-size:15px;">Aceitar convite →</a>
+          <p style="color:#6B7280;font-size:12px;margin-top:24px;">Este link expira em 7 dias. Se você não esperava este convite, ignore este email.</p>
+        </div>
+      </body></html>`,
+    }).catch(() => {});
+
+    res.json({ message: 'Convite enviado com sucesso', token });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Revogar convite ou remover membro
+app.delete('/api/workspace/members/:memberId', requireAuth, async (req, res) => {
+  try {
+    if (req.user.workspaceRole !== 'owner') {
+      return res.status(403).json({ error: 'Apenas o dono pode remover membros' });
+    }
+    const ownerId = uid(req);
+    // Desvincula o membro
+    const { error } = await supabase.from('users')
+      .update({ workspace_owner_id: null, workspace_role: null })
+      .eq('id', req.params.memberId)
+      .eq('workspace_owner_id', ownerId);
+    if (error) throw error;
+    res.json({ message: 'Membro removido' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/workspace/invites/:inviteId', requireAuth, async (req, res) => {
+  try {
+    const ownerId = uid(req);
+    const { error } = await supabase.from('workspace_invites')
+      .delete()
+      .eq('id', req.params.inviteId)
+      .eq('owner_id', ownerId);
+    if (error) throw error;
+    res.json({ message: 'Convite cancelado' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Aceitar convite — rota pública (não precisa de auth)
+app.post('/api/workspace/invites/:token/accept', async (req, res) => {
+  try {
+    const { name, password } = req.body;
+    if (!name || !password) return res.status(400).json({ error: 'Nome e senha são obrigatórios' });
+    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+
+    const { data: invite, error: invErr } = await supabase
+      .from('workspace_invites')
+      .select('*')
+      .eq('token', req.params.token)
+      .eq('status', 'pending')
+      .single();
+
+    if (invErr || !invite) return res.status(404).json({ error: 'Convite não encontrado ou já utilizado' });
+    if (new Date(invite.expires_at) < new Date()) {
+      await supabase.from('workspace_invites').update({ status: 'expired' }).eq('id', invite.id);
+      return res.status(410).json({ error: 'Convite expirado. Peça um novo ao administrador.' });
+    }
+
+    // Cria o usuário agente
+    const hashed = await hashPassword(password);
+    const { data: newUser, error: userErr } = await supabase.from('users').insert({
+      name,
+      email: invite.email,
+      password: hashed,
+      role: 'user',
+      workspace_owner_id: invite.owner_id,
+      workspace_role: invite.role,
+    }).select('id, name, email, role, workspace_owner_id, workspace_role').single();
+
+    if (userErr) {
+      // Usuário já existe — vincula ao workspace
+      const { data: existing } = await supabase.from('users').select('id, name, email, role').eq('email', invite.email).single();
+      if (!existing) return res.status(400).json({ error: userErr.message });
+      await supabase.from('users').update({
+        workspace_owner_id: invite.owner_id,
+        workspace_role: invite.role,
+      }).eq('id', existing.id);
+      const token = crypto.randomBytes(32).toString('hex');
+      const userData = { ...existing, workspace_owner_id: invite.owner_id, workspace_role: invite.role };
+      await supabase.from('sessions').insert({ token, user_id: existing.id, user_data: userData, expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() });
+      await supabase.from('workspace_invites').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', invite.id);
+      return res.json({ token, user: userData, message: 'Convite aceito!' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    await supabase.from('sessions').insert({ token, user_id: newUser.id, user_data: newUser, expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() });
+    await supabase.from('workspace_invites').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', invite.id);
+
+    res.json({ token, user: newUser, message: 'Bem-vindo ao workspace!' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Valida token de convite (GET — para a página de accept no frontend)
+app.get('/api/workspace/invites/:token', async (req, res) => {
+  const { data, error } = await supabase
+    .from('workspace_invites')
+    .select('email, role, expires_at, status')
+    .eq('token', req.params.token)
+    .single();
+  if (error || !data) return res.status(404).json({ error: 'Convite não encontrado' });
+  if (data.status !== 'pending') return res.status(410).json({ error: 'Convite já utilizado ou expirado' });
+  if (new Date(data.expires_at) < new Date()) return res.status(410).json({ error: 'Convite expirado' });
+  res.json({ email: data.email, role: data.role });
 });
 
 // ── START ─────────────────────────────────────────────────────
