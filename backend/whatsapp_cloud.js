@@ -66,9 +66,18 @@ async function verify({ token, phoneNumberId }) {
   return call(token, `/${phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,name_status`);
 }
 
-// Lista templates da WABA
+// Lista templates da WABA (paginação automática, até 1000 templates)
 async function listTemplates({ token, businessAccountId }) {
-  return call(token, `/${businessAccountId}/message_templates?limit=100`);
+  const all = [];
+  let path = `/${businessAccountId}/message_templates?limit=100`;
+  while (path) {
+    const page = await call(token, path);
+    if (Array.isArray(page.data)) all.push(...page.data);
+    path = page.paging?.next
+      ? page.paging.next.replace(`${GRAPH}`, '')
+      : null;
+  }
+  return { data: all };
 }
 
 // Cria template (precisa aprovação Meta)

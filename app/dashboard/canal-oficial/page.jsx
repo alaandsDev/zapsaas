@@ -332,6 +332,9 @@ export default function CanalOficialPage() {
   const [copiedToken, setCopiedToken] = useState(false);
   const [openGuide, setOpenGuide]     = useState(false);
 
+  /* disconnect confirm */
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
   /* test send */
   const [testTo, setTestTo]           = useState("");
   const [testTemplate, setTestTemplate] = useState("");
@@ -467,13 +470,13 @@ export default function CanalOficialPage() {
   }
 
   async function disconnect() {
-    if (!window.confirm("Remover a configuração da API Meta? Você precisará reconfigurar.")) return;
     try {
       await api("/api/wpp-cloud/config", { method: "DELETE" });
       setConfig(null); setTemplates(null); setVerify(null); setAccount(null); setQuality(null);
       setPhoneNumberId(""); setBusinessAccountId(""); setVerifyToken("");
+      setConfirmDisconnect(false);
       setOk("Configuração removida.");
-    } catch (e) { setErr(e.message); }
+    } catch (e) { setErr(e.message); setConfirmDisconnect(false); }
   }
 
   function handleNewTemplate() {
@@ -830,10 +833,24 @@ export default function CanalOficialPage() {
                         {testingConn ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />} Testar conexão
                       </button>
                     )}
-                    <button onClick={disconnect}
-                      className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
-                      <X className="size-4" /> Remover
-                    </button>
+                    {confirmDisconnect ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-red-400">Remover configuração?</span>
+                        <button onClick={disconnect}
+                          className="text-xs px-2.5 py-1.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors font-semibold">
+                          Sim
+                        </button>
+                        <button onClick={() => setConfirmDisconnect(false)}
+                          className="text-xs px-2.5 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-ink-300 hover:bg-white/[0.1] transition-colors">
+                          Não
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDisconnect(true)}
+                        className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
+                        <X className="size-4" /> Remover
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1165,17 +1182,6 @@ function CreateTemplateModal({ onClose, onCreated }) {
         : <span key={i}>{p}</span>
     );
 
-  const Field2 = ({ label, hint, children }) => (
-    <div>
-      <label className="block text-[11px] text-ink-400 uppercase tracking-wider mb-1.5 font-semibold">{label}</label>
-      {children}
-      {hint && <p className="text-[11px] text-ink-500 mt-1">{hint}</p>}
-    </div>
-  );
-  const Input2 = ({ ...p }) => (
-    <input className="w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-primary/60 text-sm transition-colors placeholder:text-ink-600" {...p} />
-  );
-
   return (
     <>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1192,38 +1198,38 @@ function CreateTemplateModal({ onClose, onCreated }) {
           </div>
           <div className="grid md:grid-cols-2 max-h-[75vh] overflow-y-auto">
             <div className="p-5 space-y-4 border-r border-white/[0.06]">
-              <Field2 label="Nome do template" hint="Só minúsculas, números e _ (ex: boas_vindas)">
-                <Input2 value={name} onChange={(e) => setName(e.target.value)} placeholder="boas_vindas" />
-              </Field2>
+              <Field label="Nome do template" hint="Só minúsculas, números e _ (ex: boas_vindas)">
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="boas_vindas" />
+              </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field2 label="Categoria">
+                <Field label="Categoria">
                   <select value={category} onChange={(e) => setCategory(e.target.value)}
                     className="w-full bg-bg/60 border border-white/10 rounded-xl px-3 py-2.5 text-sm outline-none">
                     {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
                   </select>
-                </Field2>
-                <Field2 label="Idioma">
+                </Field>
+                <Field label="Idioma">
                   <select value={language} onChange={(e) => setLanguage(e.target.value)}
                     className="w-full bg-bg/60 border border-white/10 rounded-xl px-3 py-2.5 text-sm outline-none">
                     {["pt_BR", "en_US", "es_ES"].map((l) => <option key={l} value={l}>{l}</option>)}
                   </select>
-                </Field2>
+                </Field>
               </div>
-              <Field2 label="Cabeçalho (opcional)">
-                <Input2 value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial 🎉" />
-              </Field2>
-              <Field2 label="Corpo da mensagem *" hint="Use {{1}}, {{2}} para variáveis">
+              <Field label="Cabeçalho (opcional)">
+                <Input value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial 🎉" />
+              </Field>
+              <Field label="Corpo da mensagem *" hint="Use {{1}}, {{2}} para variáveis">
                 <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4}
                   placeholder="Olá {{1}}! Temos uma condição especial pra você: {{2}} de desconto."
                   className="w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/60 resize-none" />
-              </Field2>
+              </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field2 label="Rodapé (opcional)">
-                  <Input2 value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Responda PARAR para sair" />
-                </Field2>
-                <Field2 label="Botão CTA (opcional)">
-                  <Input2 value={btn} onChange={(e) => setBtn(e.target.value)} placeholder="Quero saber mais" />
-                </Field2>
+                <Field label="Rodapé (opcional)">
+                  <Input value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Responda PARAR para sair" />
+                </Field>
+                <Field label="Botão CTA (opcional)">
+                  <Input value={btn} onChange={(e) => setBtn(e.target.value)} placeholder="Quero saber mais" />
+                </Field>
               </div>
               {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
               <button onClick={submit} disabled={busy || done}
