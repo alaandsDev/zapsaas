@@ -3004,7 +3004,44 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
   try {
     const { slot, phone, message, mediaUrl, mediaMimetype, mediaFilename } = req.body;
     if (!phone || (!message && !mediaUrl)) return res.status(400).json({ error: 'phone e message ou mediaUrl obrigatórios' });
-    const useSlot = slot ? parseInt(slot) : 1;
+    const useSlot = slot != null ? parseInt(slot) : 1;
+
+    // ── Slot 0 = Canal Oficial (Cloud API) ──────────────────────────────────
+    if (useSlot === 0) {
+      const c = await getCloudConfig(req.user.id);
+      if (!c?.access_token) return res.status(400).json({ error: 'Canal Oficial não configurado' });
+      if (mediaUrl) return res.status(400).json({ error: 'Envio de mídia via Canal Oficial ainda não suportado nesta interface. Use um template ou envie pelo painel Meta.' });
+      const r = await wppCloud.sendText({ token: c.access_token, phoneNumberId: c.phone_number_id }, phone, message);
+
+      const cleanedPhone = String(phone).replace(/\D/g, '');
+      const ts = new Date().toISOString();
+      let { data: chat } = await supabase.from('chats').select('id')
+        .eq('user_id', req.user.id).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
+      if (!chat) {
+        const { data: created } = await supabase.from('chats').insert({
+          user_id: req.user.id, session_slot: 0, phone: cleanedPhone,
+          last_message: message, last_message_at: ts, unread: 0
+        }).select('id').single();
+        chat = created;
+      } else {
+        await supabase.from('chats').update({ last_message: message, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
+      }
+      if (chat?.id) {
+        await supabase.from('chat_messages').insert({
+          chat_id: chat.id, user_id: req.user.id,
+          direction: 'out', type: 'text', text: message,
+          status: 'sent', timestamp: ts,
+          external_id: r?.messages?.[0]?.id || null,
+        });
+        sseSend(req.user.id, 'message', {
+          chatId: chat.id, slot: 0, phone: cleanedPhone,
+          direction: 'out', type: 'text', text: message, timestamp: ts,
+        });
+      }
+      return res.json({ ok: true, sentTo: cleanedPhone });
+    }
+
+    // ── Slots 1-5 = Baileys ─────────────────────────────────────────────────
     const key = sessionKey(req.user.id, useSlot);
     const status = wpp.getStatus(key);
     if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
