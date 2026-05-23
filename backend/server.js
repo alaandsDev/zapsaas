@@ -2039,6 +2039,21 @@ app.delete('/api/workflows/:id', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Status dos workflow jobs (debug/admin)
+app.get('/api/workflow-jobs', requireAuth, async (req, res) => {
+  const { status = 'pending', limit = 50 } = req.query;
+  const query = supabase
+    .from('workflow_jobs')
+    .select('id, flow_id, phone, name, status, attempts, run_at, started_at, finished_at, error, created_at')
+    .eq('user_id', req.user.id)
+    .order('run_at', { ascending: false })
+    .limit(Math.min(Number(limit), 200));
+  if (status !== 'all') query.eq('status', status);
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
 // Test-run manual: dispara o fluxo para um número de teste pelo WhatsApp do usuário
 app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async (req, res) => {
   try {
@@ -3906,36 +3921,85 @@ cron.schedule('*/3 * * * *', async () => {
 // ═══════════════════════════════════════════════════════════════
 // CRON — Delays reais: retoma continuações de workflow (a cada min)
 // ═══════════════════════════════════════════════════════════════
+
+// Recupera jobs que ficaram presos em 'processing' por mais de 5 min
+// (crash do servidor durante execução)
+async function recoverStalledJobs() {
+  const staleTime = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from('workflow_jobs')
+    .select('id')
+    .eq('status', 'processing')
+    .lt('started_at', staleTime)
+    .limit(20);
+  if (data?.length) {
+    const ids = data.map(j => j.id);
+    await supabase.from('workflow_jobs')
+      .update({ status: 'pending', started_at: null })
+      .in('id', ids);
+    console.log(`[wf-jobs] 🔄 Recuperados ${ids.length} job(s) travado(s)`);
+  }
+}
+
 cron.schedule('* * * * *', async () => {
   try {
+    // 1. Recupera jobs travados (crash recovery)
+    await recoverStalledJobs();
+
+    // 2. Busca jobs prontos para rodar
+    const now = new Date().toISOString();
     const { data: jobs } = await supabase
       .from('workflow_jobs')
       .select('*')
       .eq('status', 'pending')
-      .lte('run_at', new Date().toISOString())
+      .lte('run_at', now)
       .order('run_at', { ascending: true })
       .limit(25);
+
     for (const job of (jobs || [])) {
       try {
+        // 3. Tenta reservar o job atomicamente (evita duplo processamento)
+        const { data: claimed, error: claimErr } = await supabase
+          .from('workflow_jobs')
+          .update({ status: 'processing', started_at: new Date().toISOString() })
+          .eq('id', job.id)
+          .eq('status', 'pending') // só atualiza se ainda pending
+          .select('id')
+          .single();
+        if (claimErr || !claimed) continue; // outro worker pegou
+
+        // 4. Verifica sessão conectada
         const connected = getConnectedSessions(job.user_id);
         if (!connected.length) {
           const attempts = (job.attempts || 0) + 1;
           await supabase.from('workflow_jobs').update(
-            attempts >= 8
-              ? { status: 'failed' }
-              : { attempts, run_at: new Date(Date.now() + 15 * 60000).toISOString() }
+            attempts >= 10
+              ? { status: 'failed', error: 'Sem sessão conectada após 10 tentativas' }
+              : { status: 'pending', attempts, run_at: new Date(Date.now() + 10 * 60000).toISOString(), started_at: null }
           ).eq('id', job.id);
           continue;
         }
-        // marca em processamento (evita reprocessar em paralelo)
-        await supabase.from('workflow_jobs').update({ status: 'done' }).eq('id', job.id);
 
+        // 5. Carrega o fluxo
         const { data: flow } = await supabase.from('workflows')
-          .select('id, name, nodes, edges, enabled, status')
+          .select('id, name, nodes, edges, enabled, status, session_slot')
           .eq('id', job.flow_id).eq('user_id', job.user_id).single();
-        if (!flow || flow.enabled === false) continue;
 
-        const key = connected[0].key;
+        if (!flow || flow.enabled === false || flow.status === 'inactive') {
+          await supabase.from('workflow_jobs').update({ status: 'skipped' }).eq('id', job.id);
+          continue;
+        }
+
+        // 6. Escolhe a sessão correta (respeita session_slot do fluxo)
+        let session = connected[0];
+        if (flow.session_slot) {
+          const slotKey = sessionKey(job.user_id, flow.session_slot);
+          const slotSession = connected.find(s => s.key === slotKey);
+          if (slotSession) session = slotSession;
+        }
+        const key = session.key;
+
+        // 7. Helpers para o engine
         const sendText = (to, text) => wpp.sendMessage(key, to, text);
         const loadFlow = async (fid) => {
           const { data } = await supabase.from('workflows')
@@ -3946,21 +4010,44 @@ cron.schedule('* * * * *', async () => {
         const onDelay = async ({ flowId, resumeNodeIds, delayMs }) => {
           if (!resumeNodeIds?.length) return;
           await supabase.from('workflow_jobs').insert({
-            user_id: job.user_id, flow_id: flowId || flow.id,
-            phone: job.phone, name: job.name || '',
+            user_id: job.user_id,
+            flow_id: flowId || flow.id,
+            phone: job.phone,
+            name: job.name || '',
             resume_node_ids: resumeNodeIds,
             run_at: new Date(Date.now() + delayMs).toISOString(),
             status: 'pending',
           });
         };
+        const applyTag = (toPhone, tags) =>
+          applyTagsToLead(job.user_id, toPhone, tags).catch(() => {});
+
+        // 8. Executa o fluxo
         const r = await workflowEngine.runFlow(
           { id: flow.id, nodes: flow.nodes || [], edges: flow.edges || [] },
-          { phone: job.phone, name: job.name || '', sendText, loadFlow, onDelay, startNodeIds: job.resume_node_ids || [] }
+          {
+            phone: job.phone,
+            name: job.name || '',
+            sendText,
+            loadFlow,
+            onDelay,
+            applyTag,
+            startNodeIds: job.resume_node_ids || [],
+          }
         );
-        console.log(`[wf-jobs] retomado user=${job.user_id} phone=${job.phone} fluxo="${flow.name}" blocos=${r?.steps || 0}`);
+
+        // 9. Marca concluído
+        await supabase.from('workflow_jobs')
+          .update({ status: 'done', finished_at: new Date().toISOString() })
+          .eq('id', job.id);
+
+        console.log(`[wf-jobs] ✅ user=${job.user_id} phone=${job.phone} fluxo="${flow.name}" blocos=${r?.steps || 0}`);
       } catch (e) {
-        console.warn('[wf-jobs] job falhou:', e.message);
-        await supabase.from('workflow_jobs').update({ status: 'failed' }).eq('id', job.id).then(() => {}, () => {});
+        console.warn(`[wf-jobs] ❌ job ${job.id} falhou:`, e.message);
+        await supabase.from('workflow_jobs')
+          .update({ status: 'failed', error: e.message.slice(0, 400) })
+          .eq('id', job.id)
+          .then(() => {}, () => {});
       }
     }
   } catch (e) {
