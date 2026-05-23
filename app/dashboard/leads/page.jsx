@@ -242,6 +242,11 @@ export default function LeadsPage() {
   const [openListView, setOpenListView] = useState(null);
   const [editLead, setEditLead] = useState(null);
   const [tagInput, setTagInput] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saleOpen, setSaleOpen] = useState(false);
+  const [saleAmount, setSaleAmount] = useState("");
+  const [saleLoading, setSaleLoading] = useState(false);
+  const [saleMsg, setSaleMsg] = useState(null); // { type: 'ok'|'err', text }
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
 
@@ -332,10 +337,36 @@ export default function LeadsPage() {
   }, [q, leads, seg]);
 
   async function delLead(id) {
-    if (!confirm("Remover este lead?")) return;
     await api(`/api/leads/${id}`, { method: "DELETE" });
     setSelected(null);
+    setConfirmDelete(false);
     load();
+  }
+
+  async function handleSale() {
+    const amount = Number(String(saleAmount).replace(/[^\d.,]/g, "").replace(",", "."));
+    if (!(amount > 0)) { setSaleMsg({ type: "err", text: "Informe um valor válido" }); return; }
+    setSaleLoading(true);
+    setSaleMsg(null);
+    try {
+      await api("/api/sales", {
+        method: "POST",
+        body: {
+          lead_id: selected.id,
+          amount,
+          title: `Venda · ${selected.name || selected.phone}`,
+          source: "manual",
+          status: "won",
+        },
+      });
+      setSaleMsg({ type: "ok", text: `✅ ${amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} registrado!` });
+      setSaleAmount("");
+      setTimeout(() => { setSaleOpen(false); setSaleMsg(null); }, 1800);
+    } catch (e) {
+      setSaleMsg({ type: "err", text: e.message || "Falha ao registrar venda" });
+    } finally {
+      setSaleLoading(false);
+    }
   }
 
   const RailItem = ({ active, onClick, icon: Icon, label, count, dot }) => (
@@ -551,7 +582,7 @@ export default function LeadsPage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ delay: Math.min(i * 0.02, 0.3) }}
-                        onClick={() => { setSelected(l); setTab("resumo"); }}
+                        onClick={() => { setSelected(l); setTab("resumo"); setConfirmDelete(false); setSaleOpen(false); setSaleMsg(null); setSaleAmount(""); }}
                         className={`w-full text-left flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all group
                           ${isSel
                             ? "bg-primary/[0.06] border-primary/30 shadow-[0_0_24px_-12px_rgba(0,255,136,0.6)]"
@@ -727,30 +758,84 @@ export default function LeadsPage() {
                           />
                         </div>
 
-                        <button
-                          onClick={async () => {
-                            const raw = window.prompt(`Valor da venda para ${selected.name || "este lead"} (R$):`);
-                            if (raw == null) return;
-                            const amount = Number(String(raw).replace(/[^\d.,]/g, "").replace(",", "."));
-                            if (!(amount > 0)) { alert("Valor inválido"); return; }
-                            try {
-                              await api("/api/sales", { method: "POST", body: { lead_id: selected.id, amount, title: `Venda · ${selected.name || selected.phone}`, source: "manual", status: "won" } });
-                              alert(`Venda de ${amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} registrada.`);
-                            } catch (e) { alert(e.message || "Falha ao registrar venda"); }
-                          }}
-                          className="w-full mt-1 mb-1 flex items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold py-2 hover:bg-primary/15 transition-colors"
-                        >
-                          <DollarSign className="size-3.5" /> Registrar venda
-                        </button>
+                        {/* ── Registrar venda (inline) ── */}
+                        <AnimatePresence mode="wait">
+                          {saleOpen ? (
+                            <motion.div
+                              key="sale-form"
+                              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                              className="mt-1 mb-1 rounded-xl border border-primary/25 bg-primary/[0.06] p-3 space-y-2"
+                            >
+                              <p className="text-xs font-semibold text-primary">Registrar venda</p>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-ink-400 shrink-0">R$</span>
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={saleAmount}
+                                  onChange={(e) => { setSaleAmount(e.target.value); setSaleMsg(null); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") handleSale(); if (e.key === "Escape") { setSaleOpen(false); setSaleAmount(""); setSaleMsg(null); } }}
+                                  placeholder="0,00"
+                                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-ink-600 outline-none focus:border-primary/50"
+                                />
+                              </div>
+                              {saleMsg && (
+                                <p className={`text-xs px-2 py-1.5 rounded-lg border ${saleMsg.type === "ok" ? "text-primary bg-primary/10 border-primary/25" : "text-red-400 bg-red-500/10 border-red-500/20"}`}>
+                                  {saleMsg.text}
+                                </p>
+                              )}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleSale}
+                                  disabled={saleLoading}
+                                  className="flex-1 py-1.5 rounded-lg bg-primary text-bg text-xs font-bold disabled:opacity-60"
+                                >
+                                  {saleLoading ? "Salvando..." : "Confirmar"}
+                                </button>
+                                <button
+                                  onClick={() => { setSaleOpen(false); setSaleAmount(""); setSaleMsg(null); }}
+                                  className="px-3 py-1.5 rounded-lg border border-white/10 text-xs text-ink-400 hover:text-ink-200"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </motion.div>
+                          ) : (
+                            <motion.button
+                              key="sale-btn"
+                              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                              onClick={() => { setSaleOpen(true); setSaleAmount(""); setSaleMsg(null); }}
+                              className="w-full mt-1 mb-1 flex items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold py-2 hover:bg-primary/15 transition-colors"
+                            >
+                              <DollarSign className="size-3.5" /> Registrar venda
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
 
-                        <div className="pt-1 flex gap-2">
-                          <Button variant="ghost" className="flex-1 !py-2 text-xs" onClick={() => setEditLead(selected)}>
-                            <Pencil className="size-3.5" /> Editar
-                          </Button>
-                          <Button variant="ghost" className="!py-2 text-xs !text-red-400" onClick={() => delLead(selected.id)}>
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
+                        {/* ── Editar / Excluir ── */}
+                        <AnimatePresence mode="wait">
+                          {confirmDelete ? (
+                            <motion.div
+                              key="confirm-del"
+                              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                              className="pt-1 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2"
+                            >
+                              <span className="text-xs text-red-300 flex-1">Remover este lead?</span>
+                              <button onClick={() => delLead(selected.id)} className="text-xs font-bold text-red-400 hover:text-red-300">Sim</button>
+                              <button onClick={() => setConfirmDelete(false)} className="text-xs text-ink-500 hover:text-ink-300">Não</button>
+                            </motion.div>
+                          ) : (
+                            <motion.div key="edit-del" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="pt-1 flex gap-2">
+                              <Button variant="ghost" className="flex-1 !py-2 text-xs" onClick={() => setEditLead(selected)}>
+                                <Pencil className="size-3.5" /> Editar
+                              </Button>
+                              <Button variant="ghost" className="!py-2 text-xs !text-red-400" onClick={() => setConfirmDelete(true)}>
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     )}
                     {tab === "conversas" && <LeadConversas lead={selected} />}
