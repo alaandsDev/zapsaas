@@ -8,7 +8,7 @@ import {
   Search, Send as SendIcon, Phone, Copy, ChevronDown,
   MessageSquare, Check, CheckCheck, Clock, X, Tag,
   Users, Layers, Filter, Mic, Paperclip, MoreHorizontal,
-  RefreshCw, Megaphone, ExternalLink, Zap,
+  RefreshCw, Megaphone, ExternalLink, Zap, BadgeCheck,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
 import { Button } from "../../../components/ui/Field";
@@ -23,8 +23,9 @@ const LS_CHANNEL   = "conversation_channel_filter";
 const LS_GROUP     = "conversation_group_mode";
 const LS_INBOX_COL = "conversation_inbox_collapsed";
 
-// Cor fixa por slot (1-indexed)
+// Cor fixa por slot (0 = Canal Oficial / Cloud API, 1-5 = Baileys)
 const SLOT_COLOR = {
+  0: { hex: "#22D3EE", cls: "bg-accent-blue", text: "text-accent-blue", ring: "border-accent-blue/40", label: "Oficial", name: "Canal Oficial" },
   1: { hex: "#00FF88", cls: "bg-primary",    text: "text-primary",    ring: "border-primary/40",    label: "Nº1", name: "Número 1" },
   2: { hex: "#7C3AED", cls: "bg-secondary",  text: "text-secondary",  ring: "border-secondary/40",  label: "Nº2", name: "Número 2" },
   3: { hex: "#00D1FF", cls: "bg-accent-blue",text: "text-accent-blue",ring: "border-accent-blue/40",label: "Nº3", name: "Número 3" },
@@ -292,12 +293,20 @@ export default function Conversas() {
     [sessions]
   );
 
-  // ── Carrega sessões ────────────────────────────────────────────────────────
+  // ── Carrega sessões (Baileys + Canal Oficial slot 0) ──────────────────────
   const loadSessions = useCallback(async () => {
     try {
-      const list = await api("/api/whatsapp/sessions");
-      setSessions(list || []);
-      return (list || []).filter((s) => s.status === "connected");
+      const [list, cloudCfg] = await Promise.allSettled([
+        api("/api/whatsapp/sessions"),
+        api("/api/wpp-cloud/config"),
+      ]);
+      const baileys = list.status === "fulfilled" ? (list.value || []) : [];
+      const cloud   = cloudCfg.status === "fulfilled" && cloudCfg.value?.has_token
+        ? [{ slot: 0, status: "connected", phone: cloudCfg.value.verified_name || "Canal Oficial", isCloud: true }]
+        : [];
+      const all = [...cloud, ...baileys];
+      setSessions(all);
+      return all.filter((s) => s.status === "connected");
     } catch { return []; }
   }, []);
 
@@ -566,9 +575,9 @@ export default function Conversas() {
       <>
         <Topbar title="Conversas" subtitle="Inbox multi-canal em tempo real" />
         <div className="p-6 lg:p-8">
-          <EmptyState icon="📵" title="Nenhum WhatsApp conectado"
-            desc="Conecte um número em Conexões para ver suas conversas em tempo real."
-            action={<Link href="/dashboard/canais"><Button>Ir para Conexões</Button></Link>} />
+          <EmptyState icon="📵" title="Nenhum canal conectado"
+            desc="Conecte um número em Canais ou configure o Canal Oficial para ver suas conversas."
+            action={<Link href="/dashboard/canais"><Button>Ir para Canais</Button></Link>} />
         </div>
       </>
     );
@@ -1000,6 +1009,12 @@ export default function Conversas() {
 
               {/* Input */}
               <div className="border-t border-white/[0.06] px-4 py-3 bg-white/[0.02]">
+                {activeChat?.slot === 0 && (
+                  <div className="mb-2 px-3 py-1.5 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-[11px] text-accent-blue flex items-center gap-1.5">
+                    <span className="size-1.5 rounded-full bg-accent-blue shrink-0" />
+                    Canal Oficial · só texto livre (janela 24h). Para iniciar, use um template aprovado.
+                  </div>
+                )}
                 <div className="flex gap-2 items-end">
                   {/* Ícones esquerdos */}
                   <div className="flex items-center gap-1 pb-2 shrink-0">
@@ -1012,9 +1027,9 @@ export default function Conversas() {
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingFile}
-                      className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors disabled:opacity-40"
-                      title="Anexar arquivo"
+                      disabled={uploadingFile || activeChat?.slot === 0}
+                      className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      title={activeChat?.slot === 0 ? "Mídia não suportada no Canal Oficial" : "Anexar arquivo"}
                     >
                       {uploadingFile ? <RefreshCw className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
                     </button>
