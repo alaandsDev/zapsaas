@@ -37,6 +37,11 @@ function outgoing(edges, nodeId) {
   return (edges || []).filter((e) => e.source === nodeId).map((e) => e.target);
 }
 
+// Retorna as edges completas saindo de um nó (para ler sourceHandle)
+function outgoingEdges(edges, nodeId) {
+  return (edges || []).filter((e) => e.source === nodeId);
+}
+
 function findStart(nodes) {
   return nodes.find((n) => n.data?.kind === 'trigger') || nodes[0];
 }
@@ -48,7 +53,7 @@ function delayMs(d) {
 }
 const LIVE_INLINE_MAX_MS = 10000; // delays curtos rodam inline; acima disso agenda
 
-async function runFlow(workflow, { phone, name, sendText, sendMedia, loadFlow, onDelay, applyTag, startNodeIds }) {
+async function runFlow(workflow, { phone, name, sendText, sendMedia, loadFlow, onDelay, onWaitChoice, applyTag, startNodeIds }) {
   const vars = { name: name || '', phone };
   const log = [];
   const ctx = { steps: 0, jumps: 0, visitedFlows: new Set() };
@@ -170,7 +175,33 @@ async function runFlow(workflow, { phone, name, sendText, sendMedia, loadFlow, o
             opts.forEach((o, i) => lines.push(`${i + 1}. ${o}`));
             const txt = lines.join('\n');
             if (txt.trim()) await sendText(phone, txt);
-            log.push({ node: id, kind, status: 'ok', info: `${opts.length} opções` });
+
+            // Monta mapa de roteamento: texto/número → nodeId destino
+            const choiceEdgesRaw = outgoingEdges(edges, id);
+            const optionsMap = {};
+            opts.forEach((optText, i) => {
+              // tenta sourceHandle "option_i", senão usa ordem da edge
+              const edge = choiceEdgesRaw.find((e) => e.sourceHandle === `option_${i}`)
+                        || choiceEdgesRaw[i];
+              if (!edge) return;
+              const targetId = edge.target;
+              optionsMap[String(i + 1)] = targetId;          // "1", "2"...
+              const norm = String(optText).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+              optionsMap[norm] = targetId;                    // "sim", "nao"...
+            });
+
+            if (onWaitChoice && Object.keys(optionsMap).length) {
+              // Pausa o fluxo — retoma quando usuário responder
+              await onWaitChoice({ flowId: workflow.id, phone, optionsMap });
+              log.push({ node: id, kind, status: 'waiting', info: `aguardando resposta: ${opts.join(' / ')}` });
+              // Não adiciona os nós filhos à fila — o resume fará isso
+              visited.add(id); // evita reprocessar
+              // Limpa a fila para parar este ramo
+              queue.length = 0;
+              continue;
+            }
+
+            log.push({ node: id, kind, status: 'ok', info: `${opts.length} opções (sem roteamento configurado)` });
             break;
           }
 
@@ -302,10 +333,12 @@ async function _fetchAndSendMedia(sessionKey, phone, url, caption, kind) {
 async function testRun(workflow, sessionKey, phone, name, loadFlow, applyTag) {
   const sendText = (to, text) => wpp.sendMessage(sessionKey, to, text);
   const sendMedia = (to, url, caption, kind) => _fetchAndSendMedia(sessionKey, to, url, caption, kind);
+  // No teste, o onWaitChoice apenas registra no log (não persiste no banco)
+  const onWaitChoice = async () => {}; // retorna ok; o log já captura o status 'waiting'
   return runFlow(
     { id: workflow.id, nodes: workflow.nodes || [], edges: workflow.edges || [] },
-    { phone, name, sendText, sendMedia, loadFlow, applyTag }
+    { phone, name, sendText, sendMedia, loadFlow, applyTag, onWaitChoice }
   );
 }
 
-module.exports = { runFlow, testRun };
+module.exports = { runFlow, testRun, _fetchAndSendMedia };

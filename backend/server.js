@@ -2809,6 +2809,9 @@ function maybeRunEntryWorkflow(userId, evt, isNewConversation, slot) {
           return data || null;
         };
         const sendText = (to, text) => wpp.sendMessage(evt.sessionId, to, text);
+        const sendMedia = (to, url, caption, kind) => workflowEngine._fetchAndSendMedia
+          ? workflowEngine._fetchAndSendMedia(evt.sessionId, to, url, caption, kind)
+          : sendText(to, url);
         const applyTag = (toPhone, tags) => applyTagsToLead(userId, toPhone, tags).catch(() => {});
         const onDelay = async ({ flowId, resumeNodeIds, delayMs }) => {
           if (!resumeNodeIds?.length) return;
@@ -2822,15 +2825,124 @@ function maybeRunEntryWorkflow(userId, evt, isNewConversation, slot) {
             status: 'pending',
           });
         };
+        const onWaitChoice = async ({ flowId, optionsMap }) => {
+          // Apaga choice anterior do mesmo phone (sobrescreve)
+          await supabase.from('workflow_pending_choices')
+            .delete().eq('user_id', userId).eq('phone', phone);
+          await supabase.from('workflow_pending_choices').insert({
+            user_id: userId,
+            phone,
+            flow_id: flowId || wf.id,
+            session_id: evt.sessionId,
+            name: evt.pushName || '',
+            options_map: optionsMap,
+          });
+        };
         const r = await workflowEngine.runFlow(
           { id: wf.id, nodes: wf.nodes || [], edges: wf.edges || [] },
-          { phone, name: evt.pushName || '', sendText, loadFlow, onDelay, applyTag }
+          { phone, name: evt.pushName || '', sendText, sendMedia, loadFlow, onDelay, onWaitChoice, applyTag }
         );
         console.log(`[entry-flow] user=${userId} phone=${phone} fluxo="${wf.name}" blocos=${r?.steps || 0}`);
       })
       .catch((e) => console.warn('[entry-flow] falhou:', e.message));
   } catch (e) {
     console.warn('[entry-flow] erro:', e.message);
+  }
+}
+
+// Normaliza texto do usuário para comparar com options_map
+function normalizeChoiceReply(text) {
+  return String(text || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .replace(/[^\w\d\s]/g, '').trim();
+}
+
+// Tenta retomar um workflow pausado num bloco Escolha.
+// Retorna true se havia choice pendente (e foi tratado), false caso contrário.
+async function maybeResumeChoiceFlow(userId, evt) {
+  try {
+    if (!evt.text?.trim()) return false;
+    const phone = String(evt.phone || '').replace(/\D/g, '');
+    if (!phone) return false;
+
+    const { data: pending } = await supabase
+      .from('workflow_pending_choices')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('phone', phone)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!pending) return false;
+
+    // Deleta imediatamente para evitar processamento duplo
+    await supabase.from('workflow_pending_choices').delete().eq('id', pending.id);
+
+    const norm = normalizeChoiceReply(evt.text);
+    const optionsMap = pending.options_map || {};
+    const targetNodeId = optionsMap[norm] || optionsMap[norm.replace(/\s+/g, '')];
+
+    if (!targetNodeId) {
+      // Resposta não reconhecida — reenvia as opções
+      const opts = Object.entries(optionsMap)
+        .filter(([k]) => /^\d+$/.test(k))
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([k, v]) => `${k}. ${Object.keys(optionsMap).find(x => optionsMap[x] === v && !/^\d+$/.test(x)) || '?'}`);
+      if (opts.length) {
+        await wpp.sendMessage(pending.session_id, evt.phone,
+          `Opção inválida. Por favor escolha:\n${opts.join('\n')}`);
+        // Reinsere o pending para nova tentativa
+        await supabase.from('workflow_pending_choices').insert({
+          ...pending, id: undefined, created_at: undefined,
+        });
+      }
+      return true;
+    }
+
+    // Carrega o fluxo e retoma a partir do nó destino
+    const { data: wf } = await supabase.from('workflows')
+      .select('id, name, nodes, edges')
+      .eq('id', pending.flow_id).eq('user_id', userId).single();
+    if (!wf) return true;
+
+    const sendText = (to, text) => wpp.sendMessage(pending.session_id, to, text);
+    const loadFlow = async (flowId) => {
+      const { data } = await supabase.from('workflows')
+        .select('id, name, nodes, edges').eq('id', flowId).eq('user_id', userId).single();
+      return data || null;
+    };
+    const applyTag = (toPhone, tags) => applyTagsToLead(userId, toPhone, tags).catch(() => {});
+    const onDelay = async ({ flowId, resumeNodeIds, delayMs }) => {
+      if (!resumeNodeIds?.length) return;
+      await supabase.from('workflow_jobs').insert({
+        user_id: userId, flow_id: flowId || wf.id, phone,
+        name: pending.name || '', resume_node_ids: resumeNodeIds,
+        run_at: new Date(Date.now() + delayMs).toISOString(), status: 'pending',
+      });
+    };
+    const onWaitChoice = async ({ flowId, optionsMap: newMap }) => {
+      await supabase.from('workflow_pending_choices')
+        .delete().eq('user_id', userId).eq('phone', phone);
+      await supabase.from('workflow_pending_choices').insert({
+        user_id: userId, phone, flow_id: flowId || wf.id,
+        session_id: pending.session_id, name: pending.name || '', options_map: newMap,
+      });
+    };
+
+    workflowEngine.runFlow(
+      { id: wf.id, nodes: wf.nodes || [], edges: wf.edges || [] },
+      { phone, name: pending.name || evt.pushName || '', sendText, loadFlow,
+        onDelay, onWaitChoice, applyTag, startNodeIds: [targetNodeId] }
+    ).then((r) => {
+      console.log(`[choice-resume] user=${userId} phone=${phone} ramo=${targetNodeId} steps=${r?.steps || 0}`);
+    }).catch((e) => console.warn('[choice-resume] falhou:', e.message));
+
+    return true;
+  } catch (e) {
+    console.warn('[choice-resume] erro:', e.message);
+    return false;
   }
 }
 
@@ -2934,8 +3046,10 @@ wpp.on('message', async (evt) => {
         })
         .catch(e => console.error('[chat] erro ao atualizar lead:', e.message));
 
-      // Gatilho automático do fluxo de entrada (não bloqueia o chat)
-      maybeRunEntryWorkflow(userId, evt, isNewConversation, slot);
+      // Verifica se este phone está aguardando resposta de um bloco Escolha
+      const choiceHandled = await maybeResumeChoiceFlow(userId, evt);
+      // Gatilho automático do fluxo de entrada (só roda se não havia choice pendente)
+      if (!choiceHandled) maybeRunEntryWorkflow(userId, evt, isNewConversation, slot);
     }
   } catch (e) {
     console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');

@@ -88,14 +88,16 @@ function FlowNodeBase({ id, data, selected }) {
           </div>
         )}
 
-        {/* choice outputs */}
+        {/* choice outputs — um handle por opção */}
         {isChoice && (data.options || []).filter(Boolean).length > 0 && (
           <div className="border-t border-white/[0.06] divide-y divide-white/[0.04]">
-            {(data.options || []).filter(Boolean).slice(0, 3).map((o, i) => (
-              <div key={i} className="px-3 py-1.5 text-[10px] text-[#38BDF8] truncate">→ {o}</div>
+            {(data.options || []).filter(Boolean).slice(0, 4).map((o, i) => (
+              <div key={i} className="relative px-3 py-1.5 text-[10px] text-[#38BDF8] truncate pr-5">
+                → {o}
+              </div>
             ))}
-            {(data.options || []).filter(Boolean).length > 3 && (
-              <div className="px-3 py-1 text-[10px] text-ink-500">+{(data.options || []).filter(Boolean).length - 3} mais</div>
+            {(data.options || []).filter(Boolean).length > 4 && (
+              <div className="px-3 py-1 text-[10px] text-ink-500">+{(data.options || []).filter(Boolean).length - 4} mais</div>
             )}
           </div>
         )}
@@ -110,6 +112,26 @@ function FlowNodeBase({ id, data, selected }) {
           <Handle type="source" id="yes" position={Position.Bottom} style={{ left: "30%", borderColor: "#22C55E", background: "#22C55E33" }} />
           <Handle type="source" id="no"  position={Position.Bottom} style={{ left: "70%", borderColor: "#EF4444", background: "#EF444433" }} />
         </>
+      ) : isChoice ? (
+        // Um handle de saída por opção, empilhados verticalmente no lado direito
+        (data.options || []).filter(Boolean).slice(0, 4).map((_, i) => {
+          const opts = (data.options || []).filter(Boolean);
+          const total = Math.min(opts.length, 4);
+          // distribui os handles ao longo da altura do card de opções
+          // cada opção ocupa ~28px (py-1.5 + border), header ~72px, colorbar ~4px
+          const headerH = 76 + (summaryText ? 52 : 0);
+          const optH = 28;
+          const topPx = headerH + optH * i + optH / 2;
+          return (
+            <Handle
+              key={i}
+              type="source"
+              id={`option_${i}`}
+              position={Position.Right}
+              style={{ top: topPx, borderColor: "#38BDF8aa", background: "#38BDF822" }}
+            />
+          );
+        })
       ) : (
         <Handle type="source" position={Position.Right} style={{ borderColor: `${def.color}aa` }} />
       )}
