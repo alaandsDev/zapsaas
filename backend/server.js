@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const wpp = require('./whatsapp');
@@ -33,14 +34,21 @@ async function isValidVerifyToken(token) {
 
 
 
+// ── HELMET — security headers ─────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false,      // API pura — sem HTML
+  crossOriginEmbedderPolicy: false,  // webhooks externos precisam embedar
+}));
+
 // ── CORS ──────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['https://zapsaas.vercel.app', 'https://delivery-full-production.up.railway.app', 'http://localhost:3000', 'http://localhost:5500'];
 
-// Aceita origens da allowlist + qualquer subdomínio *.vercel.app (Preview deploys).
-// Server-to-server (sem header Origin) também passa — necessário p/ webhooks da Meta/Stripe.
-const VERCEL_PREVIEW_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+// Subdomínios Vercel restritos ao projeto (zapsaas-*) em vez de qualquer *.vercel.app
+const VERCEL_PREVIEW_RE = /^https:\/\/zapsaas-[a-z0-9-]+\.vercel\.app$/i;
+
+// Server-to-server (sem header Origin) passa — necessário para webhooks Meta/Stripe.
 app.use(cors({
   origin: (origin, cb) => {
     if (
@@ -217,13 +225,18 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
       .select('*').eq('phone_number_id', phoneNumberId).single();
     if (!config) return res.sendStatus(200);
 
-    // Verifica assinatura HMAC se houver app_secret configurado
+    // Valida assinatura HMAC — obrigatória se app_secret configurado
+    // Se não configurado, rejeita para evitar injeção de webhooks falsos
+    const sig = req.headers['x-hub-signature-256'];
     if (config.app_secret) {
-      const sig = req.headers['x-hub-signature-256'];
       if (!wppCloud.verifyWebhookSignature(req.body, sig, config.app_secret)) {
-        console.warn('[wpp-cloud] HMAC inválido');
+        console.warn('[wpp-cloud] HMAC inválido — rejeitando webhook');
         return res.sendStatus(401);
       }
+    } else if (!sig) {
+      // Sem app_secret e sem assinatura — rejeita (possível injeção)
+      console.warn('[wpp-cloud] webhook sem app_secret e sem assinatura — rejeitado');
+      return res.sendStatus(401);
     }
 
     const change = payload.entry[0].changes[0].value;
@@ -867,7 +880,7 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/dispatches', requireAuth, async (req, res) => {
+app.post('/api/dispatches', requireAuth, rateLimit(60 * 1000, 10), async (req, res) => {
   try {
     const { messageId, contactIds, scheduledAt, useWhatsapp, dualChip, channel, mediaUrl, mediaMimetype, mediaFilename, sourceSessionSlot } = req.body;
     if (!messageId || !contactIds?.length) {
@@ -3167,7 +3180,7 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
 });
 
 // Envia mensagem por uma sessão específica e persiste
-app.post('/api/chats/send', requireAuth, async (req, res) => {
+app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, res) => {
   try {
     const { slot, phone, message, mediaUrl, mediaMimetype, mediaFilename } = req.body;
     if (!phone || (!message && !mediaUrl)) return res.status(400).json({ error: 'phone e message ou mediaUrl obrigatórios' });
@@ -3470,7 +3483,7 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 });
 
 // Disparo em massa por lista de números diretos (contatos importados)
-app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
+app.post('/api/whatsapp/bulk', requireAuth, rateLimit(60 * 1000, 5), async (req, res) => {
   try {
     const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip, mediaUrl, mediaMimetype, mediaFilename, channel, sourceSessionSlot } = req.body;
     if (!message || !phones?.length) {
@@ -3862,6 +3875,7 @@ app.post('/api/lists', requireAuth, async (req, res) => {
   try {
     const { name, contacts } = req.body;
     if (!name || !contacts?.length) return res.status(400).json({ error: 'Nome e contatos são obrigatórios' });
+    if (contacts.length > 10000) return res.status(400).json({ error: 'Máximo de 10.000 contatos por lista' });
 
     // Salva a lista normalmente
     const { data, error } = await supabase.from('contact_lists').insert({
