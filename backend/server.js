@@ -708,14 +708,24 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
 
 app.get('/api/leads', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    res.json(data);
+    const userId = uid(req);
+    const PAGE = 1000;
+    let all = [];
+    let from = 0;
+    // Pagina até buscar todos os leads (sem depender do limite padrão do PostgREST)
+    while (true) {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      all = all.concat(data || []);
+      if (!data || data.length < PAGE) break;
+      from += PAGE;
+    }
+    res.json(all);
   } catch (e) {
     res.status(500).json({ error: 'Erro ao buscar leads' });
   }
