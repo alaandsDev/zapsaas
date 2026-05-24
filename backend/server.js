@@ -601,7 +601,7 @@ app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
 
     const userPromise = supabase
       .from('users')
-      .select('id, name, email, role, password')
+      .select('id, name, email, role, password, workspace_owner_id, workspace_role')
       .eq('email', email.toLowerCase().trim())
       .single();
 
@@ -625,7 +625,11 @@ app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
     }
 
     const token = crypto.randomBytes(32).toString('hex');
-    const userData = { id: user.id, name: user.name, email: user.email, role: user.role };
+    const userData = {
+      id: user.id, name: user.name, email: user.email, role: user.role,
+      workspace_owner_id: user.workspace_owner_id || null,
+      workspace_role: user.workspace_role || null,
+    };
 
     const { error: sessionError } = await supabase.from('sessions').insert({
       token,
@@ -699,6 +703,7 @@ app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) =>
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   await supabase.from('sessions').delete().eq('token', token);
+  authCache.delete(token); // invalida cache imediatamente
   res.json({ message: 'Logout realizado' });
 });
 
@@ -774,7 +779,7 @@ app.patch('/api/leads/:id', requireAuth, async (req, res) => {
       .from('leads')
       .update(updates)
       .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .select()
       .single();
 
@@ -788,7 +793,7 @@ app.patch('/api/leads/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/leads/:id', requireAuth, async (req, res) => {
   try {
-    const { error } = await supabase.from('leads').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+    const { error } = await supabase.from('leads').delete().eq('id', req.params.id).eq('user_id', uid(req));
     if (error) throw error;
     res.json({ message: 'Lead removido' });
   } catch (e) {
@@ -805,7 +810,7 @@ app.get('/api/messages', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('messages')
       .select('*')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -822,7 +827,7 @@ app.post('/api/messages', requireAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ title, content, tags: tags || [], user_id: req.user.id })
+      .insert({ title, content, tags: tags || [], user_id: uid(req) })
       .select()
       .single();
 
@@ -835,7 +840,7 @@ app.post('/api/messages', requireAuth, async (req, res) => {
 
 app.delete('/api/messages/:id', requireAuth, async (req, res) => {
   try {
-    const { error } = await supabase.from('messages').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+    const { error } = await supabase.from('messages').delete().eq('id', req.params.id).eq('user_id', uid(req));
     if (error) throw error;
     res.json({ message: 'Mensagem removida' });
   } catch (e) {
@@ -852,7 +857,7 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('dispatches')
       .select('*')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -869,15 +874,15 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
 
-    const limit = await checkDispatchLimit(req.user.id);
+    const limit = await checkDispatchLimit(uid(req));
     if (!limit.ok) {
       return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
     }
 
-    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', req.user.id).single();
+    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', uid(req)).single();
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
 
-    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', req.user.id);
+    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', uid(req));
     const items = (contacts || []).map(c => ({
       contactId: c.id,
       contactName: c.name,
@@ -888,8 +893,8 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
 
     const isScheduled = scheduledAt && new Date(scheduledAt) > new Date();
 
-    const connectedForDispatch = getConnectedSessions(req.user.id);
-    const cloudConfig = await getCloudConfig(req.user.id);
+    const connectedForDispatch = getConnectedSessions(uid(req));
+    const cloudConfig = await getCloudConfig(uid(req));
     const hasBaileys = connectedForDispatch.length > 0;
     const hasCloud = !!(cloudConfig?.access_token && cloudConfig?.enabled);
 
@@ -920,7 +925,7 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
       status: isScheduled ? 'scheduled' : 'pending',
       items,
       scheduled_at: scheduledAt || null,
-      user_id: req.user.id,
+      user_id: uid(req),
       channel: via,
       session_slot: sourceSessionSlot ? parseInt(sourceSessionSlot) : null,
     }).select().single();
@@ -929,9 +934,9 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
 
     if (!isScheduled) {
       if (useCloud) {
-        executeCloudDispatch(dispatch.id, req.user.id);
+        executeCloudDispatch(dispatch.id, uid(req));
       } else if (useBaileys) {
-        executeRealDispatch(dispatch.id, req.user.id);
+        executeRealDispatch(dispatch.id, uid(req));
       } else {
         simulateSending(dispatch.id);
       }
@@ -946,7 +951,7 @@ app.post('/api/dispatches', requireAuth, async (req, res) => {
 
 app.delete('/api/dispatches/:id', requireAuth, async (req, res) => {
   try {
-    await supabase.from('dispatches').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+    await supabase.from('dispatches').delete().eq('id', req.params.id).eq('user_id', uid(req));
     res.json({ message: 'Disparo removido' });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao remover disparo' });
@@ -958,7 +963,7 @@ app.post('/api/dispatches/:id/pause', requireAuth, async (req, res) => {
     const { error } = await supabase.from('dispatches')
       .update({ status: 'paused' })
       .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .in('status', ['sending', 'scheduled']);
     if (error) return res.status(400).json({ error: error.message });
     res.json({ message: 'Disparo pausado' });
@@ -972,7 +977,7 @@ app.post('/api/dispatches/:id/resume', requireAuth, async (req, res) => {
     const { error } = await supabase.from('dispatches')
       .update({ status: 'scheduled' })
       .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .eq('status', 'paused');
     if (error) return res.status(400).json({ error: error.message });
     res.json({ message: 'Disparo retomado' });
@@ -986,7 +991,7 @@ app.post('/api/dispatches/:id/cancel', requireAuth, async (req, res) => {
     const { error } = await supabase.from('dispatches')
       .update({ status: 'cancelled' })
       .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .in('status', ['sending', 'scheduled', 'paused']);
     if (error) return res.status(400).json({ error: error.message });
     res.json({ message: 'Disparo cancelado' });
@@ -1341,7 +1346,7 @@ app.get('/api/dashboard/insights', requireAuth, async (req, res) => {
 // enviadas = chat_messages out, respostas = chat_messages in, leads = leads criados.
 app.get('/api/dashboard/timeseries', requireAuth, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const userId = uid(req);
     const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 7));
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -1351,17 +1356,17 @@ app.get('/api/dashboard/timeseries', requireAuth, async (req, res) => {
     const [{ data: msgs }, { data: leadRows }, { data: dispRows }] = await Promise.all([
       supabase.from('chat_messages')
         .select('direction, timestamp')
-        .eq('user_id', uid)
+        .eq('user_id', userId)
         .gte('timestamp', startISO)
         .limit(20000),
       supabase.from('leads')
         .select('created_at')
-        .eq('user_id', uid)
+        .eq('user_id', userId)
         .gte('created_at', startISO)
         .limit(20000),
       supabase.from('dispatches')
         .select('sent, created_at')
-        .eq('user_id', uid)
+        .eq('user_id', userId)
         .gte('created_at', startISO)
         .limit(5000),
     ]);
@@ -1411,7 +1416,7 @@ app.get('/api/dashboard/timeseries', requireAuth, async (req, res) => {
 app.get('/api/sales', requireAuth, async (req, res) => {
   try {
     let qb = supabase.from('sales').select('*')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('closed_at', { ascending: false })
       .limit(500);
     if (req.query.status) qb = qb.eq('status', req.query.status);
@@ -1423,7 +1428,7 @@ app.get('/api/sales', requireAuth, async (req, res) => {
 
 app.get('/api/sales/summary', requireAuth, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const userId = uid(req);
     const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30));
     const now = new Date();
     const start = new Date(now); start.setDate(now.getDate() - (days - 1)); start.setHours(0, 0, 0, 0);
@@ -1432,7 +1437,7 @@ app.get('/api/sales/summary', requireAuth, async (req, res) => {
     const { data: rows } = await supabase
       .from('sales')
       .select('amount, status, source, closed_at')
-      .eq('user_id', uid)
+      .eq('user_id', userId)
       .eq('status', 'won')
       .gte('closed_at', prevStart.toISOString())
       .limit(20000);
@@ -1483,21 +1488,21 @@ app.get('/api/sales/summary', requireAuth, async (req, res) => {
 // expomos receita atribuída + taxa de conversão, que são dados reais.
 app.get('/api/sales/roi', requireAuth, async (req, res) => {
   try {
-    const uid = req.user.id;
+    const userId = uid(req);
     const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30));
     const start = new Date(); start.setDate(start.getDate() - (days - 1)); start.setHours(0, 0, 0, 0);
 
     const [{ data: sales }, { data: dispatches }, { data: workflows }] = await Promise.all([
       supabase.from('sales')
         .select('amount, status, dispatch_id, workflow_id, closed_at')
-        .eq('user_id', uid).eq('status', 'won')
+        .eq('user_id', userId).eq('status', 'won')
         .gte('closed_at', start.toISOString()).limit(20000),
       supabase.from('dispatches')
         .select('id, message_title, total, created_at')
-        .eq('user_id', uid).order('created_at', { ascending: false }).limit(200),
+        .eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
       supabase.from('workflows')
         .select('id, name')
-        .eq('user_id', uid).limit(200),
+        .eq('user_id', userId).limit(200),
     ]);
 
     const dMap = new Map((dispatches || []).map((d) => [d.id, d]));
@@ -1548,7 +1553,7 @@ app.post('/api/sales', requireAuth, async (req, res) => {
         const { data: ds } = await supabase
           .from('dispatches')
           .select('id, items, created_at')
-          .eq('user_id', req.user.id)
+          .eq('user_id', uid(req))
           .order('created_at', { ascending: false })
           .limit(50);
         const hit = (ds || []).find((d) =>
@@ -1562,7 +1567,7 @@ app.post('/api/sales', requireAuth, async (req, res) => {
     }
 
     const { data, error } = await supabase.from('sales').insert({
-      user_id: req.user.id,
+      user_id: uid(req),
       lead_id: lead_id || null,
       title: title || '',
       amount: val,
@@ -1587,7 +1592,7 @@ app.patch('/api/sales/:id', requireAuth, async (req, res) => {
     if (patch.amount !== undefined) patch.amount = Number(patch.amount) || 0;
     if (patch.closed_at) patch.closed_at = new Date(patch.closed_at).toISOString();
     const { data, error } = await supabase.from('sales').update(patch)
-      .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+      .eq('id', req.params.id).eq('user_id', uid(req)).select().single();
     if (error) throw error;
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1596,7 +1601,7 @@ app.patch('/api/sales/:id', requireAuth, async (req, res) => {
 app.delete('/api/sales/:id', requireAuth, async (req, res) => {
   try {
     await supabase.from('sales').delete()
-      .eq('id', req.params.id).eq('user_id', req.user.id);
+      .eq('id', req.params.id).eq('user_id', uid(req));
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1716,7 +1721,7 @@ async function sendBulkCloud(userId, phones, message, delayMs = 500) {
 // Endpoint para o usuário confirmar o token salvo
 app.get('/api/wpp-cloud/verify-token', requireAuth, async (req, res) => {
   try {
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     if (!c) return res.json({ token: null });
     res.json({ token: c.webhook_verify_token || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1725,9 +1730,9 @@ app.get('/api/wpp-cloud/verify-token', requireAuth, async (req, res) => {
 app.get('/api/wpp-cloud/config', requireAuth, async (req, res) => {
   try {
     const { data: rawData, error: rawError } = await supabase
-      .from('whatsapp_cloud_configs').select('*').eq('user_id', req.user.id);
+      .from('whatsapp_cloud_configs').select('*').eq('user_id', uid(req));
     console.log('[config] user_id:', req.user.id, '| rows:', rawData?.length, '| error:', rawError?.message);
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     if (!c) return res.json(null);
     res.json({
       id: c.id,
@@ -1762,7 +1767,7 @@ app.post('/api/wpp-cloud/config', requireAuth, async (req, res) => {
     }
 
     const payload = {
-      user_id: req.user.id,
+      user_id: uid(req),
       phone_number_id,
       business_account_id: business_account_id || null,
       access_token,
@@ -1795,7 +1800,7 @@ app.post('/api/wpp-cloud/test', requireAuth, async (req, res) => {
   try {
     const { to, template, language, variables } = req.body;
     if (!to || !template) return res.status(400).json({ error: 'to e template obrigatórios' });
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     const r = await wppCloud.sendTemplate(
       { token: c.access_token, phoneNumberId: c.phone_number_id },
@@ -1808,7 +1813,7 @@ app.post('/api/wpp-cloud/test', requireAuth, async (req, res) => {
 // Lista templates da WABA
 app.get('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   try {
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     if (!c.business_account_id) return res.status(400).json({ error: 'business_account_id não configurado' });
     const r = await wppCloud.listTemplates({ token: c.access_token, businessAccountId: c.business_account_id });
@@ -1819,7 +1824,7 @@ app.get('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
 // Testar conexão com a Meta (valida token/phone real)
 app.get('/api/wpp-cloud/verify', requireAuth, async (req, res) => {
   try {
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ ok: false, error: te }); }
     const info = await wppCloud.verify({ token: c.access_token, phoneNumberId: c.phone_number_id });
     res.json({ ok: true, display_phone: info.display_phone_number || null, verified_name: info.verified_name || null, quality_rating: info.quality_rating || null });
@@ -1829,7 +1834,7 @@ app.get('/api/wpp-cloud/verify', requireAuth, async (req, res) => {
 // Criar template oficial na Meta (envia para aprovação)
 app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   try {
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     if (!c.business_account_id) return res.status(400).json({ error: 'business_account_id não configurado' });
     const { name, language, category, components } = req.body;
@@ -1843,7 +1848,7 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
     res.json(r);
     // Log criação de template
     await supabase.from('wpp_cloud_logs').insert({
-      user_id: req.user.id, action: 'template_created',
+      user_id: uid(req), action: 'template_created',
       result: 'ok', details: { name, category, language: language || 'pt_BR' }
     }).catch(() => {});
   } catch (e) {
@@ -1859,7 +1864,7 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
 // Conta WABA — verificação empresarial (com fallback se token não tem business_management)
 app.get('/api/wpp-cloud/account', requireAuth, async (req, res) => {
   try {
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     if (!c.business_account_id) return res.status(400).json({ error: 'WABA ID não configurado' });
     let r;
@@ -1881,7 +1886,7 @@ app.get('/api/wpp-cloud/account', requireAuth, async (req, res) => {
 // Qualidade + tier de limite do número (com fallback para campos básicos)
 app.get('/api/wpp-cloud/quality', requireAuth, async (req, res) => {
   try {
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
     let r;
     try {
@@ -1908,7 +1913,7 @@ app.get('/api/wpp-cloud/quality', requireAuth, async (req, res) => {
 // Sincronização paralela de todos os dados Meta
 app.post('/api/wpp-cloud/sync', requireAuth, async (req, res) => {
   try {
-    const c = await getCloudConfig(req.user.id);
+    const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
 
     const getAccountSafe = async () => {
@@ -1937,7 +1942,7 @@ app.post('/api/wpp-cloud/sync', requireAuth, async (req, res) => {
     if (qualityR.status === 'fulfilled') synced.push('quality');
 
     await supabase.from('wpp_cloud_logs').insert({
-      user_id: req.user.id, action: 'sync', result: 'ok',
+      user_id: uid(req), action: 'sync', result: 'ok',
       details: { synced, total: synced.length }
     }).catch(() => {});
 
@@ -1966,7 +1971,7 @@ app.get('/api/wpp-cloud/logs', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('wpp_cloud_logs')
       .select('id, action, result, details, error_msg, created_at')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
@@ -1983,7 +1988,7 @@ app.get('/api/flows', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('flows')
       .select('id, name, description, enabled, trigger_keywords, created_at, updated_at')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('updated_at', { ascending: false });
     if (error) throw error;
     res.json(data || []);
@@ -1993,7 +1998,7 @@ app.get('/api/flows', requireAuth, async (req, res) => {
 app.get('/api/flows/:id', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('flows').select('*')
-      .eq('id', req.params.id).eq('user_id', req.user.id).single();
+      .eq('id', req.params.id).eq('user_id', uid(req)).single();
     if (error) throw error;
     res.json(data);
   } catch (e) { res.status(404).json({ error: 'Fluxo não encontrado' }); }
@@ -2004,7 +2009,7 @@ app.post('/api/flows', requireAuth, async (req, res) => {
     const { name, description, graph, trigger_keywords } = req.body;
     if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
     const { data, error } = await supabase.from('flows').insert({
-      user_id: req.user.id,
+      user_id: uid(req),
       name,
       description: description || null,
       trigger_keywords: trigger_keywords || null,
@@ -2021,7 +2026,7 @@ app.patch('/api/flows/:id', requireAuth, async (req, res) => {
     const update = { updated_at: new Date().toISOString() };
     for (const k of allowed) if (req.body[k] !== undefined) update[k] = req.body[k];
     const { data, error } = await supabase.from('flows').update(update)
-      .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+      .eq('id', req.params.id).eq('user_id', uid(req)).select().single();
     if (error) throw error;
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2030,7 +2035,7 @@ app.patch('/api/flows/:id', requireAuth, async (req, res) => {
 app.delete('/api/flows/:id', requireAuth, async (req, res) => {
   try {
     const { error } = await supabase.from('flows').delete()
-      .eq('id', req.params.id).eq('user_id', req.user.id);
+      .eq('id', req.params.id).eq('user_id', uid(req));
     if (error) throw error;
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2045,7 +2050,7 @@ app.get('/api/workflows', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('workflows')
       .select('id, name, status, enabled, is_entry, session_slot, updated_at')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('updated_at', { ascending: false });
     if (error) throw error;
     res.json(data || []);
@@ -2055,7 +2060,7 @@ app.get('/api/workflows', requireAuth, async (req, res) => {
 app.get('/api/workflows/:id', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('workflows').select('*')
-      .eq('id', req.params.id).eq('user_id', req.user.id).single();
+      .eq('id', req.params.id).eq('user_id', uid(req)).single();
     if (error) throw error;
     res.json(data);
   } catch (e) { res.status(404).json({ error: 'Fluxo não encontrado' }); }
@@ -2070,7 +2075,7 @@ app.post('/api/workflows', requireAuth, async (req, res) => {
       edges: edges || [],
       status: status === 'published' ? 'published' : 'draft',
       session_slot: session_slot != null ? Number(session_slot) : null,
-      user_id: req.user.id,
+      user_id: uid(req),
     }).select().single();
     if (error) throw error;
     res.json(data);
@@ -2092,11 +2097,11 @@ app.put('/api/workflows/:id', requireAuth, async (req, res) => {
     if (is_entry === true) {
       await supabase.from('workflows')
         .update({ is_entry: false })
-        .eq('user_id', req.user.id)
+        .eq('user_id', uid(req))
         .neq('id', req.params.id);
     }
     const { data, error } = await supabase.from('workflows').update(patch)
-      .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+      .eq('id', req.params.id).eq('user_id', uid(req)).select().single();
     if (error) throw error;
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2105,7 +2110,7 @@ app.put('/api/workflows/:id', requireAuth, async (req, res) => {
 app.delete('/api/workflows/:id', requireAuth, async (req, res) => {
   try {
     await supabase.from('workflows').delete()
-      .eq('id', req.params.id).eq('user_id', req.user.id);
+      .eq('id', req.params.id).eq('user_id', uid(req));
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2113,13 +2118,13 @@ app.delete('/api/workflows/:id', requireAuth, async (req, res) => {
 // Status dos workflow jobs (debug/admin)
 app.get('/api/workflow-jobs', requireAuth, async (req, res) => {
   const { status = 'pending', limit = 50 } = req.query;
-  const query = supabase
+  let query = supabase
     .from('workflow_jobs')
     .select('id, flow_id, phone, name, status, attempts, run_at, started_at, finished_at, error, created_at')
-    .eq('user_id', req.user.id)
+    .eq('user_id', uid(req))
     .order('run_at', { ascending: false })
     .limit(Math.min(Number(limit), 200));
-  if (status !== 'all') query.eq('status', status);
+  if (status !== 'all') query = query.eq('status', status);
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data || []);
@@ -2131,9 +2136,9 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
     const { phone, name } = req.body;
     if (!phone) return res.status(400).json({ error: 'Informe um número de teste' });
     const { data: wf, error } = await supabase.from('workflows').select('*')
-      .eq('id', req.params.id).eq('user_id', req.user.id).single();
+      .eq('id', req.params.id).eq('user_id', uid(req)).single();
     if (error || !wf) return res.status(404).json({ error: 'Fluxo não encontrado' });
-    const connected = getConnectedSessions(req.user.id);
+    const connected = getConnectedSessions(uid(req));
     if (!connected.length) {
       return res.status(409).json({ error: 'Nenhum canal WhatsApp conectado. Conecte em Canais.' });
     }
@@ -2148,10 +2153,10 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
     const loadFlow = async (flowId) => {
       const { data } = await supabase.from('workflows')
         .select('id, name, nodes, edges')
-        .eq('id', flowId).eq('user_id', req.user.id).single();
+        .eq('id', flowId).eq('user_id', uid(req)).single();
       return data || null;
     };
-    const applyTag = (toPhone, tags) => applyTagsToLead(req.user.id, toPhone, tags).catch(() => {});
+    const applyTag = (toPhone, tags) => applyTagsToLead(uid(req), toPhone, tags).catch(() => {});
     const result = await workflowEngine.testRun(wf, sessionKey, phone, name, loadFlow, applyTag);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2169,7 +2174,7 @@ const SMS_PACKAGES = {
 // Saldo + lista de pacotes
 app.get('/api/sms/balance', requireAuth, async (req, res) => {
   try {
-    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
+    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', uid(req)).single();
     res.json({
       credits: u?.sms_credits || 0,
       packages: Object.entries(SMS_PACKAGES).map(([id, p]) => ({ id, ...p }))
@@ -2184,7 +2189,7 @@ app.post('/api/sms/purchase', requireAuth, async (req, res) => {
     const pkg = SMS_PACKAGES[packageId];
     if (!pkg) return res.status(400).json({ error: 'Pacote inválido' });
 
-    const { data: user } = await supabase.from('users').select('*').eq('id', req.user.id).single();
+    const { data: user } = await supabase.from('users').select('*').eq('id', uid(req)).single();
 
     let customerId = user.stripe_customer_id;
     if (!customerId) {
@@ -2250,13 +2255,13 @@ app.post('/api/sms/send', requireAuth, async (req, res) => {
     if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem obrigatórios' });
 
     const cost = smsSegments(message);
-    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
+    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', uid(req)).single();
     if ((u?.sms_credits || 0) < cost) {
       return res.status(402).json({ error: `Saldo insuficiente: precisa ${cost} crédito(s)`, code: 'NO_SMS_CREDITS', needed: cost, balance: u?.sms_credits || 0 });
     }
 
     const r = await zenvia.sendSms(phone, message);
-    await supabase.from('users').update({ sms_credits: u.sms_credits - cost }).eq('id', req.user.id);
+    await supabase.from('users').update({ sms_credits: u.sms_credits - cost }).eq('id', uid(req));
     res.json({ ...r, segmentsCharged: cost, remainingCredits: u.sms_credits - cost });
   } catch (e) {
     console.error('[sms/send]', e);
@@ -2272,7 +2277,7 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos obrigatórios' });
     }
 
-    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
+    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', uid(req)).single();
     const balance = u?.sms_credits || 0;
     // Estimativa de custo: usa o template puro (variáveis costumam ser curtas)
     const baseSegments = smsSegments(message);
@@ -2289,7 +2294,7 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
     }));
 
     const { data: dispatch, error } = await supabase.from('sms_dispatches').insert({
-      user_id: req.user.id,
+      user_id: uid(req),
       title: title || `SMS ${new Date().toLocaleDateString('pt-BR')}`,
       message,
       total: phones.length,
@@ -2301,6 +2306,7 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
     res.json({ dispatchId: dispatch.id, total: phones.length, message: 'Disparo iniciado!' });
 
     // Background
+    const _smsBulkUserId = uid(req);
     (async () => {
       const delayMs = Math.max(800, (Number(delaySeconds) || 1) * 1000);
       const updated = [...items];
@@ -2318,9 +2324,13 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
           const charged = smsSegments(personalized);
           updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString(), segments: charged };
           sent++;
-          // Debita por segmento real da mensagem personalizada
-          const { data: cur } = await supabase.from('users').select('sms_credits').eq('id', req.user.id).single();
-          await supabase.from('users').update({ sms_credits: Math.max(0, (cur?.sms_credits || 0) - charged) }).eq('id', req.user.id);
+          // Débito atômico — sem race condition de read-modify-write
+          await supabase.rpc('decrement_sms_credits', { p_user_id: _smsBulkUserId, p_amount: charged }).catch(() => {
+            // Fallback se RPC não existir: read-modify-write (menos seguro mas funcional)
+            supabase.from('users').select('sms_credits').eq('id', _smsBulkUserId).single()
+              .then(({ data: cur }) => supabase.from('users').update({ sms_credits: Math.max(0, (cur?.sms_credits || 0) - charged) }).eq('id', _smsBulkUserId))
+              .catch(() => {});
+          });
         } catch (e) {
           updated[i] = { ...updated[i], status: 'failed', error: e.message };
           failed++;
@@ -2346,7 +2356,7 @@ app.get('/api/sms/dispatches', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('sms_dispatches')
       .select('id, title, total, sent, failed, status, created_at, finished_at')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) throw error;
@@ -2534,7 +2544,7 @@ app.post('/api/media/upload', requireAuth, upload.single('file'), async (req, re
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     const { originalname, mimetype, buffer, size } = req.file;
     const ext = originalname.split('.').pop();
-    const filename = `${req.user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const filename = `${uid(req)}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
     const { error: upErr } = await supabase.storage
       .from('media')
@@ -2568,7 +2578,7 @@ app.post('/api/media/upload', requireAuth, upload.single('file'), async (req, re
 app.delete('/api/media/:filename(*)', requireAuth, async (req, res) => {
   try {
     const filename = req.params.filename;
-    if (!filename.startsWith(req.user.id + '/')) {
+    if (!filename.startsWith(uid(req) + '/')) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     await supabase.storage.from('media').remove([filename]);
@@ -2584,7 +2594,7 @@ app.post('/api/whatsapp/send-media', requireAuth, upload.single('file'), async (
     const { phone, message, mediaUrl, mediaMimetype, mediaFilename } = req.body;
     if (!phone) return res.status(400).json({ error: 'Telefone obrigatório' });
 
-    const connected = getConnectedSessions(req.user.id);
+    const connected = getConnectedSessions(uid(req));
     if (!connected.length) return res.status(400).json({ error: 'Nenhum WhatsApp conectado.' });
 
     let media = null;
@@ -3062,7 +3072,7 @@ wpp.on('message', async (evt) => {
 app.post('/api/chats/:id/unread', requireAuth, async (req, res) => {
   try {
     await supabase.from('chats').update({ unread: 1 })
-      .eq('id', req.params.id).eq('user_id', req.user.id);
+      .eq('id', req.params.id).eq('user_id', uid(req));
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -3075,7 +3085,7 @@ app.post('/api/ai-suggest', requireAuth, rateLimit(60 * 1000, 20), async (req, r
 
     // Garante que o chat pertence ao usuário
     const { data: chat } = await supabase.from('chats')
-      .select('id, name, phone').eq('id', chatId).eq('user_id', req.user.id).maybeSingle();
+      .select('id, name, phone').eq('id', chatId).eq('user_id', uid(req)).maybeSingle();
     if (!chat) return res.status(404).json({ error: 'Conversa não encontrada' });
 
     // Busca as últimas 12 mensagens para contexto
@@ -3115,7 +3125,7 @@ app.get('/api/chats', requireAuth, async (req, res) => {
     console.log(`[chats GET] user=${req.user.id} slot=${slot}`);
 
     // Cache simples em memória por 10s — evita rafaga de queries no Supabase
-    const cacheKey = `${req.user.id}:${slot}`;
+    const cacheKey = `${uid(req)}:${slot}`;
     const cached = chatsCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < 10000) {
       return res.json(cached.data);
@@ -3123,10 +3133,10 @@ app.get('/api/chats', requireAuth, async (req, res) => {
 
     let q = supabase.from('chats')
       .select('id, session_slot, phone, name, last_message, last_message_at, unread, profile_pic_url')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200);
-    if (slot) q = q.eq('session_slot', slot);
+    if (slot !== null && slot !== undefined) q = q.eq('session_slot', slot);
     const { data, error } = await q;
     if (error) throw error;
 
@@ -3141,7 +3151,7 @@ app.get('/api/chats', requireAuth, async (req, res) => {
 app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
   try {
     const { data: chat } = await supabase.from('chats')
-      .select('id').eq('id', req.params.chatId).eq('user_id', req.user.id).single();
+      .select('id').eq('id', req.params.chatId).eq('user_id', uid(req)).single();
     if (!chat) return res.status(404).json({ error: 'Chat não encontrado' });
 
     const { data, error } = await supabase.from('chat_messages')
@@ -3150,8 +3160,8 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
       .order('timestamp', { ascending: true })
       .limit(500);
     if (error) throw error;
-    // Zera unread ao abrir
-    await supabase.from('chats').update({ unread: 0 }).eq('id', req.params.chatId);
+    // Zera unread ao abrir — filtra por user_id para evitar cross-tenant
+    await supabase.from('chats').update({ unread: 0 }).eq('id', req.params.chatId).eq('user_id', uid(req));
     res.json(data || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -3165,7 +3175,7 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
 
     // ── Slot 0 = Canal Oficial (Cloud API) ──────────────────────────────────
     if (useSlot === 0) {
-      const c = await getCloudConfig(req.user.id);
+      const c = await getCloudConfig(uid(req));
       if (!c?.access_token) return res.status(400).json({ error: 'Canal Oficial não configurado' });
       if (mediaUrl) return res.status(400).json({ error: 'Envio de mídia via Canal Oficial ainda não suportado nesta interface. Use um template ou envie pelo painel Meta.' });
       const r = await wppCloud.sendText({ token: c.access_token, phoneNumberId: c.phone_number_id }, phone, message);
@@ -3173,10 +3183,10 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
       const cleanedPhone = String(phone).replace(/\D/g, '');
       const ts = new Date().toISOString();
       let { data: chat } = await supabase.from('chats').select('id')
-        .eq('user_id', req.user.id).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
+        .eq('user_id', uid(req)).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
       if (!chat) {
         const { data: created } = await supabase.from('chats').insert({
-          user_id: req.user.id, session_slot: 0, phone: cleanedPhone,
+          user_id: uid(req), session_slot: 0, phone: cleanedPhone,
           last_message: message, last_message_at: ts, unread: 0
         }).select('id').single();
         chat = created;
@@ -3185,7 +3195,7 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
       }
       if (chat?.id) {
         await supabase.from('chat_messages').insert({
-          chat_id: chat.id, user_id: req.user.id,
+          chat_id: chat.id, user_id: uid(req),
           direction: 'out', type: 'text', text: message,
           status: 'sent', timestamp: ts,
           external_id: r?.messages?.[0]?.id || null,
@@ -3199,7 +3209,7 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
     }
 
     // ── Slots 1-5 = Baileys ─────────────────────────────────────────────────
-    const key = sessionKey(req.user.id, useSlot);
+    const key = sessionKey(uid(req), useSlot);
     const status = wpp.getStatus(key);
     if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
 
@@ -3241,10 +3251,10 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
     const lastPreview = media ? `📎 ${mediaFilename || 'Arquivo'}` : message;
 
     let { data: chat } = await supabase.from('chats').select('id')
-      .eq('user_id', req.user.id).eq('session_slot', useSlot).eq('phone', cleanedPhone).maybeSingle();
+      .eq('user_id', uid(req)).eq('session_slot', useSlot).eq('phone', cleanedPhone).maybeSingle();
     if (!chat) {
       const { data: created } = await supabase.from('chats').insert({
-        user_id: req.user.id, session_slot: useSlot, phone: cleanedPhone,
+        user_id: uid(req), session_slot: useSlot, phone: cleanedPhone,
         last_message: lastPreview, last_message_at: ts, unread: 0
       }).select('id').single();
       chat = created;
@@ -3253,7 +3263,7 @@ app.post('/api/chats/send', requireAuth, async (req, res) => {
     }
     if (chat?.id) {
       await supabase.from('chat_messages').insert({
-        chat_id: chat.id, user_id: req.user.id,
+        chat_id: chat.id, user_id: uid(req),
         direction: 'out', type: msgType,
         text: message || null,
         media_url: mediaUrl || null,
@@ -3308,7 +3318,7 @@ function pickDispatchSessions(connectedSessions, sourceSessionSlot) {
 
 // Listar todas as sessões do usuário
 app.get('/api/whatsapp/sessions', requireAuth, async (req, res) => {
-  res.json(getUserSessions(req.user.id));
+  res.json(getUserSessions(uid(req)));
 });
 
 // Conectar uma sessão específica (slot 1 ou 2)
@@ -3318,7 +3328,7 @@ app.post('/api/whatsapp/sessions/:slot/connect', requireAuth, async (req, res) =
     if (slot < 1 || slot > MAX_SESSIONS_PER_USER) {
       return res.status(400).json({ error: `Slot inválido. Use 1 ou 2.` });
     }
-    const key = sessionKey(req.user.id, slot);
+    const key = sessionKey(uid(req), slot);
     const result = await wpp.createSession(key);
     res.json({ slot, ...result });
   } catch (e) {
@@ -3330,7 +3340,7 @@ app.post('/api/whatsapp/sessions/:slot/connect', requireAuth, async (req, res) =
 // Status de uma sessão específica
 app.get('/api/whatsapp/sessions/:slot/status', requireAuth, async (req, res) => {
   const slot = parseInt(req.params.slot);
-  const key = sessionKey(req.user.id, slot);
+  const key = sessionKey(uid(req), slot);
   res.json({ slot, ...wpp.getStatus(key) });
 });
 
@@ -3338,7 +3348,7 @@ app.get('/api/whatsapp/sessions/:slot/status', requireAuth, async (req, res) => 
 app.post('/api/whatsapp/sessions/:slot/disconnect', requireAuth, async (req, res) => {
   try {
     const slot = parseInt(req.params.slot);
-    const key = sessionKey(req.user.id, slot);
+    const key = sessionKey(uid(req), slot);
     await wpp.disconnectSession(key);
     res.json({ message: `Slot ${slot} desconectado` });
   } catch (e) {
@@ -3349,7 +3359,7 @@ app.post('/api/whatsapp/sessions/:slot/disconnect', requireAuth, async (req, res
 // Manter rotas antigas funcionando (slot 1 = padrão)
 app.post('/api/whatsapp/connect', requireAuth, async (req, res) => {
   try {
-    const key = sessionKey(req.user.id, 1);
+    const key = sessionKey(uid(req), 1);
     const result = await wpp.createSession(key);
     res.json(result);
   } catch (e) {
@@ -3358,12 +3368,12 @@ app.post('/api/whatsapp/connect', requireAuth, async (req, res) => {
 });
 
 app.get('/api/whatsapp/status', requireAuth, async (req, res) => {
-  res.json(wpp.getStatus(sessionKey(req.user.id, 1)));
+  res.json(wpp.getStatus(sessionKey(uid(req), 1)));
 });
 
 app.post('/api/whatsapp/disconnect', requireAuth, async (req, res) => {
   try {
-    await wpp.disconnectSession(sessionKey(req.user.id, 1));
+    await wpp.disconnectSession(sessionKey(uid(req), 1));
     res.json({ message: 'Desconectado com sucesso' });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -3387,7 +3397,7 @@ app.post('/api/whatsapp/send', requireAuth, async (req, res) => {
   try {
     const { phone, message } = req.body;
     if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem são obrigatórios' });
-    const connected = getConnectedSessions(req.user.id);
+    const connected = getConnectedSessions(uid(req));
     if (!connected.length) return res.status(400).json({ error: 'Nenhum WhatsApp conectado.' });
     const result = await wpp.sendMessage(connected[0].key, phone, message);
     res.json(result);
@@ -3404,20 +3414,20 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
 
-    const limit = await checkDispatchLimit(req.user.id);
+    const limit = await checkDispatchLimit(uid(req));
     if (!limit.ok) {
       return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
     }
 
-    const connected1 = getConnectedSessions(req.user.id);
+    const connected1 = getConnectedSessions(uid(req));
     if (!connected1.length) {
       return res.status(400).json({ error: 'Nenhum WhatsApp conectado. Conecte pelo menos 1 número em Conexões.' });
     }
 
-    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', req.user.id).single();
+    const { data: message } = await supabase.from('messages').select('*').eq('id', messageId).eq('user_id', uid(req)).single();
     if (!message) return res.status(404).json({ error: 'Mensagem não encontrada' });
 
-    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', req.user.id);
+    const { data: contacts } = await supabase.from('leads').select('id, name, phone').in('id', contactIds).eq('user_id', uid(req));
     if (!contacts?.length) return res.status(404).json({ error: 'Nenhum contato encontrado' });
 
     // Cria registro do disparo no banco
@@ -3430,14 +3440,15 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
       sent: 0, failed: 0,
       status: 'sending',
       items,
-      user_id: req.user.id
+      user_id: uid(req)
     }).select().single();
 
     res.json({ dispatchId: dispatch.id, total: contacts.length, message: 'Disparo iniciado!' });
 
     // Executa envio real em background
+    const _dispatchUserId = uid(req);
     (async () => {
-      const results = await wpp.sendBulkRoundRobin(req.user.id, getConnectedSessions(req.user.id), contacts, message.content, 2500);
+      const results = await wpp.sendBulkRoundRobin(_dispatchUserId, getConnectedSessions(_dispatchUserId), contacts, message.content, 2500);
       const sent = results.filter(r => r.status === 'sent').length;
       const failed = results.filter(r => r.status === 'failed').length;
       const updatedItems = results.map(r => ({
@@ -3466,13 +3477,13 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos são obrigatórios' });
     }
 
-    const limit = await checkDispatchLimit(req.user.id);
+    const limit = await checkDispatchLimit(uid(req));
     if (!limit.ok) {
       return res.status(402).json({ error: `Limite de disparos do plano ${limit.plan} atingido (${limit.used}/${limit.limit} este mês). Faça upgrade para continuar.`, code: 'PLAN_LIMIT', plan: limit.plan, used: limit.used, limit: limit.limit });
     }
 
-    const connectedSessions = getConnectedSessions(req.user.id);
-    const cloudCfg = await getCloudConfig(req.user.id);
+    const connectedSessions = getConnectedSessions(uid(req));
+    const cloudCfg = await getCloudConfig(uid(req));
     const hasBaileys = connectedSessions.length > 0;
     const hasCloudCfg = !!(cloudCfg?.access_token && cloudCfg?.enabled);
     const useCloud = channel === 'cloud' || (!hasBaileys && hasCloudCfg);
@@ -3507,7 +3518,7 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
       sent: 0, failed: 0,
       status: scheduledAt ? 'scheduled' : 'sending',
       items,
-      user_id: req.user.id,
+      user_id: uid(req),
       scheduled_at: scheduledAt || null,
       channel: useCloud ? 'cloud_api' : 'baileys',
     }).select().single();
@@ -3517,12 +3528,18 @@ app.post('/api/whatsapp/bulk', requireAuth, async (req, res) => {
     if (!scheduledAt) {
       if (useCloud) {
         // Executa via Cloud API
+        const _bulkCloudUserId = uid(req);
         (async () => {
-          const results = await sendBulkCloud(req.user.id, phones, message, 600);
-          const sent = results.filter(r => r.status === 'sent').length;
-          const failed = results.filter(r => r.status === 'failed').length;
-          const updatedItems = items.map((item, i) => ({ ...item, ...results[i] }));
-          await supabase.from('dispatches').update({ sent, failed, status: 'completed', items: updatedItems, completed_at: new Date().toISOString() }).eq('id', dispatch.id);
+          try {
+            const results = await sendBulkCloud(_bulkCloudUserId, phones, message, 600);
+            const sent = results.filter(r => r.status === 'sent').length;
+            const failed = results.filter(r => r.status === 'failed').length;
+            const updatedItems = items.map((item, i) => ({ ...item, ...results[i] }));
+            await supabase.from('dispatches').update({ sent, failed, status: 'completed', items: updatedItems, completed_at: new Date().toISOString() }).eq('id', dispatch.id);
+          } catch (cloudErr) {
+            console.error(`[bulk/cloud] dispatch ${dispatch.id} falhou:`, cloudErr.message);
+            await supabase.from('dispatches').update({ status: 'failed', completed_at: new Date().toISOString() }).eq('id', dispatch.id);
+          }
         })();
       } else {
         const delayMs = Math.max(1000, (parseInt(delay) || 3) * 1000);
@@ -3831,7 +3848,7 @@ app.get('/api/lists', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('contact_lists')
       .select('*')
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .order('created_at', { ascending: false });
     if (error) throw error;
     res.json(data || []);
@@ -3851,7 +3868,7 @@ app.post('/api/lists', requireAuth, async (req, res) => {
       name,
       contacts,
       total: contacts.length,
-      user_id: req.user.id
+      user_id: uid(req)
     }).select().single();
     if (error) throw error;
 
@@ -3863,7 +3880,7 @@ app.post('/api/lists', requireAuth, async (req, res) => {
       const { data: existing } = await supabase
         .from('leads')
         .select('phone')
-        .eq('user_id', req.user.id)
+        .eq('user_id', uid(req))
         .in('phone', phones);
 
       const existingPhones = new Set((existing || []).map(l => l.phone));
@@ -3881,7 +3898,7 @@ app.post('/api/lists', requireAuth, async (req, res) => {
           source: 'import',
           status: 'new',
           interest: '',
-          user_id: req.user.id,
+          user_id: uid(req),
         }));
 
       if (newLeads.length > 0) {
@@ -3910,7 +3927,7 @@ app.get('/api/lists/:id', requireAuth, async (req, res) => {
       .from('contact_lists')
       .select('*')
       .eq('id', req.params.id)
-      .eq('user_id', req.user.id)
+      .eq('user_id', uid(req))
       .single();
     if (error) throw error;
     res.json(data);
@@ -3922,7 +3939,7 @@ app.get('/api/lists/:id', requireAuth, async (req, res) => {
 // Deletar lista
 app.delete('/api/lists/:id', requireAuth, async (req, res) => {
   try {
-    await supabase.from('contact_lists').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+    await supabase.from('contact_lists').delete().eq('id', req.params.id).eq('user_id', uid(req));
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -3932,7 +3949,7 @@ app.delete('/api/lists/:id', requireAuth, async (req, res) => {
 // Sincronizar todas as listas existentes como leads (retroativo)
 app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = uid(req);
 
     // Busca todas as listas do usuário
     const { data: lists, error: listErr } = await supabase
@@ -4018,7 +4035,7 @@ async function checkDispatchLimit(userId) {
 
 app.get('/api/usage', requireAuth, async (req, res) => {
   try {
-    const dispatch = await checkDispatchLimit(req.user.id);
+    const dispatch = await checkDispatchLimit(uid(req));
     res.json({ plan: dispatch.plan, dispatches: { used: dispatch.used, limit: dispatch.limit } });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao buscar uso' });
@@ -4027,7 +4044,7 @@ app.get('/api/usage', requireAuth, async (req, res) => {
 
 app.get('/api/subscription', requireAuth, async (req, res) => {
   try {
-    const { data: user } = await supabase.from('users').select('plan, plan_expires_at, stripe_customer_id').eq('id', req.user.id).single();
+    const { data: user } = await supabase.from('users').select('plan, plan_expires_at, stripe_customer_id').eq('id', uid(req)).single();
     res.json({ plan: user?.plan || 'free', expires_at: user?.plan_expires_at || null });
   } catch (e) {
     res.json({ plan: 'free', expires_at: null });
@@ -4041,14 +4058,14 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
     if (!plan || planId === 'free') return res.status(400).json({ error: 'Plano inválido' });
     if (!plan.priceId) return res.status(400).json({ error: `Configure STRIPE_PRICE_${planId.toUpperCase()} nas variáveis de ambiente` });
 
-    const { data: user } = await supabase.from('users').select('*').eq('id', req.user.id).single();
+    const { data: user } = await supabase.from('users').select('*').eq('id', uid(req)).single();
 
     // Cria ou recupera customer no Stripe
     let customerId = user?.stripe_customer_id;
     if (!customerId) {
       const customer = await stripe.customers.create({ email: user.email, name: user.name });
       customerId = customer.id;
-      await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', req.user.id);
+      await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', uid(req));
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -4062,7 +4079,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       line_items: [{ price: plan.priceId, quantity: 1 }],
       success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=success&plan=${planId}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=cancelled`,
-      metadata: { userId: req.user.id, planId },
+      metadata: { userId: uid(req), planId },
     });
 
     res.json({ url: session.url });
@@ -4074,7 +4091,7 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
 
 app.post('/api/stripe/portal', requireAuth, async (req, res) => {
   try {
-    const { data: user } = await supabase.from('users').select('stripe_customer_id').eq('id', req.user.id).single();
+    const { data: user } = await supabase.from('users').select('stripe_customer_id').eq('id', uid(req)).single();
     if (!user?.stripe_customer_id) return res.status(400).json({ error: 'Nenhuma assinatura ativa' });
 
     const session = await stripe.billingPortal.sessions.create({
@@ -4126,13 +4143,23 @@ cron.schedule('*/3 * * * *', async () => {
     console.log(`[cron] ${pending.length} disparos agendados para executar`);
 
     for (const dispatch of pending) {
+      // Cloud API dispatches: executar via Meta independente de sessão Baileys
+      if (dispatch.channel === 'cloud_api') {
+        console.log(`[cron] Executando disparo Cloud ${dispatch.id}`);
+        executeCloudDispatch(dispatch.id, dispatch.user_id);
+        continue;
+      }
       const cronSessions = getConnectedSessions(dispatch.user_id);
       if (cronSessions.length > 0) {
         console.log(`[cron] Executando disparo real ${dispatch.id} (${cronSessions.length} sessão(ões))`);
         executeRealDispatch(dispatch.id, dispatch.user_id);
       } else {
-        console.log(`[cron] WhatsApp não conectado para user ${dispatch.user_id}, simulando`);
-        simulateSending(dispatch.id);
+        // Nunca simula — marca como falha para não perder dados de envio real
+        console.warn(`[cron] WhatsApp não conectado para user ${dispatch.user_id} — dispatch ${dispatch.id} falhará`);
+        supabase.from('dispatches').update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+        }).eq('id', dispatch.id).then(() => {}, () => {});
       }
     }
   } catch (e) {
