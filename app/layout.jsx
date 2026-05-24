@@ -1,6 +1,7 @@
 import "./globals.css";
 import { ToastProvider } from "../components/Toast";
 import FloatingCTA from "../components/FloatingCTA";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const SITE_URL = "https://zapflow.vercel.app";
 
@@ -130,6 +131,7 @@ export default function RootLayout({ children }) {
         <ToastProvider>
           {children}
           <FloatingCTA />
+          <SpeedInsights />
         </ToastProvider>
       </body>
     </html>
