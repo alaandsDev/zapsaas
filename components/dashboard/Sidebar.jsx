@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
-  Workflow, Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
+  Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
   MoreHorizontal,
 } from "lucide-react";
 import { api } from "../../lib/api";
@@ -23,7 +23,6 @@ const SECTIONS = [
     title: "Automação",
     items: [
       { href: "/dashboard/campanhas", label: "Campanhas", Icon: Megaphone },
-      { href: "/dashboard/workflow", label: "Workflow", Icon: Workflow, highlight: true },
     ],
   },
   {
@@ -48,7 +47,7 @@ const MOBILE_PRIMARY = [
   "/dashboard/conversas",
   "/dashboard/leads",
   "/dashboard/campanhas",
-  "/dashboard/workflow",
+  "/dashboard/canais",
 ];
 
 export default function Sidebar() {
