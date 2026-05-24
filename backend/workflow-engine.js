@@ -48,7 +48,7 @@ function delayMs(d) {
 }
 const LIVE_INLINE_MAX_MS = 10000; // delays curtos rodam inline; acima disso agenda
 
-async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, applyTag, startNodeIds }) {
+async function runFlow(workflow, { phone, name, sendText, sendMedia, loadFlow, onDelay, applyTag, startNodeIds }) {
   const vars = { name: name || '', phone };
   const log = [];
   const ctx = { steps: 0, jumps: 0, visitedFlows: new Set() };
@@ -127,22 +127,48 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, app
 
           case 'image':
           case 'video': {
-            const cap = applyVars(d.caption, vars);
+            const cap = applyVars(d.caption || d.text || '', vars);
+            const url = d.url?.trim();
+            if (url && sendMedia) {
+              try {
+                await sendMedia(phone, url, cap, kind);
+                log.push({ node: id, kind, status: 'sent', info: url.slice(0, 60) });
+                break;
+              } catch (mediaErr) {
+                log.push({ node: id, kind, status: 'warn', info: `mídia falhou (${mediaErr.message}) — enviando link` });
+              }
+            }
+            // fallback: envia como link de texto
             const tag = kind === 'image' ? '[Imagem]' : '[Vídeo]';
-            await sendText(phone, `${tag}${d.url ? ' ' + d.url : ''}${cap ? ' — ' + cap : ''}`.trim());
+            await sendText(phone, `${tag}${url ? ' ' + url : ''}${cap ? ' — ' + cap : ''}`.trim());
             log.push({ node: id, kind, status: 'sent', info: tag });
             break;
           }
 
-          case 'audio':
-            await sendText(phone, `[Áudio]${d.url ? ' ' + d.url : ''}`.trim());
+          case 'audio': {
+            const url = d.url?.trim();
+            if (url && sendMedia) {
+              try {
+                await sendMedia(phone, url, '', 'audio');
+                log.push({ node: id, kind, status: 'sent', info: url.slice(0, 60) });
+                break;
+              } catch (mediaErr) {
+                log.push({ node: id, kind, status: 'warn', info: `áudio falhou (${mediaErr.message}) — enviando link` });
+              }
+            }
+            await sendText(phone, `[Áudio]${url ? ' ' + url : ''}`.trim());
             log.push({ node: id, kind, status: 'sent', info: '[Áudio]' });
             break;
+          }
 
           case 'choice': {
-            const q = applyVars(d.question ?? d.body, vars);
+            const q = applyVars(d.question ?? d.body ?? '', vars);
             const opts = (d.options || []).filter((o) => String(o).trim());
-            const txt = [q, ...opts.map((o, i) => `${i + 1}. ${o}`)].filter(Boolean).join('\n');
+            // Monta texto limpo: pergunta (se houver) + opções numeradas
+            const lines = [];
+            if (q.trim()) lines.push(q.trim());
+            opts.forEach((o, i) => lines.push(`${i + 1}. ${o}`));
+            const txt = lines.join('\n');
             if (txt.trim()) await sendText(phone, txt);
             log.push({ node: id, kind, status: 'ok', info: `${opts.length} opções` });
             break;
@@ -253,12 +279,32 @@ async function runFlow(workflow, { phone, name, sendText, loadFlow, onDelay, app
   return { ok: true, steps: ctx.steps, log };
 }
 
+// Baixa URL e envia mídia real via Baileys.
+async function _fetchAndSendMedia(sessionKey, phone, url, caption, kind) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ao baixar mídia`);
+  const contentType = res.headers.get('content-type') || '';
+  // Detecta mimetype: usa content-type ou infere pela extensão da URL
+  let mimetype = contentType.split(';')[0].trim();
+  if (!mimetype || mimetype === 'application/octet-stream') {
+    const ext = url.split('?')[0].split('.').pop().toLowerCase();
+    const extMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+      webp: 'image/webp', mp4: 'video/mp4', mov: 'video/quicktime', mp3: 'audio/mpeg',
+      ogg: 'audio/ogg', opus: 'audio/ogg', aac: 'audio/aac' };
+    mimetype = extMap[ext] || (kind === 'audio' ? 'audio/mpeg' : kind === 'video' ? 'video/mp4' : 'image/jpeg');
+  }
+  const arrayBuffer = await res.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  return wpp.sendMessage(sessionKey, phone, caption || '', { buffer, mimetype, caption: caption || '' });
+}
+
 // Manual test run: envia pela sessão WhatsApp conectada.
 async function testRun(workflow, sessionKey, phone, name, loadFlow, applyTag) {
   const sendText = (to, text) => wpp.sendMessage(sessionKey, to, text);
+  const sendMedia = (to, url, caption, kind) => _fetchAndSendMedia(sessionKey, to, url, caption, kind);
   return runFlow(
     { id: workflow.id, nodes: workflow.nodes || [], edges: workflow.edges || [] },
-    { phone, name, sendText, loadFlow, applyTag }
+    { phone, name, sendText, sendMedia, loadFlow, applyTag }
   );
 }
 
