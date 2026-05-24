@@ -94,22 +94,15 @@ function Sparkline({ data, color }) {
 const OB_KEY = "wayvo_onboarding_dismissed";
 
 const OB_STEPS = [
-  { id: "connect",   icon: Phone,         label: "Conectar WhatsApp",     desc: "Vincule ao menos 1 número para disparar mensagens.",   href: "/dashboard/canais" },
-  { id: "leads",     icon: Users,         label: "Adicionar leads",        desc: "Importe ou cadastre seus primeiros contatos.",          href: "/dashboard/leads" },
-  { id: "campaign",  icon: Send,          label: "Enviar primeira campanha", desc: "Crie e dispare uma campanha para seus leads.",        href: "/dashboard/campanhas" },
-  { id: "workflow",  icon: Zap,           label: "Criar uma automação",   desc: "Monte um fluxo automático para atender no piloto.",     href: "/dashboard/workflow" },
+  { id: "connect",   icon: Phone, label: "Conectar WhatsApp",       desc: "Vincule ao menos 1 número para disparar mensagens.", href: "/dashboard/canais" },
+  { id: "leads",     icon: Users, label: "Adicionar leads",          desc: "Importe ou cadastre seus primeiros contatos.",       href: "/dashboard/leads" },
+  { id: "campaign",  icon: Send,  label: "Enviar primeira campanha", desc: "Crie e dispare uma campanha para seus leads.",       href: "/dashboard/campanhas" },
 ];
 
 function OnboardingChecklist({ connectedSlots, stats, dispatches }) {
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem(OB_KEY) === "1"; } catch { return false; }
   });
-  const [workflows, setWorkflows] = useState(null);
-
-  useEffect(() => {
-    if (dismissed) return;
-    api("/api/workflows").then((r) => setWorkflows(Array.isArray(r) ? r : r?.data || [])).catch(() => setWorkflows([]));
-  }, [dismissed]);
 
   if (dismissed) return null;
 
@@ -117,11 +110,10 @@ function OnboardingChecklist({ connectedSlots, stats, dispatches }) {
     connect:  connectedSlots > 0,
     leads:    (stats.leads || 0) > 0,
     campaign: dispatches.length > 0,
-    workflow: Array.isArray(workflows) && workflows.some((w) => w.active),
   };
   const completedCount = Object.values(done).filter(Boolean).length;
 
-  if (completedCount === 4) return null; // auto-hide when fully complete
+  if (completedCount === 3) return null; // auto-hide when fully complete
 
   const dismiss = () => {
     try { localStorage.setItem(OB_KEY, "1"); } catch {}
@@ -154,7 +146,7 @@ function OnboardingChecklist({ connectedSlots, stats, dispatches }) {
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm">Primeiros passos</h3>
-              <p className="text-xs text-ink-400">{completedCount} de 4 concluídos</p>
+              <p className="text-xs text-ink-400">{completedCount} de 3 concluídos</p>
             </div>
           </div>
 
