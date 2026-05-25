@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, ChevronLeft, ChevronRight, Send, Users, Calendar,
   ClipboardCheck, MessageSquare, Paperclip, ShieldCheck,
+  Zap, Plus, Trash2, Search, X, BookmarkPlus,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
 import Modal from "../../../components/dashboard/Modal";
@@ -63,6 +64,48 @@ export default function CampanhasPage() {
   const textareaRefs = useRef({});
 
   const [sessions, setSessions] = useState([]);
+
+  // ── Templates de Mensagens Rápidas ────────────────────────────
+  const [templates, setTemplates] = useState([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [templateName, setTemplateName] = useState("");
+  const [activeTemplateFor, setActiveTemplateFor] = useState(null); // message id
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("wayvo_msg_templates");
+      if (saved) setTemplates(JSON.parse(saved));
+    } catch { /* ignore */ }
+  }, []);
+
+  function saveTemplatesToStorage(list) {
+    setTemplates(list);
+    localStorage.setItem("wayvo_msg_templates", JSON.stringify(list));
+  }
+
+  function addTemplate(name, text) {
+    if (!text.trim()) return;
+    const label = name.trim() || text.slice(0, 40).replace(/\n/g, " ");
+    const tpl = { id: Date.now(), name: label, text: text.trim() };
+    saveTemplatesToStorage([tpl, ...templates]);
+  }
+
+  function deleteTemplate(id) {
+    saveTemplatesToStorage(templates.filter(t => t.id !== id));
+  }
+
+  function applyTemplate(text, msgId) {
+    const id = msgId || (messages[0]?.id);
+    if (!id) return;
+    updateMessage(id, text);
+    setShowTemplates(false);
+  }
+
+  const filteredTemplates = templates.filter(t =>
+    !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
+    t.text.toLowerCase().includes(templateSearch.toLowerCase())
+  );
 
   async function loadAll() {
     const [w, ls, lds, ds, u, sess, cloud] = await Promise.all([
@@ -332,8 +375,146 @@ export default function CampanhasPage() {
                         <label className="text-sm font-medium text-ink-100">
                           Mensagens <span className="text-xs text-ink-500 font-normal">(cada número recebe 1 em sequência)</span>
                         </label>
-                        <button type="button" onClick={addMessage} className="text-xs text-primary hover:underline">+ Adicionar Mensagem</button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowTemplates(v => !v)}
+                            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all
+                              ${showTemplates ? "bg-secondary/15 border-secondary/30 text-secondary" : "bg-white/[0.04] border-white/10 text-ink-300 hover:text-ink-100 hover:border-white/20"}`}
+                          >
+                            <Zap className="size-3.5" />
+                            Mensagens Rápidas
+                            {templates.length > 0 && (
+                              <span className="size-4 rounded-full bg-secondary/20 text-secondary text-[9px] font-bold flex items-center justify-center">
+                                {templates.length}
+                              </span>
+                            )}
+                          </button>
+                          <button type="button" onClick={addMessage} className="text-xs text-primary hover:underline">+ Adicionar</button>
+                        </div>
                       </div>
+
+                      {/* ── Painel de Templates ── */}
+                      <AnimatePresence>
+                        {showTemplates && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden mb-3"
+                          >
+                            <div className="rounded-xl border border-secondary/20 bg-secondary/[0.04] p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Zap className="size-4 text-secondary" />
+                                  <span className="text-sm font-semibold text-ink-100">Mensagens Rápidas</span>
+                                </div>
+                                <button onClick={() => setShowTemplates(false)} className="text-ink-500 hover:text-ink-200">
+                                  <X className="size-4" />
+                                </button>
+                              </div>
+
+                              {/* Salvar mensagem atual como template */}
+                              {messages.some(m => m.text.trim()) && (
+                                <div className="mb-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                                  <p className="text-xs text-ink-400 mb-2">Salvar mensagem atual como template:</p>
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={templateName}
+                                      onChange={e => setTemplateName(e.target.value)}
+                                      placeholder="Nome do template (opcional)"
+                                      className="flex-1 rounded-lg bg-bg/80 border border-white/10 px-2.5 py-1.5 text-xs text-ink-100 placeholder:text-ink-500 outline-none focus:border-secondary/40"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const activeMsg = messages.find(m => m.text.trim());
+                                        if (activeMsg) {
+                                          addTemplate(templateName, activeMsg.text);
+                                          setTemplateName("");
+                                        }
+                                      }}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/15 border border-secondary/25 text-secondary text-xs hover:bg-secondary/25 transition-colors whitespace-nowrap"
+                                    >
+                                      <BookmarkPlus className="size-3.5" />
+                                      Salvar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Busca */}
+                              {templates.length > 2 && (
+                                <div className="relative mb-3">
+                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-ink-500" />
+                                  <input
+                                    type="text"
+                                    value={templateSearch}
+                                    onChange={e => setTemplateSearch(e.target.value)}
+                                    placeholder="Buscar template..."
+                                    className="w-full rounded-lg bg-bg/60 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-ink-100 placeholder:text-ink-500 outline-none focus:border-secondary/40"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Lista de templates */}
+                              {filteredTemplates.length === 0 ? (
+                                <div className="text-center py-6 text-xs text-ink-500">
+                                  {templates.length === 0
+                                    ? "Nenhum template salvo ainda. Escreva uma mensagem e salve acima!"
+                                    : "Nenhum template encontrado"}
+                                </div>
+                              ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                  {filteredTemplates.map(tpl => (
+                                    <div key={tpl.id} className="group flex items-start gap-2 p-3 rounded-lg border border-white/[0.06] bg-bg/40 hover:border-secondary/20 hover:bg-secondary/[0.04] transition-all">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-ink-200 mb-0.5 truncate">{tpl.name}</p>
+                                        <p className="text-xs text-ink-400 line-clamp-2 whitespace-pre-wrap">{tpl.text}</p>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {messages.length > 1 ? (
+                                          <div className="flex gap-1">
+                                            {messages.map((m, i) => (
+                                              <button
+                                                key={m.id}
+                                                type="button"
+                                                onClick={() => applyTemplate(tpl.text, m.id)}
+                                                title={`Usar na mensagem ${i + 1}`}
+                                                className="size-6 rounded bg-secondary/15 border border-secondary/25 text-secondary text-[10px] font-bold flex items-center justify-center hover:bg-secondary/30"
+                                              >
+                                                {i + 1}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => applyTemplate(tpl.text, messages[0]?.id)}
+                                            className="px-2.5 py-1 rounded bg-secondary/15 border border-secondary/25 text-secondary text-[10px] font-semibold hover:bg-secondary/30 transition-colors whitespace-nowrap"
+                                          >
+                                            Usar
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => deleteTemplate(tpl.id)}
+                                          className="size-6 rounded bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                                        >
+                                          <Trash2 className="size-3" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
                       <div className="space-y-3">
                         {messages.map((m, i) => (
                           <div key={m.id} className="rounded-xl border border-white/10 bg-bg/40 p-4">
