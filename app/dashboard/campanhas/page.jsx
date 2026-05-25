@@ -10,7 +10,7 @@ import {
 import Topbar from "../../../components/dashboard/Topbar";
 import Modal from "../../../components/dashboard/Modal";
 import { Field, Input, Textarea, Select, Button } from "../../../components/ui/Field";
-import { api, API_URL, getToken, getUser } from "../../../lib/api";
+import { api, API_URL, getToken } from "../../../lib/api";
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -72,32 +72,21 @@ export default function CampanhasPage() {
   const [templateName, setTemplateName] = useState("");
   const [activeTemplateFor, setActiveTemplateFor] = useState(null); // message id
 
-  function tplKey() {
-    const uid = getUser()?.id || "guest";
-    return `wayvo_msg_templates_${uid}`;
-  }
-
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(tplKey());
-      if (saved) setTemplates(JSON.parse(saved));
-    } catch { /* ignore */ }
+    api("/api/message-templates").then(setTemplates).catch(() => {});
   }, []);
 
-  function saveTemplatesToStorage(list) {
-    setTemplates(list);
-    localStorage.setItem(tplKey(), JSON.stringify(list));
-  }
-
-  function addTemplate(name, text) {
+  async function addTemplate(name, text) {
     if (!text.trim()) return;
-    const label = name.trim() || text.slice(0, 40).replace(/\n/g, " ");
-    const tpl = { id: Date.now(), name: label, text: text.trim() };
-    saveTemplatesToStorage([tpl, ...templates]);
+    try {
+      const tpl = await api("/api/message-templates", { method: "POST", body: { name, text } });
+      setTemplates(prev => [tpl, ...prev]);
+    } catch { /* ignore */ }
   }
 
-  function deleteTemplate(id) {
-    saveTemplatesToStorage(templates.filter(t => t.id !== id));
+  async function deleteTemplate(id) {
+    setTemplates(prev => prev.filter(t => t.id !== id));
+    await api(`/api/message-templates/${id}`, { method: "DELETE" }).catch(() => {});
   }
 
   function applyTemplate(text, msgId) {

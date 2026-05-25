@@ -3852,6 +3852,65 @@ app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) =
 });
 
 // ═══════════════════════════════════════════════════════════════
+// TEMPLATES DE MENSAGENS RÁPIDAS
+// ═══════════════════════════════════════════════════════════════
+
+app.get('/api/message-templates', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('message_templates')
+      .select('*')
+      .eq('user_id', uid(req))
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/message-templates', requireAuth, async (req, res) => {
+  try {
+    const { name, text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ error: 'text é obrigatório' });
+    const label = (name?.trim()) || text.slice(0, 40).replace(/\n/g, ' ');
+    const { data, error } = await supabase
+      .from('message_templates')
+      .insert({ user_id: uid(req), name: label, text: text.trim() })
+      .select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/message-templates/:id', requireAuth, async (req, res) => {
+  try {
+    const { name, text } = req.body;
+    const updates = { updated_at: new Date().toISOString() };
+    if (name !== undefined) updates.name = name.trim();
+    if (text !== undefined) updates.text = text.trim();
+    const { data, error } = await supabase
+      .from('message_templates')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('user_id', uid(req))
+      .select().single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Template não encontrado' });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/message-templates/:id', requireAuth, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('message_templates')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', uid(req));
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // LISTAS DE CONTATOS
 // ═══════════════════════════════════════════════════════════════
 
