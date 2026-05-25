@@ -49,11 +49,14 @@ export default function SocialProof({ stats, testimonials }) {
               </blockquote>
 
               <figcaption className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-3">
-                <div
-                  className="size-11 rounded-full flex items-center justify-center font-bold text-bg shadow-lg"
-                  style={{ background: t.color || "#00FFB2" }}
-                >
-                  {t.name[0]}
+                <div className="size-11 rounded-full overflow-hidden shrink-0 shadow-lg ring-2 ring-white/10">
+                  {t.avatar ? (
+                    <img src={t.avatar} alt={t.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center font-bold text-bg" style={{ background: t.color || "#00FFB2" }}>
+                      {t.name[0]}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="font-semibold text-sm">{t.name}</div>

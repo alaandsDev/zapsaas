@@ -12,12 +12,29 @@ export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
         <div className="grid md:grid-cols-3 gap-4 relative">
           <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
           {steps.map((s, i) => (
-            <div key={i} className="card p-7 relative">
-              <div className="size-9 rounded-xl bg-primary text-bg font-bold flex items-center justify-center mb-5 shadow-glow">
-                {i + 1}
-              </div>
-              <h3 className="text-h3">{s.title}</h3>
-              <p className="text-ink-300 mt-2 leading-relaxed">{s.desc}</p>
+            <div key={i} className="card p-7 relative overflow-hidden group">
+              {s.img && (
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <img src={s.img} alt="" className="w-full h-full object-cover opacity-10" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/80 to-card/60" />
+                </div>
+              )}
+              {s.img && (
+                <div className="relative mb-4 rounded-xl overflow-hidden h-36">
+                  <img src={s.img} alt={s.title} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
+                  <div className="absolute bottom-2 left-2 size-8 rounded-lg bg-primary text-bg text-sm font-bold flex items-center justify-center shadow-glow">
+                    {i + 1}
+                  </div>
+                </div>
+              )}
+              {!s.img && (
+                <div className="size-9 rounded-xl bg-primary text-bg font-bold flex items-center justify-center mb-5 shadow-glow">
+                  {i + 1}
+                </div>
+              )}
+              <h3 className="text-h3 relative">{s.title}</h3>
+              <p className="text-ink-300 mt-2 leading-relaxed relative">{s.desc}</p>
             </div>
           ))}
         </div>

@@ -137,6 +137,22 @@ function ProductMockup() {
           </div>
         </div>
       </div>
+
+      {/* Card flutuante com cliente real */}
+      <div className="hidden lg:block absolute -right-4 top-6 card p-3 shadow-xl bg-bg/95 backdrop-blur-sm max-w-[200px]">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="size-8 rounded-full overflow-hidden ring-2 ring-primary/30">
+            <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=80&h=80&q=80" alt="Cliente" className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold leading-tight">Ana Clara</div>
+            <div className="text-[9px] text-ink-400">Loja de roupas · SP</div>
+          </div>
+        </div>
+        <div className="text-[10px] text-ink-300 bg-primary/5 border border-primary/15 rounded-lg px-2 py-1.5 leading-relaxed">
+          "Faturei R$ 8k em 3 dias só pelo Wayvo" 🔥
+        </div>
+      </div>
     </div>
   );
 }
