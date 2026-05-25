@@ -10,7 +10,7 @@ import {
 import Topbar from "../../../components/dashboard/Topbar";
 import Modal from "../../../components/dashboard/Modal";
 import { Field, Input, Textarea, Select, Button } from "../../../components/ui/Field";
-import { api, API_URL, getToken } from "../../../lib/api";
+import { api, API_URL, getToken, getUser } from "../../../lib/api";
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -72,16 +72,21 @@ export default function CampanhasPage() {
   const [templateName, setTemplateName] = useState("");
   const [activeTemplateFor, setActiveTemplateFor] = useState(null); // message id
 
+  function tplKey() {
+    const uid = getUser()?.id || "guest";
+    return `wayvo_msg_templates_${uid}`;
+  }
+
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("wayvo_msg_templates");
+      const saved = localStorage.getItem(tplKey());
       if (saved) setTemplates(JSON.parse(saved));
     } catch { /* ignore */ }
   }, []);
 
   function saveTemplatesToStorage(list) {
     setTemplates(list);
-    localStorage.setItem("wayvo_msg_templates", JSON.stringify(list));
+    localStorage.setItem(tplKey(), JSON.stringify(list));
   }
 
   function addTemplate(name, text) {
