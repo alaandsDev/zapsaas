@@ -572,6 +572,21 @@ app.get('/api/admin/orcamentos', requireAdmin, async (req, res) => {
   }
 });
 
+app.patch('/api/admin/orcamentos/:id', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ['pendente', 'em_contato', 'convertido'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Status inválido' });
+    const { data, error } = await supabase
+      .from('price_leads')
+      .update({ status })
+      .eq('id', req.params.id)
+      .select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── CAPTAÇÃO DE LEADS (Consultar Preço) ──────────────────────
 app.post('/api/lead-contact', async (req, res) => {
   try {

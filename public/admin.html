@@ -467,11 +467,12 @@ select:focus{border-color:var(--red)}
                     <th>Disparos/mês</th>
                     <th>API Meta</th>
                     <th>Data</th>
+                    <th>Status</th>
                     <th>Ação</th>
                   </tr>
                 </thead>
                 <tbody id="orcamentos-tbody">
-                  <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>
+                  <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -661,13 +662,28 @@ const DISPAROS_LABELS = {
   acima_50000: 'Acima de 50.000'
 };
 
+const STATUS_ORC = {
+  pendente:    { label: 'Pendente',    color: 'var(--yellow)', bg: 'rgba(255,204,68,.12)',  border: 'rgba(255,204,68,.3)'  },
+  em_contato:  { label: 'Em Contato',  color: 'var(--blue)',   bg: 'rgba(77,143,255,.12)', border: 'rgba(77,143,255,.3)'  },
+  convertido:  { label: 'Convertido',  color: 'var(--green)',  bg: 'rgba(0,232,122,.12)',  border: 'rgba(0,232,122,.3)'   },
+};
+
+async function updateOrcamentoStatus(id, status) {
+  try {
+    await readJson(await authFetch(`${API}/admin/orcamentos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }));
+  } catch(e) { alert('Erro ao atualizar: ' + e.message); loadOrcamentos(); }
+}
+
 async function loadOrcamentos() {
   const tbody = document.getElementById('orcamentos-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>';
   try {
     const data = await readJson(await authFetch(`${API}/admin/orcamentos`));
     if (!data?.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Nenhuma solicitação ainda</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">Nenhuma solicitação ainda</td></tr>';
       return;
     }
     tbody.innerHTML = data.map(r => {
@@ -675,13 +691,22 @@ async function loadOrcamentos() {
       const disparos = DISPAROS_LABELS[r.disparos_mensais] || r.disparos_mensais || '—';
       const api = r.usa_api_meta ? '<span style="color:var(--green);font-weight:600">✓ Sim</span>' : '<span style="color:var(--text3)">Não</span>';
       const wa = r.whatsapp.replace(/\D/g,'');
+      const st = STATUS_ORC[r.status] || STATUS_ORC.pendente;
+      const statusSelect = `
+        <select onchange="updateOrcamentoStatus('${r.id}', this.value)"
+          style="background:${st.bg};border:1px solid ${st.border};color:${st.color};border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;text-align:center">
+          <option value="pendente"   ${r.status==='pendente'   ?'selected':''}>⏳ Pendente</option>
+          <option value="em_contato" ${r.status==='em_contato' ?'selected':''}>📞 Em Contato</option>
+          <option value="convertido" ${r.status==='convertido' ?'selected':''}>✅ Convertido</option>
+        </select>`;
       return `<tr>
-        <td><strong>${r.nome}</strong></td>
-        <td>${r.whatsapp}</td>
-        <td style="color:var(--text2)">${r.email}</td>
-        <td>${disparos}</td>
+        <td><strong>${esc(r.nome)}</strong></td>
+        <td>${esc(r.whatsapp)}</td>
+        <td style="color:var(--text2)">${esc(r.email)}</td>
+        <td>${esc(disparos)}</td>
         <td>${api}</td>
         <td style="color:var(--text3);font-size:11px">${dt}</td>
+        <td>${statusSelect}</td>
         <td>
           <a href="https://wa.me/55${wa}" target="_blank"
              style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,232,122,.1);border:1px solid rgba(0,232,122,.25);color:var(--green);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">
@@ -691,7 +716,7 @@ async function loadOrcamentos() {
       </tr>`;
     }).join('');
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--red)">${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--red)">${esc(e.message)}</td></tr>`;
   }
 }
 
