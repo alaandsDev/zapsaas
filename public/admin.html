@@ -665,7 +665,7 @@ async function loadOrcamentos() {
   const tbody = document.getElementById('orcamentos-tbody');
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Carregando...</td></tr>';
   try {
-    const data = await readJson(await authFetch('/api/admin/orcamentos'));
+    const data = await readJson(await authFetch(`${API}/admin/orcamentos`));
     if (!data?.length) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">Nenhuma solicitação ainda</td></tr>';
       return;
