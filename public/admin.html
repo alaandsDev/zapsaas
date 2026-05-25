@@ -668,35 +668,13 @@ const STATUS_ORC = {
   convertido:  { label: 'Convertido',  color: 'var(--green)',  bg: 'rgba(0,232,122,.12)',  border: 'rgba(0,232,122,.3)'   },
 };
 
-function toggleOrcStatus(id, btn) {
-  // Fecha todos os outros dropdowns abertos
-  document.querySelectorAll('[id^="orc-dd-"]').forEach(el => {
-    if (el.id !== `orc-dd-${id}`) el.style.display = 'none';
-  });
-  const dd = document.getElementById(`orc-dd-${id}`);
-  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
-}
-
-// Fecha dropdown ao clicar fora
-document.addEventListener('click', e => {
-  if (!e.target.closest('[id^="orc-dd-"]') && !e.target.closest('button[onclick^="toggleOrcStatus"]')) {
-    document.querySelectorAll('[id^="orc-dd-"]').forEach(el => el.style.display = 'none');
-  }
-});
-
 async function pickOrcStatus(id, status) {
-  document.getElementById(`orc-dd-${id}`).style.display = 'none';
   try {
     await readJson(await authFetch(`${API}/admin/orcamentos/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }));
-    loadOrcamentos();
-  } catch(e) { alert('Erro ao atualizar: ' + e.message); }
-}
-
-async function updateOrcamentoStatus(id, status) {
-  return pickOrcStatus(id, status);
+  } catch(e) { alert('Erro ao atualizar: ' + e.message); loadOrcamentos(); }
 }
 
 async function loadOrcamentos() {
@@ -713,21 +691,13 @@ async function loadOrcamentos() {
       const disparos = DISPAROS_LABELS[r.disparos_mensais] || r.disparos_mensais || '—';
       const api = r.usa_api_meta ? '<span style="color:var(--green);font-weight:600">✓ Sim</span>' : '<span style="color:var(--text3)">Não</span>';
       const wa = r.whatsapp.replace(/\D/g,'');
-      const st = STATUS_ORC[r.status] || STATUS_ORC.pendente;
       const statusBadge = `
-        <div style="position:relative;display:inline-block">
-          <button onclick="toggleOrcStatus('${r.id}', this)"
-            style="background:${st.bg};border:1px solid ${st.border};color:${st.color};border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px">
-            ${st.label} ▾
-          </button>
-          <div id="orc-dd-${r.id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:99;background:var(--card2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
-            ${Object.entries(STATUS_ORC).map(([val, s]) => `
-              <div onclick="pickOrcStatus('${r.id}','${val}')"
-                style="padding:8px 12px;font-size:12px;font-weight:600;color:${s.color};cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s"
-                onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''"
-              >${s.label}</div>`).join('')}
-          </div>
-        </div>`;
+        <select onchange="pickOrcStatus('${r.id}', this.value)"
+          style="background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;width:130px;font-family:inherit">
+          <option value="pendente"   ${r.status==='pendente'   ?'selected':''}>⏳ Pendente</option>
+          <option value="em_contato" ${r.status==='em_contato' ?'selected':''}>📞 Em Contato</option>
+          <option value="convertido" ${r.status==='convertido' ?'selected':''}>✅ Convertido</option>
+        </select>`;
       return `<tr>
         <td><strong>${esc(r.nome)}</strong></td>
         <td>${esc(r.whatsapp)}</td>
