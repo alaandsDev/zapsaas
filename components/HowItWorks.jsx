@@ -1,3 +1,4 @@
+"use client";
 export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
   return (
     <section id="como-funciona" className="py-24 border-t border-white/[0.06]">
@@ -21,7 +22,7 @@ export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
               )}
               {s.img && (
                 <div className="relative mb-4 rounded-xl overflow-hidden h-36">
-                  <img src={s.img} alt={s.title} className="w-full h-full object-cover" />
+                  <img src={s.img} alt={s.title} className="w-full h-full object-cover" onError={e => { e.currentTarget.parentElement.style.display = 'none'; }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                   <div className="absolute bottom-2 left-2 size-8 rounded-lg bg-primary text-bg text-sm font-bold flex items-center justify-center shadow-glow">
                     {i + 1}

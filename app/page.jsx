@@ -117,17 +117,17 @@ export default function Home() {
           {
             title: "Conecte sua infraestrutura",
             desc: "Ligue seus canais em segundos — número próprio ou API oficial Meta. Sem chip novo, sem fricção.",
-            img: "https://images.unsplash.com/photo-1512941937938-a272e80f52f3?auto=format&fit=crop&w=600&h=300&q=80",
+            img: "https://images.unsplash.com/photo-1601784551446-3edf76b7b6e2?auto=format&fit=crop&w=600&h=300&q=80",
           },
           {
             title: "Ative a operação",
             desc: "Use workflows prontos ou deixe a IA montar o fluxo. Campanhas, automações e CRM num só lugar.",
-            img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=600&h=300&q=80",
+            img: "https://images.unsplash.com/photo-1547658719-da2b51169166?auto=format&fit=crop&w=600&h=300&q=80",
           },
           {
             title: "Escale com inteligência",
             desc: "O copiloto monitora saúde, timing e receita — e te diz onde agir para crescer.",
-            img: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&h=300&q=80",
+            img: "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?auto=format&fit=crop&w=600&h=300&q=80",
           },
         ]}
       />
