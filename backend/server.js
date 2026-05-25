@@ -579,14 +579,15 @@ app.post('/api/lead-contact', async (req, res) => {
     if (!nome || !whatsapp || !email) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
 
     // Salva no banco
-    await supabase.from('price_leads').insert({
+    const { error: dbErr } = await supabase.from('price_leads').insert({
       nome: nome.trim(),
       whatsapp: whatsapp.trim(),
       email: email.trim(),
       disparos_mensais: disparos || null,
       usa_api_meta: usaApi === 'sim',
       created_at: new Date().toISOString()
-    }).catch(() => null); // não bloqueia se tabela não existir ainda
+    });
+    if (dbErr) console.error('[price-lead] erro DB:', dbErr.message, dbErr.details, dbErr.hint);
 
     console.log(`[price-lead] ${nome} | ${whatsapp} | ${email} | ${disparos} | api:${usaApi}`);
     res.json({ ok: true });
