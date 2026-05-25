@@ -142,7 +142,7 @@ function ProductMockup() {
       <div className="hidden lg:block absolute -right-4 top-6 card p-3 shadow-xl bg-bg/95 backdrop-blur-sm max-w-[200px]">
         <div className="flex items-center gap-2 mb-2">
           <div className="size-8 rounded-full overflow-hidden ring-2 ring-primary/30">
-            <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=80&h=80&q=80" alt="Cliente" className="w-full h-full object-cover" />
+            <img src="https://images.pexels.com/photos/3756679/pexels-photo-3756679.jpeg?auto=compress&cs=tinysrgb&w=80&h=80&fit=crop" alt="Cliente" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="text-[11px] font-semibold leading-tight">Ana Clara</div>
