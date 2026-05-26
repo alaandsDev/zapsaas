@@ -12,6 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -23,7 +24,7 @@ export default function Login() {
         auth: false,
         body: { email, password },
       });
-      setAuth(r.token, r.user);
+      setAuth(r.token, r.user, remember);
       router.push("/dashboard");
     } catch (e) {
       setErr(e.message || "Falha ao entrar");
@@ -52,6 +53,15 @@ export default function Login() {
         <Field label="Senha">
           <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </Field>
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <div
+            onClick={() => setRemember(v => !v)}
+            className={`size-4 rounded flex items-center justify-center border transition-all ${remember ? "bg-primary border-primary" : "border-white/20 bg-white/[0.04]"}`}
+          >
+            {remember && <svg className="size-2.5 text-bg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+          <span className="text-sm text-ink-300">Lembrar de mim</span>
+        </label>
         {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
         <Button type="submit" loading={loading} className="w-full">Entrar →</Button>
       </form>
