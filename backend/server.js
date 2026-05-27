@@ -4230,10 +4230,32 @@ app.post('/api/stripe/portal', requireAuth, async (req, res) => {
 // CRON — DISPAROS AGENDADOS com lock atômico
 // ═══════════════════════════════════════════════════════════════
 
-// ── RESTART DIÁRIO às 04:00 (horário de Brasília = UTC-3 → 07:00 UTC) ──────
-cron.schedule('0 7 * * *', () => {
-  console.log('🔄 Restart diário programado (04:00 BRT) — encerrando processo para Railway reiniciar...');
-  process.exit(0);
+// ── RESTART DIÁRIO DO BANCO às 04:00 BRT ────────────────────────────────────
+cron.schedule('0 4 * * *', async () => {
+  const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
+  const projectRef  = process.env.SUPABASE_PROJECT_REF || 'uromuawgcexyixncuygx';
+  if (!accessToken) {
+    console.warn('[db-restart] SUPABASE_ACCESS_TOKEN não configurado — pulando restart.');
+    return;
+  }
+  try {
+    console.log('[db-restart] Iniciando restart do banco de dados Supabase...');
+    const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/restart`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (res.ok) {
+      console.log('[db-restart] ✅ Banco reiniciado com sucesso.');
+    } else {
+      const body = await res.text();
+      console.error(`[db-restart] ❌ Falhou: HTTP ${res.status} — ${body}`);
+    }
+  } catch (e) {
+    console.error('[db-restart] ❌ Erro:', e.message);
+  }
 }, { timezone: 'America/Sao_Paulo' });
 
 cron.schedule('*/3 * * * *', async () => {
