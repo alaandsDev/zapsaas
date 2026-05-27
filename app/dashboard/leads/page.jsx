@@ -253,12 +253,19 @@ export default function LeadsPage() {
 
   async function syncProfilePics() {
     setSyncingPics(true);
+    setSyncResult(null);
+    let totalSynced = 0;
     try {
-      const r = await api("/api/chats/sync-pics", { method: "POST" });
+      // Processa em lotes de 50 até não sobrar mais
+      while (true) {
+        const r = await api("/api/chats/sync-pics", { method: "POST" });
+        totalSynced += r.synced ?? 0;
+        if (!r.remaining || r.remaining === 0 || r.reason) break;
+      }
       await load();
-      setSyncResult({ _pics: true, leads_synced: r.synced ?? 0 });
+      setSyncResult({ _pics: true, leads_synced: totalSynced });
     } catch (e) {
-      setSyncResult({ _pics: true, leads_synced: 0 });
+      setSyncResult({ _pics: true, leads_synced: totalSynced });
     } finally {
       setSyncingPics(false);
     }

@@ -3214,31 +3214,65 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Sincroniza fotos de perfil dos chats → leads em lote (one-shot)
+// Sincroniza fotos de perfil do WhatsApp → leads em lote
+// Estratégia: usa sessões conectadas para buscar foto de cada lead sem avatar
 app.post('/api/chats/sync-pics', requireAuth, async (req, res) => {
   try {
     const userId = uid(req);
-    // Busca chats que têm foto
+
+    // Sessões conectadas (Baileys)
+    const connected = getConnectedSessions(userId).filter(s => s.slot >= 1);
+    if (!connected.length) return res.json({ synced: 0, reason: 'no_sessions' });
+
+    // Leads sem avatar (ou com avatar antigo)
+    const { data: leads } = await supabase
+      .from('leads')
+      .select('id, phone, avatar_url')
+      .eq('user_id', userId)
+      .is('avatar_url', null);   // só os que ainda não têm foto
+
+    if (!leads?.length) return res.json({ synced: 0, reason: 'all_have_pics' });
+
+    // Mapeia phone -> profile_pic_url já no banco (chats)
     const { data: chats } = await supabase
       .from('chats')
       .select('phone, profile_pic_url')
       .eq('user_id', userId)
       .not('profile_pic_url', 'is', null);
-    // Busca todos os leads do usuário
-    const { data: leads } = await supabase
-      .from('leads')
-      .select('id, phone, avatar_url')
-      .eq('user_id', userId);
-    let updated = 0;
-    for (const chat of (chats || [])) {
-      const clean = chat.phone?.replace(/\D/g, '');
-      const lead = (leads || []).find(l => l.phone?.replace(/\D/g, '') === clean);
-      if (lead && lead.avatar_url !== chat.profile_pic_url) {
-        await supabase.from('leads').update({ avatar_url: chat.profile_pic_url }).eq('id', lead.id);
-        updated++;
-      }
+    const cachedPics = {};
+    for (const c of (chats || [])) {
+      if (c.phone && c.profile_pic_url) cachedPics[c.phone.replace(/\D/g, '')] = c.profile_pic_url;
     }
-    res.json({ synced: updated });
+
+    const sessionKey = connected[0].key; // usa o primeiro slot conectado
+    let updated = 0;
+    const BATCH = 50; // máx por chamada para não timeout
+
+    for (const lead of leads.slice(0, BATCH)) {
+      const clean = lead.phone?.replace(/\D/g, '');
+      if (!clean) continue;
+      try {
+        // 1) tenta cache do banco primeiro
+        let url = cachedPics[clean] || null;
+        // 2) se não tem cache, busca do WhatsApp
+        if (!url) {
+          url = await wpp.getProfilePicture(sessionKey, clean, 'image').catch(() => null);
+          if (url) {
+            // Atualiza cache no chat
+            await supabase.from('chats')
+              .update({ profile_pic_url: url, profile_pic_refreshed_at: new Date().toISOString() })
+              .eq('user_id', userId).eq('phone', clean);
+          }
+        }
+        if (url && url !== lead.avatar_url) {
+          await supabase.from('leads').update({ avatar_url: url }).eq('id', lead.id);
+          updated++;
+        }
+      } catch {}
+    }
+
+    const remaining = Math.max(0, leads.length - BATCH);
+    res.json({ synced: updated, remaining });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
