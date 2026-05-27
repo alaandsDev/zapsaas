@@ -746,7 +746,6 @@ app.get('/api/leads', requireAuth, async (req, res) => {
     const PAGE = 1000;
     let all = [];
     let from = 0;
-    // Pagina até buscar todos os leads (sem depender do limite padrão do PostgREST)
     while (true) {
       const { data, error } = await supabase
         .from('leads')
@@ -759,6 +758,30 @@ app.get('/api/leads', requireAuth, async (req, res) => {
       if (!data || data.length < PAGE) break;
       from += PAGE;
     }
+
+    // Enriquece avatar_url: para leads sem foto, busca no chat correspondente
+    const withoutPic = all.filter(l => !l.avatar_url && l.phone);
+    if (withoutPic.length > 0) {
+      const phones = withoutPic.map(l => l.phone.replace(/\D/g, ''));
+      const { data: chats } = await supabase
+        .from('chats')
+        .select('phone, profile_pic_url')
+        .eq('user_id', userId)
+        .not('profile_pic_url', 'is', null);
+      if (chats?.length) {
+        const picMap = {};
+        chats.forEach(c => { if (c.phone) picMap[c.phone.replace(/\D/g, '')] = c.profile_pic_url; });
+        all = all.map(l => {
+          if (l.avatar_url || !l.phone) return l;
+          const pic = picMap[l.phone.replace(/\D/g, '')];
+          return pic ? { ...l, avatar_url: pic } : l;
+        });
+        // Persiste no banco em background (fire-and-forget)
+        all.filter(l => l.avatar_url && withoutPic.find(w => w.id === l.id))
+           .forEach(l => supabase.from('leads').update({ avatar_url: l.avatar_url }).eq('id', l.id).then(() => {}));
+      }
+    }
+
     res.json(all);
   } catch (e) {
     res.status(500).json({ error: 'Erro ao buscar leads' });
