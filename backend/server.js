@@ -759,29 +759,6 @@ app.get('/api/leads', requireAuth, async (req, res) => {
       from += PAGE;
     }
 
-    // Enriquece avatar_url: para leads sem foto, busca no chat correspondente
-    const withoutPic = all.filter(l => !l.avatar_url && l.phone);
-    if (withoutPic.length > 0) {
-      const phones = withoutPic.map(l => l.phone.replace(/\D/g, ''));
-      const { data: chats } = await supabase
-        .from('chats')
-        .select('phone, profile_pic_url')
-        .eq('user_id', userId)
-        .not('profile_pic_url', 'is', null);
-      if (chats?.length) {
-        const picMap = {};
-        chats.forEach(c => { if (c.phone) picMap[c.phone.replace(/\D/g, '')] = c.profile_pic_url; });
-        all = all.map(l => {
-          if (l.avatar_url || !l.phone) return l;
-          const pic = picMap[l.phone.replace(/\D/g, '')];
-          return pic ? { ...l, avatar_url: pic } : l;
-        });
-        // Persiste no banco em background (fire-and-forget)
-        all.filter(l => l.avatar_url && withoutPic.find(w => w.id === l.id))
-           .forEach(l => supabase.from('leads').update({ avatar_url: l.avatar_url }).eq('id', l.id).then(() => {}));
-      }
-    }
-
     res.json(all);
   } catch (e) {
     res.status(500).json({ error: 'Erro ao buscar leads' });
@@ -3032,6 +3009,13 @@ wpp.on('message', async (evt) => {
     const { userId, slot } = parseSessionId(evt.sessionId);
     console.log(`[chat] msg ${evt.fromMe ? 'OUT' : 'IN'} session=${evt.sessionId} user=${userId} slot=${slot} phone=${evt.phone} type=${evt.type} text="${(evt.text || '').slice(0, 40)}"`);
     if (!userId) { console.warn('[chat] sessionId inválido, ignorando'); return; }
+
+    // Ignora mensagens cujo remetente/destinatário é o próprio número da sessão (echo/self-chat)
+    const sessionPhone = wpp.getStatus(evt.sessionId)?.phone;
+    if (sessionPhone && evt.phone?.replace(/\D/g, '') === String(sessionPhone).replace(/\D/g, '')) {
+      console.log('[chat] ignorando self-chat:', evt.phone);
+      return;
+    }
 
     const ts = evt.timestamp ? new Date(evt.timestamp).toISOString() : new Date().toISOString();
     const previewLabels = { image: '📷 Foto', audio: '🎵 Áudio', video: '🎬 Vídeo', document: '📄 Documento', sticker: '🌟 Figurinha' };
