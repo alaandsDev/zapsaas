@@ -423,13 +423,7 @@ export default function LeadsPage() {
             <Button variant="ghost" onClick={syncAllLists} disabled={syncing}>
               <Zap className="size-4" /> {syncing ? "Sincronizando…" : "Sincronizar Listas"}
             </Button>
-            <Button variant="ghost" onClick={syncProfilePics} disabled={syncingPics} title="Copia a foto de perfil do WhatsApp para os leads">
-              {syncingPics
-                ? <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                : <span className="text-base leading-none">🖼️</span>}
-              {syncingPics ? "Sincronizando fotos…" : "Fotos do WhatsApp"}
-            </Button>
-            <Button variant="ghost" onClick={() => setOpenImport(true)}>
+<Button variant="ghost" onClick={() => setOpenImport(true)}>
               <Upload className="size-4" /> Importar
             </Button>
             <Button onClick={() => setOpenLead(true)}>
