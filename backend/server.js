@@ -4230,6 +4230,12 @@ app.post('/api/stripe/portal', requireAuth, async (req, res) => {
 // CRON — DISPAROS AGENDADOS com lock atômico
 // ═══════════════════════════════════════════════════════════════
 
+// ── RESTART DIÁRIO às 04:00 (horário de Brasília = UTC-3 → 07:00 UTC) ──────
+cron.schedule('0 7 * * *', () => {
+  console.log('🔄 Restart diário programado (04:00 BRT) — encerrando processo para Railway reiniciar...');
+  process.exit(0);
+}, { timezone: 'America/Sao_Paulo' });
+
 cron.schedule('*/3 * * * *', async () => {
   try {
     const now = new Date().toISOString();
