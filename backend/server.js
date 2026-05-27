@@ -4624,6 +4624,44 @@ app.get('/api/workspace/invites/:token', async (req, res) => {
 
 // ── START ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
+async function crashRecovery() {
+  try {
+    // Busca disparos que estavam "sending" quando o processo morreu
+    const cutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString(); // mais de 2min sem atualização
+    const { data: stuck } = await supabase
+      .from('dispatches')
+      .select('id, user_id, sent, total, items')
+      .eq('status', 'sending')
+      .lt('updated_at', cutoff);
+
+    if (!stuck?.length) {
+      console.log('♻️  Crash recovery: nenhum disparo travado.');
+      return;
+    }
+
+    console.log(`♻️  Crash recovery: ${stuck.length} disparo(s) travado(s) — retomando...`);
+
+    for (const d of stuck) {
+      const pendingCount = (d.items || []).filter(i => i.status === 'pending').length;
+      if (pendingCount === 0) {
+        // Todos já foram processados — só fecha
+        await supabase.from('dispatches')
+          .update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('id', d.id);
+        console.log(`♻️  Dispatch ${d.id}: sem pendentes, marcado como completed.`);
+      } else {
+        // Ainda tem contatos pendentes — recoloca como scheduled para o cron pegar
+        await supabase.from('dispatches')
+          .update({ status: 'scheduled', scheduled_at: new Date().toISOString() })
+          .eq('id', d.id);
+        console.log(`♻️  Dispatch ${d.id}: ${pendingCount} contatos pendentes → reagendado para retomada.`);
+      }
+    }
+  } catch (e) {
+    console.error('♻️  Crash recovery erro:', e.message);
+  }
+}
+
 app.listen(PORT, async () => {
   console.log(`\n🚀 ZapSaaS v2 rodando em http://localhost:${PORT}`);
   console.log(`📦 Banco: Supabase`);
@@ -4631,5 +4669,8 @@ app.listen(PORT, async () => {
   console.log(`💳 Stripe: ${process.env.STRIPE_SECRET_KEY ? 'configurado' : 'não configurado'}`);
   // Restaura sessões WhatsApp salvas
   await wpp.restoreSessions();
-  console.log(`📱 WhatsApp: sessions restauradas\n`);
+  console.log(`📱 WhatsApp: sessions restauradas`);
+  // Retoma disparos travados por crash/deploy
+  await crashRecovery();
+  console.log('');
 });
