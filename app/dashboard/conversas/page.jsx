@@ -1440,30 +1440,13 @@ export default function Conversas() {
                   <input
                     type="tel"
                     value={newChatPhone}
-                    onChange={(e) => { setNewChatPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, "")); searchLeads(e.target.value, "phone"); }}
-                    onBlur={() => setTimeout(() => setNcActiveField(null), 150)}
+                    onChange={(e) => setNewChatPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, ""))}
                     placeholder="55 11 91234-5678"
                     className="w-full pl-6 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
                     disabled={newChatSending}
                     autoComplete="off"
                   />
                 </div>
-                {ncActiveField === "phone" && ncSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 rounded-xl border border-white/[0.1] bg-[#0d1729] shadow-elevated overflow-hidden">
-                    {ncSuggestions.map((lead) => (
-                      <button key={lead.id} onMouseDown={() => pickSuggestion(lead)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.05] transition-colors">
-                        <div className="size-7 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
-                          {(lead.name || "?")[0].toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{lead.name}</div>
-                          <div className="text-[11px] text-ink-500 truncate">+{lead.phone}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Canal */}
