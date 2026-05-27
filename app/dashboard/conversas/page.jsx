@@ -265,6 +265,7 @@ export default function Conversas() {
   // Modal Nova Conversa
   const [newChatOpen,    setNewChatOpen]    = useState(false);
   const [newChatPhone,   setNewChatPhone]   = useState("");
+  const [newChatName,    setNewChatName]    = useState("");
   const [newChatMsg,     setNewChatMsg]     = useState("");
   const [newChatSlot,    setNewChatSlot]    = useState(null); // null = auto (primeiro conectado)
   const [newChatSending, setNewChatSending] = useState(false);
@@ -558,6 +559,10 @@ export default function Conversas() {
       setToast({ msg: "Informe um número válido (com DDD)", duration: 2500 });
       return;
     }
+    if (!newChatName.trim()) {
+      setToast({ msg: "Informe o nome do contato", duration: 2500 });
+      return;
+    }
     if (!newChatMsg.trim()) {
       setToast({ msg: "Escreva uma mensagem para iniciar", duration: 2500 });
       return;
@@ -569,16 +574,33 @@ export default function Conversas() {
     }
     setNewChatSending(true);
     try {
+      // 1) Verifica se lead já existe com esse telefone
+      let leadExists = false;
+      try {
+        const leads = await api(`/api/leads?q=${encodeURIComponent(phone)}`);
+        leadExists = Array.isArray(leads) && leads.some((l) => l.phone?.replace(/\D/g, "") === phone);
+      } catch {}
+
+      // 2) Se não existe, cria o lead
+      if (!leadExists) {
+        await api("/api/leads", {
+          method: "POST",
+          body: { name: newChatName.trim(), phone, source: "conversa" },
+        });
+      }
+
+      // 3) Envia a mensagem
       await api("/api/chats/send", {
         method: "POST",
         body: { phone, message: newChatMsg.trim(), slot },
       });
-      setToast({ msg: `Mensagem enviada para +${phone}`, duration: 2500 });
+
+      setToast({ msg: leadExists ? `Mensagem enviada para ${newChatName}` : `Lead criado e mensagem enviada para ${newChatName}`, duration: 3000 });
       setNewChatOpen(false);
       setNewChatPhone("");
+      setNewChatName("");
       setNewChatMsg("");
       setNewChatSlot(null);
-      // Atualiza lista para mostrar nova conversa
       await loadAllChats(connectedSessions);
     } catch (e) {
       setToast({ msg: e.message || "Falha ao enviar", duration: 3000 });
@@ -1330,6 +1352,20 @@ export default function Conversas() {
                 </button>
               </div>
 
+              {/* Nome */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Nome do contato</label>
+                <input
+                  type="text"
+                  value={newChatName}
+                  onChange={(e) => setNewChatName(e.target.value)}
+                  placeholder="Ex: João Silva"
+                  disabled={newChatSending}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
+                  autoFocus
+                />
+              </div>
+
               {/* Número */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Número (com DDI + DDD)</label>
@@ -1341,7 +1377,6 @@ export default function Conversas() {
                     onChange={(e) => setNewChatPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, ""))}
                     placeholder="55 11 91234-5678"
                     className="w-full pl-6 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
-                    autoFocus
                     disabled={newChatSending}
                   />
                 </div>
