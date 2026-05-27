@@ -3034,11 +3034,13 @@ wpp.on('message', async (evt) => {
     const isNewConversation = !existing;
     let chatId = existing?.id;
 
+    // pushName só é confiável em mensagens recebidas — em fromMe é o próprio nome da sessão
+    const contactName = !evt.fromMe ? (evt.pushName || null) : null;
+
     if (!chatId) {
-      // Usa upsert para evitar duplicate key quando há race condition
       const { data: created, error: cErr } = await supabase.from('chats').upsert({
         user_id: userId, session_slot: slot, phone: evt.phone,
-        name: evt.pushName || null,
+        name: contactName,
         last_message: lastMsg,
         last_message_at: ts,
         unread: evt.fromMe ? 0 : 1,
@@ -3047,7 +3049,8 @@ wpp.on('message', async (evt) => {
       chatId = created?.id;
     } else {
       await supabase.from('chats').update({
-        name: evt.pushName || undefined,
+        // Só atualiza nome se veio de mensagem recebida e o contato tem pushName
+        ...(contactName ? { name: contactName } : {}),
         last_message: lastMsg,
         last_message_at: ts,
         unread: evt.fromMe ? (existing.unread || 0) : (existing.unread || 0) + 1,
