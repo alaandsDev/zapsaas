@@ -269,8 +269,6 @@ export default function Conversas() {
   const [newChatMsg,        setNewChatMsg]         = useState("");
   const [newChatSlot,       setNewChatSlot]        = useState(null);
   const [newChatSending,    setNewChatSending]     = useState(false);
-  const [ncSuggestions,     setNcSuggestions]      = useState([]);
-  const [ncActiveField,     setNcActiveField]      = useState(null); // 'name' | 'phone' | null
   const ncSearchTimer = useRef(null);
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
@@ -556,34 +554,6 @@ export default function Conversas() {
     });
   }
 
-  function searchLeads(value, field) {
-    clearTimeout(ncSearchTimer.current);
-    if (!value.trim() || value.length < 2) { setNcSuggestions([]); setNcActiveField(null); return; }
-    setNcActiveField(field);
-    ncSearchTimer.current = setTimeout(async () => {
-      try {
-        const res = await api(`/api/leads?q=${encodeURIComponent(value)}`);
-        const list = Array.isArray(res) ? res : (res?.leads ?? []);
-        // Deduplica por telefone
-        const seen = new Set();
-        const unique = list.filter(l => {
-          const key = l.phone?.replace(/\D/g, "") || l.id;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        setNcSuggestions(unique.slice(0, 6));
-        setNcActiveField(unique.length > 0 ? field : null);
-      } catch {}
-    }, 280);
-  }
-
-  function pickSuggestion(lead) {
-    setNewChatName(lead.name || "");
-    setNewChatPhone(lead.phone || "");
-    setNcSuggestions([]);
-    setNcActiveField(null);
-  }
 
   async function startNewChat() {
     const phone = newChatPhone.replace(/\D/g, "");
@@ -633,8 +603,6 @@ export default function Conversas() {
       setNewChatName("");
       setNewChatMsg("");
       setNewChatSlot(null);
-      setNcSuggestions([]);
-
       // Recarrega lista e tenta abrir o chat do número enviado
       await loadAllChats(connectedSessions);
       // Tenta encontrar o chat pelo telefone (pode demorar um pouco pra aparecer)
@@ -1376,7 +1344,7 @@ export default function Conversas() {
               key="nc-overlay"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-              onClick={() => { if (!newChatSending) { setNewChatOpen(false); setNcSuggestions([]); setNcActiveField(null); } }}
+              onClick={() => { if (!newChatSending) { setNewChatOpen(false);  } }}
             />
             {/* Painel */}
             <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -1394,42 +1362,25 @@ export default function Conversas() {
                   <h2 className="font-semibold text-base">Nova Conversa</h2>
                   <p className="text-xs text-ink-500 mt-0.5">Inicie um chat com qualquer número</p>
                 </div>
-                <button onClick={() => { if (!newChatSending) { setNewChatOpen(false); setNcSuggestions([]); setNcActiveField(null); } }}
+                <button onClick={() => { if (!newChatSending) { setNewChatOpen(false);  } }}
                   className="size-8 rounded-xl border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
                   <X className="size-4" />
                 </button>
               </div>
 
-              {/* Nome com autocomplete */}
-              <div className="space-y-1.5 relative">
+              {/* Nome */}
+              <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Nome do contato</label>
                 <input
                   type="text"
                   value={newChatName}
-                  onChange={(e) => { setNewChatName(e.target.value); searchLeads(e.target.value, "name"); }}
-                  onBlur={() => setTimeout(() => setNcActiveField(null), 150)}
+                  onChange={(e) => setNewChatName(e.target.value)}
                   placeholder="Ex: João Silva"
                   disabled={newChatSending}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
                   autoFocus
                   autoComplete="off"
                 />
-                {ncActiveField === "name" && ncSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 rounded-xl border border-white/[0.1] bg-[#0d1729] shadow-elevated overflow-hidden">
-                    {ncSuggestions.map((lead) => (
-                      <button key={lead.id} onMouseDown={() => pickSuggestion(lead)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.05] transition-colors">
-                        <div className="size-7 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
-                          {(lead.name || "?")[0].toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{lead.name}</div>
-                          <div className="text-[11px] text-ink-500 truncate">+{lead.phone}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Número com autocomplete */}
@@ -1489,7 +1440,7 @@ export default function Conversas() {
 
               {/* Ações */}
               <div className="flex gap-3 pt-1">
-                <button onClick={() => { if (!newChatSending) { setNewChatOpen(false); setNcSuggestions([]); setNcActiveField(null); } }}
+                <button onClick={() => { if (!newChatSending) { setNewChatOpen(false);  } }}
                   className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
                   Cancelar
                 </button>
