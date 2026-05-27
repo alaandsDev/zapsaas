@@ -3617,12 +3617,17 @@ app.post('/api/whatsapp/bulk', requireAuth, rateLimit(60 * 1000, 5), async (req,
           }
         }
 
+        // Contadores por slot para log de distribuição
+        const slotCount = {};
+        selectedSessions.forEach(s => { slotCount[s.slot] = 0; });
+
         for (let i = 0; i < phones.length; i++) {
           const p = phones[i];
-          const session = effectiveDualChip
+
+          // Round-robin com fallback: se slot atual falhar, tenta o próximo
+          let session = effectiveDualChip
             ? selectedSessions[sessionIdx % selectedSessions.length]
             : selectedSessions[0];
-          if (effectiveDualChip) sessionIdx++;
 
           try {
             const msgText = (p.text || message)
@@ -3632,12 +3637,35 @@ app.post('/api/whatsapp/bulk', requireAuth, rateLimit(60 * 1000, 5), async (req,
             const sendResult = await wpp.sendMessage(session.key, p.phone, msgText, media);
             updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${session.slot}`, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || session.phone || null };
             sent++;
-            console.log(`[bulk] ✅ ${i+1}/${phones.length} → ${p.phone} via ${session.key}`);
+            if (effectiveDualChip) slotCount[session.slot] = (slotCount[session.slot] || 0) + 1;
+            console.log(`[bulk] ✅ ${i+1}/${phones.length} → ${p.phone} via slot${session.slot}`);
           } catch (e) {
-            updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message };
-            failed++;
-            console.error(`[bulk] ❌ ${i+1}/${phones.length} → ${p.phone}: ${e.message}`);
+            // Se dual chip e tem outra sessão disponível, tenta no outro slot
+            if (effectiveDualChip && selectedSessions.length > 1) {
+              const fallbackSession = selectedSessions[(sessionIdx + 1) % selectedSessions.length];
+              try {
+                const msgText = (p.text || message)
+                  .replace(/\{nome\}/gi, p.name || '')
+                  .replace(/\{name\}/gi, p.name || '')
+                  .replace(/\{numero\}/gi, p.phone || '');
+                const sendResult = await wpp.sendMessage(fallbackSession.key, p.phone, msgText, media);
+                updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${fallbackSession.slot}`, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || fallbackSession.phone || null };
+                sent++;
+                slotCount[fallbackSession.slot] = (slotCount[fallbackSession.slot] || 0) + 1;
+                console.log(`[bulk] ↩️ ${i+1}/${phones.length} → ${p.phone} fallback via slot${fallbackSession.slot} (slot${session.slot} falhou)`);
+              } catch (e2) {
+                updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e2.message };
+                failed++;
+                console.error(`[bulk] ❌ ${i+1}/${phones.length} → ${p.phone}: ambos slots falharam`);
+              }
+            } else {
+              updatedItems[i] = { ...updatedItems[i], status: 'failed', error: e.message };
+              failed++;
+              console.error(`[bulk] ❌ ${i+1}/${phones.length} → ${p.phone}: ${e.message}`);
+            }
           }
+
+          if (effectiveDualChip) sessionIdx++;
           // Atualiza progresso no banco
           await supabase.from('dispatches')
             .update({ sent, failed, items: updatedItems })
@@ -3655,7 +3683,8 @@ app.post('/api/whatsapp/bulk', requireAuth, rateLimit(60 * 1000, 5), async (req,
           sent, failed, status: 'completed', items: updatedItems,
           completed_at: new Date().toISOString()
         }).eq('id', dispatch.id);
-        console.log(`[bulk] Concluído: ${sent} enviados, ${failed} falhas${dualChip ? ` (modo 2 chips, ${connectedSessions.length} sessões)` : ''}`);
+        const distLog = effectiveDualChip ? ` | distribuição: ${Object.entries(slotCount).map(([s,c]) => `slot${s}=${c}`).join(', ')}` : '';
+        console.log(`[bulk] Concluído: ${sent} enviados, ${failed} falhas${distLog}`);
       } // end else baileys
     }
   } catch (e) {
