@@ -256,11 +256,14 @@ export default function LeadsPage() {
     setSyncResult(null);
     let totalSynced = 0;
     try {
-      // Processa em lotes de 50 até não sobrar mais
-      while (true) {
+      // Processa em lotes de 50 — para se não sobrou nada, não tem sessão, ou rodada sem progresso
+      let attempts = 0;
+      while (attempts < 30) {
         const r = await api("/api/chats/sync-pics", { method: "POST" });
-        totalSynced += r.synced ?? 0;
-        if (!r.remaining || r.remaining === 0 || r.reason) break;
+        const batch = r.synced ?? 0;
+        totalSynced += batch;
+        if (!r.remaining || r.remaining === 0 || r.reason || batch === 0) break;
+        attempts++;
       }
       await load();
       setSyncResult({ _pics: true, leads_synced: totalSynced });
