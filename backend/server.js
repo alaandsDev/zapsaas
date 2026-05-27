@@ -3059,7 +3059,12 @@ wpp.on('message', async (evt) => {
     }
     if (!chatId) { console.error('[chat] chatId nulo'); return; }
 
-    refreshProfilePic(userId, slot, evt.sessionId, evt.phone, existing).catch(() => {});
+    // Busca foto em background e notifica frontend via SSE quando atualizar
+    refreshProfilePic(userId, slot, evt.sessionId, evt.phone, existing).then(newUrl => {
+      if (newUrl && chatId) {
+        sseSend(userId, 'profile_pic', { chatId, phone: evt.phone, slot, profile_pic_url: newUrl });
+      }
+    }).catch(() => {});
 
     const mediaUrl = await uploadIncomingMedia(userId, evt);
 

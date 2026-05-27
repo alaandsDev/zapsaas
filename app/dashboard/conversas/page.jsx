@@ -402,6 +402,24 @@ export default function Conversas() {
     return () => window.removeEventListener("wayvo:new-message", handler);
   }, []);
 
+  // ── Atualiza foto de perfil em tempo real via SSE ────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const { chatId, profile_pic_url } = e.detail || {};
+        if (!chatId || !profile_pic_url) return;
+        setAllChats((prev) => prev.map((c) =>
+          c.id === chatId ? { ...c, profile_pic_url } : c
+        ));
+        setActiveChat((prev) =>
+          prev?.id === chatId ? { ...prev, profile_pic_url } : prev
+        );
+      } catch {}
+    };
+    window.addEventListener("wayvo:profile-pic", handler);
+    return () => window.removeEventListener("wayvo:profile-pic", handler);
+  }, []);
+
   // ── Poll fallback ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!connectedSessions.length) return;

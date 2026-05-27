@@ -144,6 +144,8 @@ export default function NotificationProvider() {
         if (data.type === "message") {
           notify(data.phone || "cliente", data.text || "");
           window.dispatchEvent(new CustomEvent("wayvo:new-message", { detail: data }));
+        } else if (data.type === "profile_pic") {
+          window.dispatchEvent(new CustomEvent("wayvo:profile-pic", { detail: data }));
         }
       } catch {}
     });
