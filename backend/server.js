@@ -3406,6 +3406,83 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
   }
 });
 
+// Envia mídia diretamente (buffer em memória, sem re-download)
+app.post('/api/chats/send-media', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    const { slot, phone, caption } = req.body;
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    if (!phone) return res.status(400).json({ error: 'phone obrigatório' });
+
+    const useSlot = slot != null ? parseInt(slot) : 1;
+    const userId = uid(req);
+    const { originalname, mimetype, buffer } = req.file;
+
+    // 1) Sobe para Supabase Storage para ter URL permanente no histórico
+    const ext = originalname.split('.').pop();
+    const storagePath = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('media').upload(storagePath, buffer, { contentType: mimetype, upsert: false });
+    if (upErr) throw new Error('Falha no upload do arquivo: ' + upErr.message);
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
+    const mediaUrl = urlData.publicUrl;
+
+    // 2) Envia via Baileys usando o buffer diretamente (sem re-download)
+    const key = sessionKey(userId, useSlot);
+    const status = wpp.getStatus(key);
+    if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
+
+    const media = {
+      buffer: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer),
+      mimetype,
+      filename: originalname,
+      caption: caption || '',
+    };
+    await wpp.sendMessage(key, phone, '', media);
+
+    // 3) Persiste no banco
+    const cleanedPhone = String(phone).replace(/\D/g, '');
+    const ts = new Date().toISOString();
+    const msgType = mimetype.startsWith('image/') ? 'image'
+      : mimetype.startsWith('video/') ? 'video'
+      : mimetype.startsWith('audio/') ? 'audio'
+      : 'document';
+
+    let { data: chat } = await supabase.from('chats').select('id')
+      .eq('user_id', userId).eq('session_slot', useSlot).eq('phone', cleanedPhone).maybeSingle();
+    if (!chat) {
+      const { data: created } = await supabase.from('chats').insert({
+        user_id: userId, session_slot: useSlot, phone: cleanedPhone,
+        last_message: `📎 ${originalname}`, last_message_at: ts, unread: 0,
+      }).select('id').single();
+      chat = created;
+    } else {
+      await supabase.from('chats').update({
+        last_message: `📎 ${originalname}`, last_message_at: ts, updated_at: ts,
+      }).eq('id', chat.id);
+    }
+    if (chat?.id) {
+      await supabase.from('chat_messages').insert({
+        chat_id: chat.id, user_id: userId,
+        direction: 'out', type: msgType,
+        text: caption || null,
+        media_url: mediaUrl,
+        media_filename: originalname,
+        status: 'sent', timestamp: ts,
+      });
+      sseSend(userId, 'message', {
+        chatId: chat.id, slot: useSlot, phone: cleanedPhone,
+        direction: 'out', type: msgType,
+        text: caption || null, media_url: mediaUrl,
+        media_filename: originalname, timestamp: ts,
+      });
+    }
+    res.json({ ok: true, mediaUrl });
+  } catch (e) {
+    console.error('[chats/send-media]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Retorna todas as sessões ativas do usuário
 function getUserSessions(userId) {
   const sessions = [];

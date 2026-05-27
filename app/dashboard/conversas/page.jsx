@@ -259,6 +259,7 @@ export default function Conversas() {
   const searchTimer   = useRef(null);
   const fileInputRef  = useRef(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [pendingFile,   setPendingFile]   = useState(null); // { file, previewUrl }
   const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
   const [aiLoading,    setAiLoading]      = useState(false);
 
@@ -482,42 +483,48 @@ export default function Conversas() {
     } finally { setSending(false); }
   }
 
-  async function sendFile(file) {
+  async function sendFile(file, caption = "") {
     if (!file || !activeChat) return;
     setUploadingFile(true);
     const tempId = `tmp_${Date.now()}`;
     const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    const msgType = isImage ? "image" : isVideo ? "video" : "document";
+    // Preview local enquanto envia
+    const localUrl = URL.createObjectURL(file);
     setMsgs((m) => [...m, {
-      id: tempId, direction: "out",
-      type: isImage ? "image" : "document",
-      text: file.name, status: "pending", timestamp: new Date().toISOString(),
+      id: tempId, direction: "out", type: msgType,
+      text: caption || null, media_url: localUrl,
+      status: "pending", timestamp: new Date().toISOString(),
     }]);
     try {
+      const token = (await import("../../../lib/api")).getToken();
       const form = new FormData();
       form.append("file", file);
-      const token = (await import("../../../lib/api")).getToken();
-      const upRes = await fetch(`${API_URL}/api/media/upload`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
-      });
-      if (!upRes.ok) throw new Error("Falha no upload");
-      const { url, mimetype, originalname } = await upRes.json();
-      await api("/api/chats/send", {
+      form.append("slot", String(activeChat.slot));
+      form.append("phone", activeChat.phone);
+      form.append("caption", caption || draft.trim());
+      const res = await fetch(`${API_URL}/api/chats/send-media`, {
         method: "POST",
-        body: {
-          slot: activeChat.slot,
-          phone: activeChat.phone,
-          message: "",
-          mediaUrl: url,
-          mediaMimetype: mimetype,
-          mediaFilename: originalname,
-        },
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
       });
-      setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "sent", media_url: url } : msg));
-    } catch {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Falha ao enviar mídia");
+      }
+      const { mediaUrl } = await res.json();
+      setMsgs((m) => m.map((msg) => msg.id === tempId
+        ? { ...msg, status: "sent", media_url: mediaUrl }
+        : msg));
+      if (caption || draft.trim()) setDraft("");
+    } catch (e) {
+      setToast({ msg: e.message || "Falha ao enviar arquivo", duration: 3000 });
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
     } finally {
       setUploadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      URL.revokeObjectURL(localUrl);
     }
   }
 
@@ -915,6 +922,60 @@ export default function Conversas() {
             </div>
           ) : (
             <>
+              {/* ── Preview de arquivo antes de enviar ── */}
+              {pendingFile && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                  <div className="bg-[#0d1729] border border-white/10 rounded-2xl p-5 w-[92vw] max-w-sm space-y-4 shadow-elevated">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">Enviar arquivo</span>
+                      <button onClick={() => { URL.revokeObjectURL(pendingFile.previewUrl); setPendingFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                        className="size-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-ink-100 hover:bg-white/[0.06] transition-colors">
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                    {/* Preview */}
+                    {pendingFile.file.type.startsWith("image/") ? (
+                      <img src={pendingFile.previewUrl} alt="" className="w-full max-h-64 object-contain rounded-xl bg-black/30" />
+                    ) : (
+                      <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.04] rounded-xl border border-white/[0.08]">
+                        <span className="text-2xl">📄</span>
+                        <span className="text-sm text-ink-300 truncate">{pendingFile.file.name}</span>
+                      </div>
+                    )}
+                    {/* Legenda / mensagem */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const f = pendingFile;
+                            setPendingFile(null);
+                            sendFile(f.file, draft.trim());
+                          }
+                        }}
+                        placeholder="Adicionar legenda..."
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          const f = pendingFile;
+                          setPendingFile(null);
+                          sendFile(f.file, draft.trim());
+                        }}
+                        disabled={uploadingFile}
+                        className="size-10 rounded-xl flex items-center justify-center text-bg shrink-0 disabled:opacity-50"
+                        style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
+                        {uploadingFile ? <RefreshCw className="size-4 animate-spin" /> : <SendIcon className="size-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Header da conversa */}
               <div className="border-b border-white/[0.06] backdrop-blur-xl bg-white/[0.02]">
                 <div className="h-16 flex items-center px-5 gap-3">
@@ -1109,7 +1170,10 @@ export default function Conversas() {
                       type="file"
                       className="hidden"
                       accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.zip"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) sendFile(f); }}
+                      onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setPendingFile({ file: f, previewUrl: URL.createObjectURL(f) });
+              }}
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
