@@ -262,6 +262,13 @@ export default function Conversas() {
   const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
   const [aiLoading,    setAiLoading]      = useState(false);
 
+  // Modal Nova Conversa
+  const [newChatOpen,    setNewChatOpen]    = useState(false);
+  const [newChatPhone,   setNewChatPhone]   = useState("");
+  const [newChatMsg,     setNewChatMsg]     = useState("");
+  const [newChatSlot,    setNewChatSlot]    = useState(null); // null = auto (primeiro conectado)
+  const [newChatSending, setNewChatSending] = useState(false);
+
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
   // Persistir preferências + toast ao trocar canal
@@ -545,6 +552,41 @@ export default function Conversas() {
     });
   }
 
+  async function startNewChat() {
+    const phone = newChatPhone.replace(/\D/g, "");
+    if (!phone || phone.length < 8) {
+      setToast({ msg: "Informe um número válido (com DDD)", duration: 2500 });
+      return;
+    }
+    if (!newChatMsg.trim()) {
+      setToast({ msg: "Escreva uma mensagem para iniciar", duration: 2500 });
+      return;
+    }
+    const slot = newChatSlot ?? connectedSessions[0]?.slot;
+    if (slot === undefined || slot === null) {
+      setToast({ msg: "Nenhum WhatsApp conectado", duration: 2500 });
+      return;
+    }
+    setNewChatSending(true);
+    try {
+      await api("/api/chats/send", {
+        method: "POST",
+        body: { phone, message: newChatMsg.trim(), slot },
+      });
+      setToast({ msg: `Mensagem enviada para +${phone}`, duration: 2500 });
+      setNewChatOpen(false);
+      setNewChatPhone("");
+      setNewChatMsg("");
+      setNewChatSlot(null);
+      // Atualiza lista para mostrar nova conversa
+      await loadAllChats(connectedSessions);
+    } catch (e) {
+      setToast({ msg: e.message || "Falha ao enviar", duration: 3000 });
+    } finally {
+      setNewChatSending(false);
+    }
+  }
+
   // ── Tela de loading ─────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -696,6 +738,12 @@ export default function Conversas() {
           {/* ── Busca + controles ── */}
           <div className="px-4 pt-3 pb-1 space-y-2">
             <div className="flex items-center gap-2">
+              {/* Botão Nova Conversa */}
+              <button onClick={() => setNewChatOpen(true)}
+                title="Nova Conversa"
+                className="size-8 rounded-xl border border-primary/40 bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="8" x2="12" y2="14"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+              </button>
               <div className="relative flex-1 group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-ink-500 group-focus-within:text-primary transition-colors" />
                 <input value={rawQ} onChange={(e) => setRawQ(e.target.value)}
@@ -1246,6 +1294,114 @@ export default function Conversas() {
           )}
         </aside>
       </div>
+
+      {/* ══════════════════════════════════════════════════
+          MODAL — NOVA CONVERSA
+      ══════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {newChatOpen && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              key="nc-overlay"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              onClick={() => !newChatSending && setNewChatOpen(false)}
+            />
+            {/* Painel */}
+            <motion.div
+              key="nc-modal"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-md rounded-2xl border border-white/[0.1] bg-[#0d1729] shadow-elevated p-6 space-y-5">
+
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-base">Nova Conversa</h2>
+                  <p className="text-xs text-ink-500 mt-0.5">Inicie um chat com qualquer número</p>
+                </div>
+                <button onClick={() => !newChatSending && setNewChatOpen(false)}
+                  className="size-8 rounded-xl border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              {/* Número */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Número (com DDI + DDD)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-500 select-none">+</span>
+                  <input
+                    type="tel"
+                    value={newChatPhone}
+                    onChange={(e) => setNewChatPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, ""))}
+                    placeholder="55 11 91234-5678"
+                    className="w-full pl-6 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
+                    autoFocus
+                    disabled={newChatSending}
+                  />
+                </div>
+              </div>
+
+              {/* Canal */}
+              {connectedSessions.length > 1 && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Canal de envio</label>
+                  <div className="flex flex-wrap gap-2">
+                    {connectedSessions.map((s) => {
+                      const c = slotColor(s.slot);
+                      const active = (newChatSlot ?? connectedSessions[0]?.slot) === s.slot;
+                      return (
+                        <button key={s.slot} onClick={() => setNewChatSlot(s.slot)}
+                          disabled={newChatSending}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
+                          style={active
+                            ? { borderColor: `${c.hex}50`, background: `${c.hex}15`, color: c.hex }
+                            : { borderColor: "rgba(255,255,255,0.08)", color: "#6B7280" }}>
+                          <span className="size-2 rounded-full" style={{ background: active ? c.hex : "#4B5563" }} />
+                          {s.phone ? `+${s.phone}` : c.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Mensagem */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Mensagem inicial</label>
+                <textarea
+                  value={newChatMsg}
+                  onChange={(e) => setNewChatMsg(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); startNewChat(); } }}
+                  placeholder="Olá! Tudo bem?"
+                  rows={3}
+                  disabled={newChatSending}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors resize-none placeholder:text-ink-600"
+                />
+              </div>
+
+              {/* Ações */}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => !newChatSending && setNewChatOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
+                  Cancelar
+                </button>
+                <button onClick={startNewChat} disabled={newChatSending || !newChatPhone.trim() || !newChatMsg.trim()}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)", color: "#0B1120" }}>
+                  {newChatSending
+                    ? <><span className="size-4 border-2 border-[#0B1120]/40 border-t-[#0B1120] rounded-full animate-spin" /> Enviando…</>
+                    : <><SendIcon className="size-4" /> Enviar</>}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
