@@ -263,12 +263,15 @@ export default function Conversas() {
   const [aiLoading,    setAiLoading]      = useState(false);
 
   // Modal Nova Conversa
-  const [newChatOpen,    setNewChatOpen]    = useState(false);
-  const [newChatPhone,   setNewChatPhone]   = useState("");
-  const [newChatName,    setNewChatName]    = useState("");
-  const [newChatMsg,     setNewChatMsg]     = useState("");
-  const [newChatSlot,    setNewChatSlot]    = useState(null); // null = auto (primeiro conectado)
-  const [newChatSending, setNewChatSending] = useState(false);
+  const [newChatOpen,       setNewChatOpen]       = useState(false);
+  const [newChatPhone,      setNewChatPhone]       = useState("");
+  const [newChatName,       setNewChatName]        = useState("");
+  const [newChatMsg,        setNewChatMsg]         = useState("");
+  const [newChatSlot,       setNewChatSlot]        = useState(null);
+  const [newChatSending,    setNewChatSending]     = useState(false);
+  const [ncSuggestions,     setNcSuggestions]      = useState([]); // leads sugeridos
+  const [ncShowSuggestions, setNcShowSuggestions]  = useState(false);
+  const ncSearchTimer = useRef(null);
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
@@ -553,6 +556,26 @@ export default function Conversas() {
     });
   }
 
+  function searchLeads(value) {
+    clearTimeout(ncSearchTimer.current);
+    if (!value.trim() || value.length < 2) { setNcSuggestions([]); setNcShowSuggestions(false); return; }
+    ncSearchTimer.current = setTimeout(async () => {
+      try {
+        const res = await api(`/api/leads?q=${encodeURIComponent(value)}&limit=5`);
+        const list = Array.isArray(res) ? res : (res?.leads ?? []);
+        setNcSuggestions(list.slice(0, 5));
+        setNcShowSuggestions(list.length > 0);
+      } catch {}
+    }, 280);
+  }
+
+  function pickSuggestion(lead) {
+    setNewChatName(lead.name || "");
+    setNewChatPhone(lead.phone || "");
+    setNcSuggestions([]);
+    setNcShowSuggestions(false);
+  }
+
   async function startNewChat() {
     const phone = newChatPhone.replace(/\D/g, "");
     if (!phone || phone.length < 8) {
@@ -601,7 +624,23 @@ export default function Conversas() {
       setNewChatName("");
       setNewChatMsg("");
       setNewChatSlot(null);
+      setNcSuggestions([]);
+
+      // Recarrega lista e tenta abrir o chat do número enviado
       await loadAllChats(connectedSessions);
+      // Tenta encontrar o chat pelo telefone (pode demorar um pouco pra aparecer)
+      const tryOpen = async (attempts = 0) => {
+        const updated = await api("/api/chats?limit=200").catch(() => null);
+        if (!updated) return;
+        const found = (Array.isArray(updated) ? updated : updated.chats ?? [])
+          .find((c) => c.phone?.replace(/\D/g, "") === phone);
+        if (found) {
+          selectChat(found);
+        } else if (attempts < 4) {
+          setTimeout(() => tryOpen(attempts + 1), 1500);
+        }
+      };
+      tryOpen();
     } catch (e) {
       setToast({ msg: e.message || "Falha ao enviar", duration: 3000 });
     } finally {
@@ -1328,7 +1367,7 @@ export default function Conversas() {
               key="nc-overlay"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-              onClick={() => !newChatSending && setNewChatOpen(false)}
+              onClick={() => { if (!newChatSending) { setNewChatOpen(false); setNcSuggestions([]); setNcShowSuggestions(false); } }}
             />
             {/* Painel */}
             <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -1346,40 +1385,80 @@ export default function Conversas() {
                   <h2 className="font-semibold text-base">Nova Conversa</h2>
                   <p className="text-xs text-ink-500 mt-0.5">Inicie um chat com qualquer número</p>
                 </div>
-                <button onClick={() => !newChatSending && setNewChatOpen(false)}
+                <button onClick={() => { if (!newChatSending) { setNewChatOpen(false); setNcSuggestions([]); setNcShowSuggestions(false); } }}
                   className="size-8 rounded-xl border border-white/10 flex items-center justify-center text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
                   <X className="size-4" />
                 </button>
               </div>
 
-              {/* Nome */}
-              <div className="space-y-1.5">
+              {/* Nome com autocomplete */}
+              <div className="space-y-1.5 relative">
                 <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Nome do contato</label>
                 <input
                   type="text"
                   value={newChatName}
-                  onChange={(e) => setNewChatName(e.target.value)}
+                  onChange={(e) => { setNewChatName(e.target.value); searchLeads(e.target.value); }}
+                  onFocus={() => newChatName.length >= 2 && ncSuggestions.length > 0 && setNcShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setNcShowSuggestions(false), 150)}
                   placeholder="Ex: João Silva"
                   disabled={newChatSending}
                   className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
                   autoFocus
+                  autoComplete="off"
                 />
+                {/* Dropdown de sugestões */}
+                {ncShowSuggestions && ncSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 rounded-xl border border-white/[0.1] bg-[#0d1729] shadow-elevated overflow-hidden">
+                    {ncSuggestions.map((lead) => (
+                      <button key={lead.id} onMouseDown={() => pickSuggestion(lead)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.05] transition-colors">
+                        <div className="size-7 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
+                          {(lead.name || "?")[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{lead.name}</div>
+                          <div className="text-[11px] text-ink-500 truncate">+{lead.phone}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Número */}
-              <div className="space-y-1.5">
+              {/* Número com autocomplete */}
+              <div className="space-y-1.5 relative">
                 <label className="text-[11px] font-semibold text-ink-400 uppercase tracking-wide">Número (com DDI + DDD)</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-500 select-none">+</span>
                   <input
                     type="tel"
                     value={newChatPhone}
-                    onChange={(e) => setNewChatPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, ""))}
+                    onChange={(e) => { setNewChatPhone(e.target.value.replace(/[^\d\s\-\(\)]/g, "")); searchLeads(e.target.value); }}
+                    onFocus={() => newChatPhone.length >= 2 && ncSuggestions.length > 0 && setNcShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setNcShowSuggestions(false), 150)}
                     placeholder="55 11 91234-5678"
                     className="w-full pl-6 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm outline-none focus:border-primary/50 transition-colors placeholder:text-ink-600"
                     disabled={newChatSending}
+                    autoComplete="off"
                   />
                 </div>
+                {/* Dropdown de sugestões no campo de telefone */}
+                {ncShowSuggestions && ncSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 rounded-xl border border-white/[0.1] bg-[#0d1729] shadow-elevated overflow-hidden">
+                    {ncSuggestions.map((lead) => (
+                      <button key={lead.id} onMouseDown={() => pickSuggestion(lead)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.05] transition-colors">
+                        <div className="size-7 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">
+                          {(lead.name || "?")[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{lead.name}</div>
+                          <div className="text-[11px] text-ink-500 truncate">+{lead.phone}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Canal */}
@@ -1422,7 +1501,7 @@ export default function Conversas() {
 
               {/* Ações */}
               <div className="flex gap-3 pt-1">
-                <button onClick={() => !newChatSending && setNewChatOpen(false)}
+                <button onClick={() => { if (!newChatSending) { setNewChatOpen(false); setNcSuggestions([]); setNcShowSuggestions(false); } }}
                   className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-ink-400 hover:text-ink-200 hover:bg-white/[0.04] transition-all">
                   Cancelar
                 </button>
