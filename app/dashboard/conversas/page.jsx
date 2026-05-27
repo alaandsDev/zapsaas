@@ -1309,13 +1309,14 @@ export default function Conversas() {
               onClick={() => !newChatSending && setNewChatOpen(false)}
             />
             {/* Painel */}
+            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
             <motion.div
               key="nc-modal"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-md rounded-2xl border border-white/[0.1] bg-[#0d1729] shadow-elevated p-6 space-y-5">
+              className="pointer-events-auto w-[92vw] max-w-md rounded-2xl border border-white/[0.1] bg-[#0d1729] shadow-elevated p-6 space-y-5">
 
               {/* Header */}
               <div className="flex items-center justify-between">
@@ -1399,6 +1400,7 @@ export default function Conversas() {
                 </button>
               </div>
             </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>
