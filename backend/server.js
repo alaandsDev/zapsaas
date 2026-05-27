@@ -2757,6 +2757,23 @@ wpp.on('contact', async ({ sessionId, phone, name }) => {
   } catch (e) { console.warn('[contact update]', e.message); }
 });
 
+// ── Sincroniza foto de perfil com o lead correspondente ──────
+async function syncPicToLead(userId, phone, url) {
+  if (!url) return;
+  try {
+    const clean = phone.replace(/\D/g, '');
+    // Busca lead pelo telefone (compara sem formatação)
+    const { data: leads } = await supabase
+      .from('leads')
+      .select('id, phone, avatar_url')
+      .eq('user_id', userId);
+    const lead = (leads || []).find(l => l.phone?.replace(/\D/g, '') === clean);
+    if (lead && lead.avatar_url !== url) {
+      await supabase.from('leads').update({ avatar_url: url }).eq('id', lead.id);
+    }
+  } catch (e) { /* silencioso */ }
+}
+
 // ── Refresh de foto de perfil (cache 24h) ────────────────────
 const PIC_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
 async function refreshProfilePic(userId, slot, sessionId, phone, currentRow) {
@@ -2773,6 +2790,8 @@ async function refreshProfilePic(userId, slot, sessionId, phone, currentRow) {
       profile_pic_url: url || null,
       profile_pic_refreshed_at: new Date().toISOString()
     }).eq('user_id', userId).eq('session_slot', slot).eq('phone', phone);
+    // Propaga foto para o lead correspondente
+    if (url) syncPicToLead(userId, phone, url);
     return url;
   } catch (e) { return null; }
 }
@@ -3193,6 +3212,36 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
     await supabase.from('chats').update({ unread: 0 }).eq('id', req.params.chatId).eq('user_id', uid(req));
     res.json(data || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sincroniza fotos de perfil dos chats → leads em lote (one-shot)
+app.post('/api/chats/sync-pics', requireAuth, async (req, res) => {
+  try {
+    const userId = uid(req);
+    // Busca chats que têm foto
+    const { data: chats } = await supabase
+      .from('chats')
+      .select('phone, profile_pic_url')
+      .eq('user_id', userId)
+      .not('profile_pic_url', 'is', null);
+    // Busca todos os leads do usuário
+    const { data: leads } = await supabase
+      .from('leads')
+      .select('id, phone, avatar_url')
+      .eq('user_id', userId);
+    let updated = 0;
+    for (const chat of (chats || [])) {
+      const clean = chat.phone?.replace(/\D/g, '');
+      const lead = (leads || []).find(l => l.phone?.replace(/\D/g, '') === clean);
+      if (lead && lead.avatar_url !== chat.profile_pic_url) {
+        await supabase.from('leads').update({ avatar_url: chat.profile_pic_url }).eq('id', lead.id);
+        updated++;
+      }
+    }
+    res.json({ synced: updated });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Envia mensagem por uma sessão específica e persiste

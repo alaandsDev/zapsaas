@@ -249,6 +249,20 @@ export default function LeadsPage() {
   const [saleMsg, setSaleMsg] = useState(null); // { type: 'ok'|'err', text }
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [syncingPics, setSyncingPics] = useState(false);
+
+  async function syncProfilePics() {
+    setSyncingPics(true);
+    try {
+      const r = await api("/api/chats/sync-pics", { method: "POST" });
+      await load();
+      setSyncResult({ _pics: true, leads_synced: r.synced ?? 0 });
+    } catch (e) {
+      setSyncResult({ _pics: true, leads_synced: 0 });
+    } finally {
+      setSyncingPics(false);
+    }
+  }
 
   async function syncAllLists() {
     setSyncing(true);
@@ -399,6 +413,12 @@ export default function LeadsPage() {
             <Button variant="ghost" onClick={syncAllLists} disabled={syncing}>
               <Zap className="size-4" /> {syncing ? "Sincronizando…" : "Sincronizar Listas"}
             </Button>
+            <Button variant="ghost" onClick={syncProfilePics} disabled={syncingPics} title="Copia a foto de perfil do WhatsApp para os leads">
+              {syncingPics
+                ? <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <span className="text-base leading-none">🖼️</span>}
+              {syncingPics ? "Sincronizando fotos…" : "Fotos do WhatsApp"}
+            </Button>
             <Button variant="ghost" onClick={() => setOpenImport(true)}>
               <Upload className="size-4" /> Importar
             </Button>
@@ -419,7 +439,10 @@ export default function LeadsPage() {
             style={{ borderColor: "rgba(0,255,174,0.3)", background: "rgba(0,255,174,0.06)", color: "#00FFAE" }}
           >
             <span>
-              ✅ Sincronização concluída — <strong>{syncResult.leads_synced}</strong> novo{syncResult.leads_synced !== 1 ? "s lead" : " lead"}{syncResult.leads_synced !== 1 ? "s" : ""} importado{syncResult.leads_synced !== 1 ? "s" : ""} de {syncResult.lists_processed} lista{syncResult.lists_processed !== 1 ? "s" : ""}.
+              {syncResult._pics
+                ? <>🖼️ Fotos sincronizadas — <strong>{syncResult.leads_synced}</strong> lead{syncResult.leads_synced !== 1 ? "s" : ""} atualizado{syncResult.leads_synced !== 1 ? "s" : ""} com foto do WhatsApp.</>
+                : <>✅ Sincronização concluída — <strong>{syncResult.leads_synced}</strong> novo{syncResult.leads_synced !== 1 ? "s lead" : " lead"}{syncResult.leads_synced !== 1 ? "s" : ""} importado{syncResult.leads_synced !== 1 ? "s" : ""} de {syncResult.lists_processed} lista{syncResult.lists_processed !== 1 ? "s" : ""}.</>
+              }
             </span>
             <button onClick={() => setSyncResult(null)} className="opacity-60 hover:opacity-100 transition-opacity">✕</button>
           </motion.div>
