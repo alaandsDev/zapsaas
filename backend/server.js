@@ -3004,6 +3004,25 @@ async function maybeResumeChoiceFlow(userId, evt) {
   }
 }
 
+// Sincroniza unread count real do WhatsApp → banco
+wpp.on('chat_unread', async ({ sessionId, phone, unread }) => {
+  try {
+    const { userId, slot } = parseSessionId(sessionId);
+    if (!userId) return;
+    const clean = phone.replace(/\D/g, '');
+    const { data: chat } = await supabase
+      .from('chats').select('id, unread')
+      .eq('user_id', userId).eq('session_slot', slot).eq('phone', clean)
+      .maybeSingle();
+    if (!chat) return;
+    // Só atualiza se diferente para evitar writes desnecessários
+    if (chat.unread === unread) return;
+    await supabase.from('chats').update({ unread }).eq('id', chat.id);
+    // Notifica frontend via SSE
+    sseSend(userId, 'chat_unread', { chatId: chat.id, phone: clean, slot, unread });
+  } catch {}
+});
+
 wpp.on('message', async (evt) => {
   try {
     const { userId, slot } = parseSessionId(evt.sessionId);
@@ -3058,6 +3077,9 @@ wpp.on('message', async (evt) => {
       }).eq('id', chatId);
     }
     if (!chatId) { console.error('[chat] chatId nulo'); return; }
+
+    // Não notifica nem incrementa unread para mensagens do histórico (append)
+    if (!evt.isNewMessage) return;
 
     // Busca foto em background e notifica frontend via SSE quando atualizar
     refreshProfilePic(userId, slot, evt.sessionId, evt.phone, existing).then(newUrl => {

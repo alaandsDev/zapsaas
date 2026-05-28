@@ -224,6 +224,8 @@ class WhatsAppManager extends EventEmitter {
       try {
         console.log(`[WPP] messages.upsert disparou: ${upsert?.messages?.length} msgs, type=${upsert?.type}`);
         if (!upsert?.messages?.length) return;
+        // 'append' = histórico sincronizado ao conectar (já lido no WhatsApp) — não conta como novo
+        const isNewMessage = upsert.type === 'notify';
         for (const msg of upsert.messages) {
           if (!msg?.message) { console.log(`[WPP] msg sem message, key=${JSON.stringify(msg?.key)}`); continue; }
           const remoteJid = msg.key?.remoteJid || '';
@@ -284,6 +286,7 @@ class WhatsAppManager extends EventEmitter {
             phone,
             jid: remoteJid,
             fromMe,
+            isNewMessage, // false = histórico, não incrementar unread
             pushName: msg.pushName || null,
             text,
             type,
@@ -297,6 +300,20 @@ class WhatsAppManager extends EventEmitter {
         console.error('[WPP] messages.upsert handler error:', e.message);
       }
     });
+
+    // Sincroniza unread count real do WhatsApp (chats já lidos no app)
+    const syncChatUnread = (chats = []) => {
+      for (const c of chats) {
+        const jid = c.id || '';
+        if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@c.us')) continue;
+        const phone = jid.split('@')[0].split(':')[0];
+        if (c.unreadCount !== undefined && c.unreadCount !== null) {
+          this.emit('chat_unread', { sessionId, phone, unread: Math.max(0, c.unreadCount) });
+        }
+      }
+    };
+    sock.ev.on('chats.upsert', syncChatUnread);
+    sock.ev.on('chats.update', syncChatUnread);
 
     // Atualizações de contatos (nome salvo no celular do usuário)
     sock.ev.on('contacts.upsert', (contacts) => {

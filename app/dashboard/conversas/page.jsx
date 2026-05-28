@@ -402,6 +402,21 @@ export default function Conversas() {
     return () => window.removeEventListener("wayvo:new-message", handler);
   }, []);
 
+  // ── Sincroniza unread real do WhatsApp via SSE ───────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const { chatId, unread } = e.detail || {};
+        if (!chatId || unread === undefined) return;
+        setAllChats((prev) => prev.map((c) =>
+          c.id === chatId ? { ...c, unread } : c
+        ));
+      } catch {}
+    };
+    window.addEventListener("wayvo:chat-unread", handler);
+    return () => window.removeEventListener("wayvo:chat-unread", handler);
+  }, []);
+
   // ── Atualiza foto de perfil em tempo real via SSE ────────────────────────────
   useEffect(() => {
     const handler = (e) => {
