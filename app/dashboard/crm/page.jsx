@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
-  closestCorners, useDroppable,
+  pointerWithin, rectIntersection, useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext, verticalListSortingStrategy,
@@ -586,7 +586,16 @@ export default function CRMPage() {
   const unassigned = leads.filter(l => !l.pipeline_stage_id);
 
   // ── Drag handlers ────────────────────────────────────────
-  const findStageOfLead = (leadId) => stages.find(s => leadsForStage(s.id).some(l => l.id === leadId));
+  // Colisão: pointerWithin é mais confiável para kanban; cai para rectIntersection nos vãos.
+  const collisionDetection = useCallback((args) => {
+    const pointer = pointerWithin(args);
+    return pointer.length > 0 ? pointer : rectIntersection(args);
+  }, []);
+
+  const findStageOfLead = (leadId) => {
+    const lead = leads.find(l => l.id === leadId);
+    return lead ? stages.find(s => s.id === lead.pipeline_stage_id) : null;
+  };
 
   function handleDragStart({ active }) {
     setActiveId(active.id);
@@ -712,7 +721,7 @@ export default function CRMPage() {
           {tab === "pipeline" && (
             <>
               <StatsBar stats={stats} />
-              <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <div className="flex gap-4 overflow-x-auto pb-4">
                   {stages.map(stage => (
                     <StageColumn
