@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
+  LayoutDashboard, Columns2, MessageSquare, Users, DollarSign, Megaphone,
   Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
   MoreHorizontal, Kanban,
 } from "lucide-react";
@@ -47,6 +47,7 @@ const MOBILE_PRIMARY = [
   "/dashboard",
   "/dashboard/conversas",
   "/dashboard/leads",
+  "/dashboard/crm",
   "/dashboard/campanhas",
   "/dashboard/canais",
 ];
