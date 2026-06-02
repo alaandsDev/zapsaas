@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
+  LayoutDashboard, Columns2, MessageSquare, Users, DollarSign, Megaphone,
   Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
   MoreHorizontal,
 } from "lucide-react";
@@ -16,6 +16,7 @@ const SECTIONS = [
       { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard, exact: true },
       { href: "/dashboard/conversas", label: "Conversas", Icon: MessageSquare },
       { href: "/dashboard/leads", label: "Leads", Icon: Users },
+      { href: "/dashboard/crm", label: "CRM Pipeline", Icon: Columns2 },
       { href: "/dashboard/vendas", label: "Vendas", Icon: DollarSign },
     ],
   },
@@ -46,6 +47,7 @@ const MOBILE_PRIMARY = [
   "/dashboard",
   "/dashboard/conversas",
   "/dashboard/leads",
+  "/dashboard/crm",
   "/dashboard/campanhas",
   "/dashboard/canais",
 ];
