@@ -4907,6 +4907,17 @@ async function ensureStages(userId) {
   await supabase.from('pipeline_stages').insert(DEFAULT_STAGES.map(s => ({ ...s, user_id: userId })));
 }
 
+// Joga leads sem etapa para a primeira coluna ("Novo Lead").
+// Cobre tanto os leads existentes quanto novos criados fora do CRM.
+async function backfillStage(userId) {
+  const { data: first } = await supabase.from('pipeline_stages')
+    .select('id').eq('user_id', userId).order('position').limit(1).maybeSingle();
+  if (!first) return;
+  await supabase.from('leads')
+    .update({ pipeline_stage_id: first.id })
+    .eq('user_id', userId).is('pipeline_stage_id', null);
+}
+
 // GET /api/crm/stages
 app.get('/api/crm/stages', requireAuth, async (req, res) => {
   try {
@@ -4977,6 +4988,7 @@ app.get('/api/crm/leads', requireAuth, async (req, res) => {
   try {
     const uid = req.user.effectiveId || req.user.id;
     await ensureStages(uid);
+    await backfillStage(uid);
     const { q, stage_id, min_score, max_score } = req.query;
     let query = supabase.from('leads').select(`
       id, name, phone, email, city, source, status,
@@ -5138,6 +5150,7 @@ app.get('/api/crm/stats', requireAuth, async (req, res) => {
   try {
     const uid = req.user.effectiveId || req.user.id;
     await ensureStages(uid);
+    await backfillStage(uid);
     const [{ data: leads }, { data: stages }] = await Promise.all([
       supabase.from('leads').select('pipeline_stage_id, estimated_value, score, created_at').eq('user_id', uid),
       supabase.from('pipeline_stages').select('id, name, color').eq('user_id', uid).order('position'),
