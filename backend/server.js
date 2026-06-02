@@ -4887,6 +4887,310 @@ async function crashRecovery() {
   }
 }
 
+// ════════════════════════════════════════════════════════════
+// CRM — Pipeline Kanban Enterprise
+// ════════════════════════════════════════════════════════════
+
+const DEFAULT_STAGES = [
+  { name: 'Novo Lead',         color: '#6366f1', position: 0 },
+  { name: 'Em Atendimento',    color: '#00D1FF', position: 1 },
+  { name: 'Qualificado',       color: '#8b5cf6', position: 2 },
+  { name: 'Proposta Enviada',  color: '#f59e0b', position: 3 },
+  { name: 'Follow-up',         color: '#f97316', position: 4 },
+  { name: 'Fechado',           color: '#00FF88', position: 5 },
+  { name: 'Perdido',           color: '#ef4444', position: 6 },
+];
+
+async function ensureStages(userId) {
+  const { data } = await supabase.from('pipeline_stages').select('id').eq('user_id', userId).limit(1);
+  if (data && data.length > 0) return;
+  await supabase.from('pipeline_stages').insert(DEFAULT_STAGES.map(s => ({ ...s, user_id: userId })));
+}
+
+// GET /api/crm/stages
+app.get('/api/crm/stages', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    await ensureStages(uid);
+    const { data, error } = await supabase.from('pipeline_stages')
+      .select('*').eq('user_id', uid).order('position');
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/crm/stages
+app.post('/api/crm/stages', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { name, color, position } = req.body;
+    const { data, error } = await supabase.from('pipeline_stages')
+      .insert({ user_id: uid, name, color: color || '#00FF88', position: position ?? 99 })
+      .select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/crm/stages/:id
+app.put('/api/crm/stages/:id', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { name, color, position } = req.body;
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (color !== undefined) updates.color = color;
+    if (position !== undefined) updates.position = position;
+    const { data, error } = await supabase.from('pipeline_stages')
+      .update(updates).eq('id', req.params.id).eq('user_id', uid).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/crm/stages/:id
+app.delete('/api/crm/stages/:id', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    // Mover leads para null antes de deletar
+    await supabase.from('leads').update({ pipeline_stage_id: null })
+      .eq('user_id', uid).eq('pipeline_stage_id', req.params.id);
+    await supabase.from('pipeline_stages').delete().eq('id', req.params.id).eq('user_id', uid);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/crm/stages/reorder  — body: [{ id, position }]
+app.patch('/api/crm/stages/reorder', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const items = req.body; // [{ id, position }]
+    await Promise.all(items.map(({ id, position }) =>
+      supabase.from('pipeline_stages').update({ position }).eq('id', id).eq('user_id', uid)
+    ));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/crm/leads  — leads com stage info
+app.get('/api/crm/leads', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    await ensureStages(uid);
+    const { q, stage_id, min_score, max_score } = req.query;
+    let query = supabase.from('leads').select(`
+      id, name, phone, email, city, source, status,
+      tags, notes, avatar_url, last_interaction_at,
+      pipeline_stage_id, estimated_value, score, assigned_to, pipeline_position,
+      created_at, updated_at
+    `).eq('user_id', uid);
+    if (stage_id) query = query.eq('pipeline_stage_id', stage_id);
+    if (min_score) query = query.gte('score', parseInt(min_score));
+    if (max_score) query = query.lte('score', parseInt(max_score));
+    if (q) query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
+    query = query.order('pipeline_position').order('created_at', { ascending: false });
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/crm/leads/:id/stage  — mover lead de stage
+app.patch('/api/crm/leads/:id/stage', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { stage_id, position, from_stage_name, to_stage_name } = req.body;
+    const { data: lead, error: le } = await supabase.from('leads')
+      .select('id, name, pipeline_stage_id').eq('id', req.params.id).eq('user_id', uid).single();
+    if (le || !lead) return res.status(404).json({ error: 'Lead não encontrado' });
+    await supabase.from('leads').update({
+      pipeline_stage_id: stage_id,
+      pipeline_position: position ?? 0,
+      updated_at: new Date().toISOString(),
+    }).eq('id', lead.id);
+    // Registrar atividade
+    const content = from_stage_name && to_stage_name
+      ? `Lead movido de "${from_stage_name}" para "${to_stage_name}"`
+      : `Etapa atualizada`;
+    await supabase.from('lead_activities').insert({
+      lead_id: lead.id, user_id: uid,
+      type: 'stage_change', content,
+      metadata: { from_stage_id: lead.pipeline_stage_id, to_stage_id: stage_id },
+    });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/crm/leads/:id  — atualizar campos do lead
+app.patch('/api/crm/leads/:id', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const allowed = ['name','email','city','tags','notes','estimated_value','score','assigned_to','status','phone','source'];
+    const updates = {};
+    for (const k of allowed) if (req.body[k] !== undefined) updates[k] = req.body[k];
+    updates.updated_at = new Date().toISOString();
+    const { data, error } = await supabase.from('leads')
+      .update(updates).eq('id', req.params.id).eq('user_id', uid).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    // Registrar atividade de campo
+    if (Object.keys(req.body).some(k => allowed.includes(k) && k !== 'updated_at')) {
+      await supabase.from('lead_activities').insert({
+        lead_id: req.params.id, user_id: uid,
+        type: 'field_updated', content: 'Informações atualizadas',
+        metadata: { fields: Object.keys(updates).filter(k => k !== 'updated_at') },
+      });
+    }
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/crm/leads/:id/activities
+app.get('/api/crm/leads/:id/activities', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { data, error } = await supabase.from('lead_activities')
+      .select('*').eq('lead_id', req.params.id).eq('user_id', uid)
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/crm/leads/:id/activities  — adicionar nota manual
+app.post('/api/crm/leads/:id/activities', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { type, content, metadata } = req.body;
+    const { data, error } = await supabase.from('lead_activities').insert({
+      lead_id: req.params.id, user_id: uid,
+      type: type || 'note', content, metadata: metadata || {},
+    }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/crm/leads/:id/tasks
+app.get('/api/crm/leads/:id/tasks', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { data, error } = await supabase.from('lead_tasks')
+      .select('*').eq('lead_id', req.params.id).eq('user_id', uid)
+      .order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/crm/leads/:id/tasks
+app.post('/api/crm/leads/:id/tasks', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { title, due_date } = req.body;
+    const { data, error } = await supabase.from('lead_tasks').insert({
+      lead_id: req.params.id, user_id: uid, title, due_date: due_date || null,
+    }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    await supabase.from('lead_activities').insert({
+      lead_id: req.params.id, user_id: uid,
+      type: 'task_created', content: `Tarefa criada: ${title}`,
+    });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /api/crm/leads/:id/tasks/:tid
+app.patch('/api/crm/leads/:id/tasks/:tid', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { completed, title, due_date } = req.body;
+    const updates = {};
+    if (title !== undefined) updates.title = title;
+    if (due_date !== undefined) updates.due_date = due_date;
+    if (completed !== undefined) {
+      updates.completed = completed;
+      updates.completed_at = completed ? new Date().toISOString() : null;
+    }
+    const { data, error } = await supabase.from('lead_tasks')
+      .update(updates).eq('id', req.params.tid).eq('user_id', uid).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    if (completed) {
+      await supabase.from('lead_activities').insert({
+        lead_id: req.params.id, user_id: uid,
+        type: 'task_completed', content: `Tarefa concluída: ${data.title}`,
+      });
+    }
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/crm/leads/:id/tasks/:tid
+app.delete('/api/crm/leads/:id/tasks/:tid', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    await supabase.from('lead_tasks').delete().eq('id', req.params.tid).eq('user_id', uid);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/crm/stats
+app.get('/api/crm/stats', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    await ensureStages(uid);
+    const [{ data: leads }, { data: stages }] = await Promise.all([
+      supabase.from('leads').select('pipeline_stage_id, estimated_value, score, created_at').eq('user_id', uid),
+      supabase.from('pipeline_stages').select('id, name, color').eq('user_id', uid).order('position'),
+    ]);
+    const total = (leads || []).length;
+    const totalValue = (leads || []).reduce((s, l) => s + (parseFloat(l.estimated_value) || 0), 0);
+    const closed = (stages || []).find(s => s.name === 'Fechado');
+    const lost = (stages || []).find(s => s.name === 'Perdido');
+    const won = closed ? (leads || []).filter(l => l.pipeline_stage_id === closed.id).length : 0;
+    const lostCount = lost ? (leads || []).filter(l => l.pipeline_stage_id === lost.id).length : 0;
+    const convRate = total > 0 ? Math.round((won / total) * 100 * 10) / 10 : 0;
+    const avgTicket = won > 0
+      ? (leads || []).filter(l => l.pipeline_stage_id === closed?.id)
+          .reduce((s, l) => s + (parseFloat(l.estimated_value) || 0), 0) / won
+      : 0;
+    const byStage = (stages || []).map(s => ({
+      id: s.id, name: s.name, color: s.color,
+      count: (leads || []).filter(l => l.pipeline_stage_id === s.id).length,
+      value: (leads || []).filter(l => l.pipeline_stage_id === s.id)
+        .reduce((sum, l) => sum + (parseFloat(l.estimated_value) || 0), 0),
+    }));
+    res.json({ total, totalValue, won, lostCount, convRate, avgTicket, byStage });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Recalcula score automaticamente ──────────────────────────
+async function recalcScore(userId, leadId) {
+  try {
+    const { data: lead } = await supabase.from('leads').select('*').eq('id', leadId).eq('user_id', userId).single();
+    if (!lead) return;
+    let score = 0;
+    if (lead.name && lead.name.trim().length > 1) score += 10;
+    if (lead.email && lead.email.includes('@')) score += 10;
+    if (lead.phone) score += 10;
+    if (parseFloat(lead.estimated_value) > 0) score += 20;
+    const { data: acts } = await supabase.from('lead_activities').select('type').eq('lead_id', leadId).limit(50);
+    const types = (acts || []).map(a => a.type);
+    if (types.includes('message_received')) score += 15;
+    if (types.includes('message_sent')) score += 10;
+    if (types.includes('campaign_sent')) score += 5;
+    if (types.includes('workflow_executed')) score += 5;
+    if (types.includes('stage_change')) score += 5;
+    // Interação recente
+    if (lead.last_interaction_at) {
+      const daysSince = (Date.now() - new Date(lead.last_interaction_at).getTime()) / 86400000;
+      if (daysSince < 1) score += 10;
+      else if (daysSince < 7) score += 5;
+    }
+    score = Math.min(100, score);
+    await supabase.from('leads').update({ score }).eq('id', leadId);
+  } catch {}
+}
+
 app.listen(PORT, async () => {
   console.log(`\n🚀 ZapSaaS v2 rodando em http://localhost:${PORT}`);
   console.log(`📦 Banco: Supabase`);

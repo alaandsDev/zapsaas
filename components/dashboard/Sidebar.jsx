@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
   Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
-  MoreHorizontal,
+  MoreHorizontal, Kanban,
 } from "lucide-react";
 import { api } from "../../lib/api";
 
@@ -16,6 +16,7 @@ const SECTIONS = [
       { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard, exact: true },
       { href: "/dashboard/conversas", label: "Conversas", Icon: MessageSquare },
       { href: "/dashboard/leads", label: "Leads", Icon: Users },
+      { href: "/dashboard/crm", label: "CRM", Icon: Kanban },
       { href: "/dashboard/vendas", label: "Vendas", Icon: DollarSign },
     ],
   },
