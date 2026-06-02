@@ -3,8 +3,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  LayoutDashboard, Columns2, MessageSquare, Users, DollarSign, Megaphone,
-  Radio, BadgeCheck, LifeBuoy, Settings2, Pin, Sparkles,
+  LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
+  Radio, BadgeCheck, LifeBuoy, Pin, Sparkles,
   MoreHorizontal, Kanban,
 } from "lucide-react";
 import { api } from "../../lib/api";
