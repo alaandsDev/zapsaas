@@ -5031,7 +5031,35 @@ app.get('/api/crm/leads', requireAuth, async (req, res) => {
     query = query.order('pipeline_position').order('created_at', { ascending: false });
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
+
+    // Score em memória: busca todas as atividades de uma vez (evita N+1)
+    const { data: acts } = await supabase.from('lead_activities')
+      .select('lead_id, type').eq('user_id', uid);
+    const typesByLead = new Map();
+    for (const a of acts || []) {
+      if (!typesByLead.has(a.lead_id)) typesByLead.set(a.lead_id, new Set());
+      typesByLead.get(a.lead_id).add(a.type);
+    }
+    const scored = (data || []).map(l => ({
+      ...l,
+      score: computeScore(l, typesByLead.get(l.id) || new Set()),
+    }));
+
+    // Persiste scores alterados em background, em lotes (não bloqueia a resposta)
+    const prevScore = new Map((data || []).map(d => [d.id, d.score ?? 0]));
+    const changed = scored.filter(l => l.score !== prevScore.get(l.id));
+    if (changed.length) {
+      (async () => {
+        for (let i = 0; i < changed.length; i += 25) {
+          const batch = changed.slice(i, i + 25);
+          await Promise.all(batch.map(l =>
+            supabase.from('leads').update({ score: l.score }).eq('id', l.id)
+          )).catch(() => {});
+        }
+      })().catch(() => {});
+    }
+
+    res.json(scored);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5205,29 +5233,33 @@ app.get('/api/crm/stats', requireAuth, async (req, res) => {
 });
 
 // ── Recalcula score automaticamente ──────────────────────────
+// Score puro (sem I/O): recebe o lead e o Set de tipos de atividade dele.
+function computeScore(lead, types = new Set()) {
+  let score = 0;
+  if (lead.name && lead.name.trim().length > 1) score += 10;
+  if (lead.email && lead.email.includes('@')) score += 10;
+  if (lead.phone) score += 10;
+  if (parseFloat(lead.estimated_value) > 0) score += 20;
+  if (types.has('message_received')) score += 15;
+  if (types.has('message_sent')) score += 10;
+  if (types.has('campaign_sent')) score += 5;
+  if (types.has('workflow_executed')) score += 5;
+  if (types.has('stage_change')) score += 5;
+  if (lead.last_interaction_at) {
+    const daysSince = (Date.now() - new Date(lead.last_interaction_at).getTime()) / 86400000;
+    if (daysSince < 1) score += 10;
+    else if (daysSince < 7) score += 5;
+  }
+  return Math.min(100, score);
+}
+
 async function recalcScore(userId, leadId) {
   try {
     const { data: lead } = await supabase.from('leads').select('*').eq('id', leadId).eq('user_id', userId).single();
     if (!lead) return;
-    let score = 0;
-    if (lead.name && lead.name.trim().length > 1) score += 10;
-    if (lead.email && lead.email.includes('@')) score += 10;
-    if (lead.phone) score += 10;
-    if (parseFloat(lead.estimated_value) > 0) score += 20;
     const { data: acts } = await supabase.from('lead_activities').select('type').eq('lead_id', leadId).limit(50);
-    const types = (acts || []).map(a => a.type);
-    if (types.includes('message_received')) score += 15;
-    if (types.includes('message_sent')) score += 10;
-    if (types.includes('campaign_sent')) score += 5;
-    if (types.includes('workflow_executed')) score += 5;
-    if (types.includes('stage_change')) score += 5;
-    // Interação recente
-    if (lead.last_interaction_at) {
-      const daysSince = (Date.now() - new Date(lead.last_interaction_at).getTime()) / 86400000;
-      if (daysSince < 1) score += 10;
-      else if (daysSince < 7) score += 5;
-    }
-    score = Math.min(100, score);
+    const types = new Set((acts || []).map(a => a.type));
+    const score = computeScore(lead, types);
     await supabase.from('leads').update({ score }).eq('id', leadId);
   } catch {}
 }
