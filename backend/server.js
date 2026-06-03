@@ -4901,10 +4901,38 @@ const DEFAULT_STAGES = [
   { name: 'Perdido',           color: '#ef4444', position: 6 },
 ];
 
+// Lock por usuário para evitar race condition (3 endpoints chamam em paralelo)
+const stagesLocks = new Map();
+
 async function ensureStages(userId) {
-  const { data } = await supabase.from('pipeline_stages').select('id').eq('user_id', userId).limit(1);
-  if (data && data.length > 0) return;
-  await supabase.from('pipeline_stages').insert(DEFAULT_STAGES.map(s => ({ ...s, user_id: userId })));
+  if (stagesLocks.has(userId)) return stagesLocks.get(userId);
+  const p = (async () => {
+    const { data } = await supabase.from('pipeline_stages')
+      .select('id, name, position').eq('user_id', userId).order('position');
+    if (data && data.length > 0) {
+      await dedupeStages(userId, data);
+      return;
+    }
+    await supabase.from('pipeline_stages').insert(DEFAULT_STAGES.map(s => ({ ...s, user_id: userId })));
+  })().finally(() => stagesLocks.delete(userId));
+  stagesLocks.set(userId, p);
+  return p;
+}
+
+// Remove etapas duplicadas (mesmo nome), realocando leads para a mantida.
+async function dedupeStages(userId, stages) {
+  const seen = new Map(); // name -> kept stage id
+  const toDelete = [];
+  for (const s of stages) {
+    if (seen.has(s.name)) toDelete.push({ id: s.id, keepId: seen.get(s.name) });
+    else seen.set(s.name, s.id);
+  }
+  if (toDelete.length === 0) return;
+  for (const { id, keepId } of toDelete) {
+    await supabase.from('leads').update({ pipeline_stage_id: keepId })
+      .eq('user_id', userId).eq('pipeline_stage_id', id);
+    await supabase.from('pipeline_stages').delete().eq('id', id).eq('user_id', userId);
+  }
 }
 
 // Joga leads sem etapa para a primeira coluna ("Novo Lead").
