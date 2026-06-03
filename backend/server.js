@@ -5014,19 +5014,29 @@ app.get('/api/crm/leads', requireAuth, async (req, res) => {
     await ensureStages(uid);
     await backfillStage(uid);
     const { q, stage_id, min_score, max_score } = req.query;
-    let query = supabase.from('leads').select(`
-      id, name, phone, email, city, source, status,
-      tags, notes, avatar_url, last_interaction_at,
-      pipeline_stage_id, estimated_value, score, assigned_to, pipeline_position,
-      created_at, updated_at
-    `).eq('user_id', uid);
-    if (stage_id) query = query.eq('pipeline_stage_id', stage_id);
-    if (min_score) query = query.gte('score', parseInt(min_score));
-    if (max_score) query = query.lte('score', parseInt(max_score));
-    if (q) query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
-    query = query.order('pipeline_position').order('created_at', { ascending: false });
-    const { data, error } = await query;
-    if (error) return res.status(500).json({ error: error.message });
+    const buildQuery = () => {
+      let query = supabase.from('leads').select(`
+        id, name, phone, email, city, source, status,
+        tags, notes, avatar_url, last_interaction_at,
+        pipeline_stage_id, estimated_value, score, assigned_to, pipeline_position,
+        created_at, updated_at
+      `).eq('user_id', uid);
+      if (stage_id) query = query.eq('pipeline_stage_id', stage_id);
+      if (min_score) query = query.gte('score', parseInt(min_score));
+      if (max_score) query = query.lte('score', parseInt(max_score));
+      if (q) query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
+      return query.order('pipeline_position').order('created_at', { ascending: false });
+    };
+
+    // Pagina para passar do limite padrão de 1000 linhas do Supabase
+    const data = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await buildQuery().range(from, from + PAGE - 1);
+      if (error) return res.status(500).json({ error: error.message });
+      data.push(...(page || []));
+      if (!page || page.length < PAGE) break;
+    }
 
     // Score em memória: busca todas as atividades de uma vez (evita N+1)
     const { data: acts } = await supabase.from('lead_activities')
@@ -5203,10 +5213,18 @@ app.get('/api/crm/stats', requireAuth, async (req, res) => {
     const uid = req.user.effectiveId || req.user.id;
     await ensureStages(uid);
     await backfillStage(uid);
-    const [{ data: leads }, { data: stages }] = await Promise.all([
-      supabase.from('leads').select('pipeline_stage_id, estimated_value, score, created_at').eq('user_id', uid),
-      supabase.from('pipeline_stages').select('id, name, color').eq('user_id', uid).order('position'),
-    ]);
+    // Pagina os leads (limite padrão de 1000 do Supabase)
+    const leads = [];
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data: page } = await supabase.from('leads')
+        .select('pipeline_stage_id, estimated_value, score, created_at')
+        .eq('user_id', uid).range(from, from + PAGE - 1);
+      leads.push(...(page || []));
+      if (!page || page.length < PAGE) break;
+    }
+    const { data: stages } = await supabase.from('pipeline_stages')
+      .select('id, name, color').eq('user_id', uid).order('position');
     const total = (leads || []).length;
     const totalValue = (leads || []).reduce((s, l) => s + (parseFloat(l.estimated_value) || 0), 0);
     const closed = (stages || []).find(s => s.name === 'Fechado');
