@@ -148,6 +148,8 @@ export default function NotificationProvider() {
           window.dispatchEvent(new CustomEvent("wayvo:profile-pic", { detail: data }));
         } else if (data.type === "chat_unread") {
           window.dispatchEvent(new CustomEvent("wayvo:chat-unread", { detail: data }));
+        } else if (data.type === "lead_stage") {
+          window.dispatchEvent(new CustomEvent("wayvo:lead-stage", { detail: data }));
         }
       } catch {}
     });

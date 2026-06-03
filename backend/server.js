@@ -3128,18 +3128,22 @@ wpp.on('message', async (evt) => {
     // - last_interaction_at: agora
     if (!evt.fromMe && evt.phone) {
       const phone = evt.phone.replace(/\D/g, '');
-      supabase.from('leads')
-        .select('id, status')
-        .eq('user_id', userId)
-        .eq('phone', phone)
-        .single()
-        .then(({ data: lead }) => {
-          if (!lead) return;
+      try {
+        const { data: lead } = await supabase.from('leads')
+          .select('id, status, pipeline_stage_id')
+          .eq('user_id', userId).eq('phone', phone).maybeSingle();
+        if (lead) {
           const patch = { last_interaction_at: new Date().toISOString() };
           if (lead.status === 'new') patch.status = 'contacted';
-          return supabase.from('leads').update(patch).eq('id', lead.id);
-        })
-        .catch(e => console.error('[chat] erro ao atualizar lead:', e.message));
+          await supabase.from('leads').update(patch).eq('id', lead.id);
+          // Registra a resposta do cliente e qualifica automaticamente (até Qualificado)
+          await supabase.from('lead_activities').insert({
+            lead_id: lead.id, user_id: userId, type: 'message_received',
+            content: 'Cliente respondeu',
+          });
+          await autoQualifyLead(userId, lead);
+        }
+      } catch (e) { console.error('[chat] erro ao atualizar lead:', e.message); }
 
       // Verifica se este phone está aguardando resposta de um bloco Escolha
       const choiceHandled = await maybeResumeChoiceFlow(userId, evt);
@@ -4899,6 +4903,46 @@ const DEFAULT_STAGES = [
 
 // Lock por usuário para evitar race condition (3 endpoints chamam em paralelo)
 const stagesLocks = new Map();
+
+// Qualificação automática por interação — avança o lead até "Qualificado".
+// 1ª resposta do cliente → "Em Atendimento"; 3+ respostas → "Qualificado".
+// Nunca move além de Qualificado nem retrocede (Proposta/Fechado/Perdido = manual).
+async function autoQualifyLead(userId, lead) {
+  try {
+    const { data: stages } = await supabase.from('pipeline_stages')
+      .select('id, name, position').eq('user_id', userId).order('position');
+    if (!stages || !stages.length) return;
+    const byName = (n) => stages.find(s => s.name === n);
+    const atend = byName('Em Atendimento');
+    const qualif = byName('Qualificado');
+    if (!atend && !qualif) return; // usuário não tem essas etapas
+
+    const current = stages.find(s => s.id === lead.pipeline_stage_id);
+    const curPos = current ? current.position : -1;
+    const qualPos = qualif ? qualif.position : Infinity;
+    if (qualif && curPos >= qualPos) return; // já está em Qualificado ou além
+
+    const { count } = await supabase.from('lead_activities')
+      .select('id', { count: 'exact', head: true })
+      .eq('lead_id', lead.id).eq('type', 'message_received');
+    const replies = count || 0;
+
+    let target = null;
+    if (replies >= 3 && qualif) target = qualif;
+    else if (replies >= 1 && atend) target = atend;
+    if (!target || target.position <= curPos) return; // só avança
+
+    await supabase.from('leads').update({
+      pipeline_stage_id: target.id, updated_at: new Date().toISOString(),
+    }).eq('id', lead.id);
+    await supabase.from('lead_activities').insert({
+      lead_id: lead.id, user_id: userId, type: 'stage_change',
+      content: `Movido automaticamente para "${target.name}" por interação`,
+      metadata: { auto: true, from_stage_id: lead.pipeline_stage_id, to_stage_id: target.id },
+    });
+    sseSend(userId, 'lead_stage', { lead_id: lead.id, stage_id: target.id });
+  } catch {}
+}
 
 async function ensureStages(userId) {
   if (stagesLocks.has(userId)) return stagesLocks.get(userId);

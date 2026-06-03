@@ -574,6 +574,17 @@ export default function CRMPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Move o card em tempo real quando o lead é qualificado automaticamente
+  useEffect(() => {
+    const handler = (e) => {
+      const { lead_id, stage_id } = e.detail || {};
+      if (!lead_id || !stage_id) return;
+      setLeads(prev => prev.map(l => l.id === lead_id ? { ...l, pipeline_stage_id: stage_id } : l));
+    };
+    window.addEventListener("wayvo:lead-stage", handler);
+    return () => window.removeEventListener("wayvo:lead-stage", handler);
+  }, []);
+
   const leadsForStage = (stageId) => {
     const filtered = leads.filter(l => l.pipeline_stage_id === stageId);
     if (search) return filtered.filter(l =>
