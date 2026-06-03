@@ -5234,23 +5234,36 @@ app.get('/api/crm/stats', requireAuth, async (req, res) => {
 
 // ── Recalcula score automaticamente ──────────────────────────
 // Score puro (sem I/O): recebe o lead e o Set de tipos de atividade dele.
+// Prioridade: RESPONDEU MENSAGEM é o sinal mais forte; inatividade longa penaliza.
 function computeScore(lead, types = new Set()) {
   let score = 0;
-  if (lead.name && lead.name.trim().length > 1) score += 10;
-  if (lead.email && lead.email.includes('@')) score += 10;
-  if (lead.phone) score += 10;
-  if (parseFloat(lead.estimated_value) > 0) score += 20;
-  if (types.has('message_received')) score += 15;
-  if (types.has('message_sent')) score += 10;
+
+  // Dados cadastrais (base leve)
+  if (lead.name && lead.name.trim().length > 1) score += 5;
+  if (lead.phone) score += 5;
+  if (lead.email && lead.email.includes('@')) score += 5;
+  if (parseFloat(lead.estimated_value) > 0) score += 10;
+
+  // Engajamento — responder mensagem é o que mais pesa
+  if (types.has('message_received')) score += 35; // respondeu = lead quente
+  if (types.has('message_sent')) score += 5;
   if (types.has('campaign_sent')) score += 5;
   if (types.has('workflow_executed')) score += 5;
   if (types.has('stage_change')) score += 5;
+
+  // Recência / penalidade por inatividade longa
   if (lead.last_interaction_at) {
     const daysSince = (Date.now() - new Date(lead.last_interaction_at).getTime()) / 86400000;
-    if (daysSince < 1) score += 10;
-    else if (daysSince < 7) score += 5;
+    if (daysSince < 1) score += 20;
+    else if (daysSince < 7) score += 12;
+    else if (daysSince < 30) score += 4;
+    else if (daysSince < 60) score -= 20; // esfria: +30 dias sem interação
+    else score -= 35;                      // +60 dias parado: bem frio
+  } else {
+    score -= 10; // nunca interagiu
   }
-  return Math.min(100, score);
+
+  return Math.max(0, Math.min(100, score));
 }
 
 async function recalcScore(userId, leadId) {
