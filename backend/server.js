@@ -4891,14 +4891,10 @@ async function crashRecovery() {
 // CRM — Pipeline Kanban Enterprise
 // ════════════════════════════════════════════════════════════
 
+// Novo usuário começa apenas com "Novo Lead" — onde caem os contatos.
+// As demais etapas do funil ele cria conforme a necessidade.
 const DEFAULT_STAGES = [
-  { name: 'Novo Lead',         color: '#6366f1', position: 0 },
-  { name: 'Em Atendimento',    color: '#00D1FF', position: 1 },
-  { name: 'Qualificado',       color: '#8b5cf6', position: 2 },
-  { name: 'Proposta Enviada',  color: '#f59e0b', position: 3 },
-  { name: 'Follow-up',         color: '#f97316', position: 4 },
-  { name: 'Fechado',           color: '#00FF88', position: 5 },
-  { name: 'Perdido',           color: '#ef4444', position: 6 },
+  { name: 'Novo Lead', color: '#6366f1', position: 0 },
 ];
 
 // Lock por usuário para evitar race condition (3 endpoints chamam em paralelo)
