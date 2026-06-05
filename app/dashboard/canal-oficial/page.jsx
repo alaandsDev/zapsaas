@@ -11,7 +11,7 @@ import Topbar from "../../../components/dashboard/Topbar";
 
 const WEBHOOK_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api/wpp-cloud/webhook`
-  : "https://delivery-full-production.up.railway.app/api/wpp-cloud/webhook";
+  : "https://api.wayvo.app.br/api/wpp-cloud/webhook";
 
 const STEPS = [
   { n: 1, t: "Criar app no Meta for Developers", d: 'Em developers.facebook.com → "Criar app" → tipo "Business" → nomeie (ex: Wayvo Bot).' },
