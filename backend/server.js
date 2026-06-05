@@ -47,6 +47,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 // Subdomínios Vercel restritos ao projeto (zapsaas-*) em vez de qualquer *.vercel.app
 const VERCEL_PREVIEW_RE = /^https:\/\/zapsaas-[a-z0-9-]+\.vercel\.app$/i;
+// Domínio próprio (apex + www + subdomínios) — funciona mesmo com ALLOWED_ORIGINS setado
+const WAYVO_RE = /^https:\/\/([a-z0-9-]+\.)?wayvo\.app\.br$/i;
 
 // Server-to-server (sem header Origin) passa — necessário para webhooks Meta/Stripe.
 app.use(cors({
@@ -55,7 +57,8 @@ app.use(cors({
       !origin ||
       allowedOrigins.includes('*') ||
       allowedOrigins.includes(origin) ||
-      VERCEL_PREVIEW_RE.test(origin)
+      VERCEL_PREVIEW_RE.test(origin) ||
+      WAYVO_RE.test(origin)
     ) {
       cb(null, true);
     } else {
