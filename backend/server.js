@@ -5361,6 +5361,21 @@ async function recalcScore(userId, leadId) {
   } catch {}
 }
 
+// Handler de erros — captura uploads grandes (multer) e devolve JSON amigável
+app.use((err, req, res, next) => {
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'Arquivo muito grande. O limite é 64 MB.' });
+  }
+  if (err && err.name === 'MulterError') {
+    return res.status(400).json({ error: 'Falha no upload do arquivo.' });
+  }
+  if (err) {
+    console.error('[express error]', err.message);
+    return res.status(500).json({ error: 'Erro interno do servidor.' });
+  }
+  next();
+});
+
 app.listen(PORT, async () => {
   console.log(`\n🚀 ZapSaaS v2 rodando em http://localhost:${PORT}`);
   console.log(`📦 Banco: Supabase`);
