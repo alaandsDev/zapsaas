@@ -4901,6 +4901,17 @@ const DEFAULT_STAGES = [
   { name: 'Novo Lead', color: '#6366f1', position: 0 },
 ];
 
+// Funil modelo completo — aplicado via botão "Usar funil modelo".
+const FULL_FUNNEL = [
+  { name: 'Novo Lead',         color: '#6366f1', position: 0 },
+  { name: 'Em Atendimento',    color: '#00D1FF', position: 1 },
+  { name: 'Qualificado',       color: '#8b5cf6', position: 2 },
+  { name: 'Proposta Enviada',  color: '#f59e0b', position: 3 },
+  { name: 'Follow-up',         color: '#f97316', position: 4 },
+  { name: 'Fechado',           color: '#00FF88', position: 5 },
+  { name: 'Perdido',           color: '#ef4444', position: 6 },
+];
+
 // Lock por usuário para evitar race condition (3 endpoints chamam em paralelo)
 const stagesLocks = new Map();
 
@@ -5007,6 +5018,21 @@ app.post('/api/crm/stages', requireAuth, async (req, res) => {
       .insert({ user_id: uid, name, color: color || '#00FF88', position: position ?? 99 })
       .select().single();
     if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/crm/stages/template — aplica o funil modelo (cria etapas que faltam)
+app.post('/api/crm/stages/template', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.effectiveId || req.user.id;
+    const { data: existing } = await supabase.from('pipeline_stages')
+      .select('name').eq('user_id', uid);
+    const have = new Set((existing || []).map(s => s.name));
+    const toAdd = FULL_FUNNEL.filter(s => !have.has(s.name)).map(s => ({ ...s, user_id: uid }));
+    if (toAdd.length) await supabase.from('pipeline_stages').insert(toAdd);
+    const { data } = await supabase.from('pipeline_stages')
+      .select('*').eq('user_id', uid).order('position');
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

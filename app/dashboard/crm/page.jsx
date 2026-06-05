@@ -689,6 +689,11 @@ export default function CRMPage() {
     router.push(`/dashboard/conversas?phone=${phone}`);
   };
 
+  const applyTemplate = async () => {
+    const next = await apiFetch("/api/crm/stages/template", { method: "POST" });
+    setStages(next);
+  };
+
   // ── List view helpers ─────────────────────────────────────
   const filteredLeads = search
     ? leads.filter(l => l.name?.toLowerCase().includes(search.toLowerCase()) || l.phone?.includes(search))
@@ -788,11 +793,20 @@ export default function CRMPage() {
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => setNewStageOpen(true)}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/[0.15] text-xs text-ink-600 hover:text-ink-400 hover:border-white/[0.25] transition-colors">
-                        <Plus className="size-4" />
-                        Nova etapa
-                      </button>
+                      <div className="space-y-2">
+                        <button onClick={() => setNewStageOpen(true)}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/[0.15] text-xs text-ink-600 hover:text-ink-400 hover:border-white/[0.25] transition-colors">
+                          <Plus className="size-4" />
+                          Nova etapa
+                        </button>
+                        {stages.length <= 1 && (
+                          <button onClick={applyTemplate}
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-primary/30 bg-primary/[0.08] text-xs font-medium text-primary hover:bg-primary/[0.15] transition-colors">
+                            <Zap className="size-4" />
+                            Usar funil modelo
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
