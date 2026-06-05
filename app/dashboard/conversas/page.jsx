@@ -1427,11 +1427,11 @@ export default function Conversas() {
                       tip: "Abre esta conversa no WhatsApp Web",
                     },
                     {
-                      href: "/dashboard/workflow",
+                      href: `/dashboard/crm?phone=${activeChat.phone}`,
                       icon: <Zap className="size-3.5" />,
                       iconBg: "bg-secondary/15 text-secondary",
-                      label: "Criar automação",
-                      tip: "Criar workflow automatizado para este contato",
+                      label: "Ver no CRM",
+                      tip: "Abrir este contato no pipeline do CRM",
                     },
                     {
                       onClick: () => {},

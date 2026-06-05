@@ -594,6 +594,18 @@ export default function CRMPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Deep-link ?phone= (vindo de Conversas "Ver no CRM") — abre o lead
+  const phoneOpened = useRef(false);
+  useEffect(() => {
+    if (loading || phoneOpened.current || !leads.length) return;
+    const wanted = (new URLSearchParams(window.location.search).get("phone") || "").replace(/\D/g, "");
+    if (!wanted) return;
+    phoneOpened.current = true;
+    const match = leads.find(l => String(l.phone || "").replace(/\D/g, "") === wanted);
+    if (match) setSelectedLead(match);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [loading, leads]);
+
   // Move o card em tempo real quando o lead é qualificado automaticamente
   useEffect(() => {
     const handler = (e) => {
