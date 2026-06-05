@@ -355,6 +355,22 @@ class WhatsAppManager extends EventEmitter {
     }
   }
 
+  // Marca mensagens como lidas no WhatsApp (envia o "visto" azul ao contato)
+  // waIds: array de IDs (wa_id) das mensagens recebidas a marcar como lidas
+  async markRead(sessionId, phone, waIds = []) {
+    const session = this.sessions.get(sessionId);
+    if (!session?.sock || session.status !== 'connected' || !waIds.length) return false;
+    const cleaned = String(phone).replace(/\D/g, '');
+    const jid = `${cleaned}@s.whatsapp.net`;
+    try {
+      const keys = waIds.filter(Boolean).map(id => ({ remoteJid: jid, id, fromMe: false }));
+      if (keys.length) await session.sock.readMessages(keys);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   _offEvent(ev, eventName, handler) {
     if (typeof ev.off === 'function') ev.off(eventName, handler);
     else if (typeof ev.removeListener === 'function') ev.removeListener(eventName, handler);

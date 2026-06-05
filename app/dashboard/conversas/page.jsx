@@ -588,6 +588,8 @@ export default function Conversas() {
     if (chat.unread > 0) {
       setAllChats((prev) => prev.map((c) => c.id === chat.id ? { ...c, unread: 0 } : c));
     }
+    // Marca como lida no WhatsApp (envia o "visto" ao contato)
+    api(`/api/chats/${chat.id}/read`, { method: "POST" }).catch(() => {});
   }
 
   function markUnread() {

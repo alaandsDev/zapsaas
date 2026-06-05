@@ -3193,6 +3193,31 @@ app.post('/api/chats/:id/unread', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Marcar conversa como lida — zera unread + envia "visto" no WhatsApp
+app.post('/api/chats/:id/read', requireAuth, async (req, res) => {
+  try {
+    const userId = uid(req);
+    const { data: chat } = await supabase.from('chats')
+      .select('id, phone, session_slot, unread')
+      .eq('id', req.params.id).eq('user_id', userId).maybeSingle();
+    if (!chat) return res.status(404).json({ error: 'Conversa não encontrada' });
+
+    await supabase.from('chats').update({ unread: 0 }).eq('id', chat.id);
+
+    // Pega as últimas mensagens recebidas (com wa_id) p/ enviar o "visto" no WhatsApp
+    const { data: msgs } = await supabase.from('chat_messages')
+      .select('wa_id')
+      .eq('chat_id', chat.id).eq('direction', 'in')
+      .not('wa_id', 'is', null)
+      .order('timestamp', { ascending: false }).limit(20);
+    const waIds = (msgs || []).map(m => m.wa_id).filter(Boolean);
+    if (waIds.length) {
+      wpp.markRead(sessionKey(userId, chat.session_slot), chat.phone, waIds).catch(() => {});
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Sugestão de resposta por IA — últimas mensagens da conversa
 app.post('/api/ai-suggest', requireAuth, rateLimit(60 * 1000, 20), async (req, res) => {
   try {
