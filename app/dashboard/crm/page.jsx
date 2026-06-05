@@ -142,9 +142,18 @@ function LeadCard({ lead, onClick, overlay = false }) {
 // ════════════════════════════════════════════════════════════
 // STAGE COLUMN (droppable)
 // ════════════════════════════════════════════════════════════
+const PAGE_SIZE = 50;
+
 function StageColumn({ stage, leads, onLeadClick, onAddLead }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+  const [visible, setVisible] = useState(PAGE_SIZE);
   const totalValue = leads.reduce((s, l) => s + (parseFloat(l.estimated_value) || 0), 0);
+
+  // Reseta a paginação quando a coluna encolhe (ex: filtro/busca)
+  useEffect(() => { setVisible(PAGE_SIZE); }, [stage.id]);
+
+  const shown = leads.slice(0, visible);
+  const remaining = leads.length - shown.length;
 
   return (
     <div className="flex flex-col shrink-0 w-[260px] h-full min-h-0">
@@ -163,11 +172,20 @@ function StageColumn({ stage, leads, onLeadClick, onAddLead }) {
         ref={setNodeRef}
         className={`flex-1 min-h-0 overflow-y-auto space-y-2 rounded-xl p-2 transition-colors ${isOver ? "bg-primary/[0.06] border border-primary/20" : "bg-white/[0.02] border border-white/[0.04]"}`}
       >
-        <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-          {leads.map(lead => (
+        <SortableContext items={shown.map(l => l.id)} strategy={verticalListSortingStrategy}>
+          {shown.map(lead => (
             <LeadCard key={lead.id} lead={lead} onClick={onLeadClick} />
           ))}
         </SortableContext>
+
+        {remaining > 0 && (
+          <button
+            onClick={() => setVisible(v => v + PAGE_SIZE)}
+            className="w-full py-2 rounded-lg text-[11px] font-medium text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
+          >
+            Carregar mais ({remaining})
+          </button>
+        )}
 
         <button
           onClick={() => onAddLead(stage.id)}
@@ -550,6 +568,7 @@ export default function CRMPage() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("pipeline");
+  const [listLimit, setListLimit] = useState(100);
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [newStageColor, setNewStageColor] = useState("#00FF88");
@@ -674,6 +693,8 @@ export default function CRMPage() {
   const filteredLeads = search
     ? leads.filter(l => l.name?.toLowerCase().includes(search.toLowerCase()) || l.phone?.includes(search))
     : leads;
+  const listShown = filteredLeads.slice(0, listLimit);
+  useEffect(() => { setListLimit(100); }, [search, tab]);
 
   if (loading) {
     return (
@@ -797,7 +818,7 @@ export default function CRMPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLeads.map(lead => {
+                    {listShown.map(lead => {
                       const stage = stages.find(s => s.id === lead.pipeline_stage_id);
                       const sc = lead.score || 0;
                       return (
@@ -839,6 +860,14 @@ export default function CRMPage() {
                 </table>
                 {filteredLeads.length === 0 && (
                   <p className="text-center text-xs text-ink-600 py-12">Nenhum lead encontrado</p>
+                )}
+                {filteredLeads.length > listShown.length && (
+                  <button
+                    onClick={() => setListLimit(v => v + 100)}
+                    className="w-full py-3 text-xs font-medium text-primary bg-primary/[0.06] hover:bg-primary/10 transition-colors border-t border-white/[0.06]"
+                  >
+                    Carregar mais ({filteredLeads.length - listShown.length} restantes)
+                  </button>
                 )}
               </div>
             </div>
