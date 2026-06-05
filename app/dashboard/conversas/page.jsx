@@ -348,7 +348,9 @@ export default function Conversas() {
       const list = await api(`/api/chats/${activeChat.id}/messages`);
       setMsgs(list || []);
     } catch {}
-  }, [activeChat]);
+    // Depende só do ID: evita recarregar (e perder msg otimista) quando
+    // só metadados do chat mudam (foto de perfil, unread via SSE).
+  }, [activeChat?.id]);
 
   // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {

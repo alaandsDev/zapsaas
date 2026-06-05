@@ -3132,9 +3132,33 @@ wpp.on('message', async (evt) => {
     if (!evt.fromMe && evt.phone) {
       const phone = evt.phone.replace(/\D/g, '');
       try {
-        const { data: lead } = await supabase.from('leads')
+        let { data: lead } = await supabase.from('leads')
           .select('id, status, pipeline_stage_id')
           .eq('user_id', userId).eq('phone', phone).maybeSingle();
+
+        // Número novo (não está na base) → cria o lead automaticamente
+        if (!lead) {
+          const { data: first } = await supabase.from('pipeline_stages')
+            .select('id').eq('user_id', userId).order('position').limit(1).maybeSingle();
+          const { data: created } = await supabase.from('leads').insert({
+            user_id: userId,
+            name: evt.pushName || phone,
+            phone,
+            source: 'whatsapp',
+            status: 'new',
+            interest: '',
+            pipeline_stage_id: first?.id || null,
+            last_interaction_at: new Date().toISOString(),
+          }).select('id, status, pipeline_stage_id').single();
+          lead = created;
+          if (lead) {
+            await supabase.from('lead_activities').insert({
+              lead_id: lead.id, user_id: userId, type: 'created',
+              content: 'Lead criado a partir de conversa no WhatsApp',
+            });
+          }
+        }
+
         if (lead) {
           const patch = { last_interaction_at: new Date().toISOString() };
           if (lead.status === 'new') patch.status = 'contacted';
