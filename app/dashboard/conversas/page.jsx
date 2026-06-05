@@ -362,6 +362,26 @@ export default function Conversas() {
 
   useEffect(() => { if (activeChat?.id) loadMsgs(); }, [activeChat?.id, loadMsgs]);
 
+  // ── Deep-link ?phone= (vindo do CRM "Abrir conversa") ───────────────────────
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (loading || deepLinkDone.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const wanted = (params.get("phone") || "").replace(/\D/g, "");
+    if (!wanted) return;
+    deepLinkDone.current = true;
+    const match = allChats.find((c) => String(c.phone || "").replace(/\D/g, "") === wanted);
+    if (match) {
+      selectChat(match);
+    } else {
+      // Sem chat ainda — abre o modal de nova conversa já preenchido
+      setNewChatPhone(wanted);
+      setNewChatOpen(true);
+    }
+    // limpa a URL para não reabrir ao atualizar
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [loading, allChats]);
+
   // ── Tempo real — ouve evento global do NotificationProvider ─────────────────
   // (uma única conexão SSE por tab, gerenciada pelo NotificationProvider)
   useEffect(() => {

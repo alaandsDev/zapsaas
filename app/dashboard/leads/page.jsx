@@ -240,6 +240,14 @@ export default function LeadsPage() {
   const [openLead, setOpenLead] = useState(false);
   const [openImport, setOpenImport] = useState(false);
   const [openListView, setOpenListView] = useState(null);
+
+  // Abre o formulário de novo lead quando vem do CRM com ?new=1
+  useEffect(() => {
+    if (searchParams?.get("new") === "1") {
+      setOpenLead(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
   const [editLead, setEditLead] = useState(null);
   const [tagInput, setTagInput] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
