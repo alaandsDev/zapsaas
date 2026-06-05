@@ -902,8 +902,21 @@ export default function Conversas() {
                 <p className="text-sm text-ink-500">
                   {q ? "Nenhuma conversa encontrada" :
                    channelFilter !== "all" ? `Nenhuma conversa neste canal` :
-                   "Aguardando mensagens…"}
+                   "Nenhuma conversa ainda"}
                 </p>
+                {!q && channelFilter === "all" && (
+                  <>
+                    <p className="text-xs text-ink-600 mt-2 max-w-[220px] mx-auto leading-relaxed">
+                      Inicie uma conversa com um número ou aguarde seus clientes chamarem no WhatsApp.
+                    </p>
+                    <button onClick={() => setNewChatOpen(true)}
+                      className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-bg"
+                      style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
+                      <MessageSquare className="size-3.5" />
+                      Nova conversa
+                    </button>
+                  </>
+                )}
                 {(q || channelFilter !== "all") && (
                   <button onClick={() => { setRawQ(""); setChannelFilter("all"); }}
                     className="mt-3 text-xs text-primary hover:underline">

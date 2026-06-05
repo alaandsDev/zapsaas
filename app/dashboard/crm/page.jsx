@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { API_URL, getToken } from "../../../lib/api";
 import { useRouter } from "next/navigation";
+import EmptyState from "../../../components/dashboard/EmptyState";
 
 // ─── helpers ────────────────────────────────────────────────
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 }).format(v || 0);
@@ -755,7 +756,19 @@ export default function CRMPage() {
 
         {/* Content */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {tab === "pipeline" && (
+          {tab === "pipeline" && leads.length === 0 && (
+            <div className="flex-1 min-h-0 overflow-auto p-6">
+              <EmptyState
+                icon="🗂️"
+                title="Seu pipeline está vazio"
+                desc="Importe seus contatos ou adicione um lead para começar a organizar suas vendas no funil."
+                cta={{ label: "Importar contatos", onClick: () => router.push("/dashboard/leads") }}
+                secondary={{ label: "+ Adicionar lead", onClick: () => router.push("/dashboard/leads?new=1") }}
+                tip="Os leads entram em 'Novo Lead' e avançam no funil conforme você conversa com o cliente."
+              />
+            </div>
+          )}
+          {tab === "pipeline" && leads.length > 0 && (
             <div className="flex-1 min-h-0 flex flex-col p-6">
               <div className="shrink-0"><StatsBar stats={stats} /></div>
               <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
