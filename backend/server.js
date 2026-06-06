@@ -3204,15 +3204,15 @@ app.post('/api/chats/:id/read', requireAuth, async (req, res) => {
 
     await supabase.from('chats').update({ unread: 0 }).eq('id', chat.id);
 
-    // Pega as últimas mensagens recebidas (com wa_id) p/ enviar o "visto" no WhatsApp
+    // Pega as últimas mensagens recebidas (com wa_id) p/ marcar lidas no WhatsApp
     const { data: msgs } = await supabase.from('chat_messages')
-      .select('wa_id')
+      .select('wa_id, timestamp')
       .eq('chat_id', chat.id).eq('direction', 'in')
       .not('wa_id', 'is', null)
       .order('timestamp', { ascending: false }).limit(20);
-    const waIds = (msgs || []).map(m => m.wa_id).filter(Boolean);
-    if (waIds.length) {
-      wpp.markRead(sessionKey(userId, chat.session_slot), chat.phone, waIds).catch(() => {});
+    const items = (msgs || []).filter(m => m.wa_id).map(m => ({ id: m.wa_id, timestamp: m.timestamp }));
+    if (items.length) {
+      wpp.markRead(sessionKey(userId, chat.session_slot), chat.phone, items).catch(() => {});
     }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

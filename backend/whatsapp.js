@@ -355,16 +355,29 @@ class WhatsAppManager extends EventEmitter {
     }
   }
 
-  // Marca mensagens como lidas no WhatsApp (envia o "visto" azul ao contato)
-  // waIds: array de IDs (wa_id) das mensagens recebidas a marcar como lidas
-  async markRead(sessionId, phone, waIds = []) {
+  // Marca mensagens como lidas no WhatsApp.
+  // msgs: array de { id, timestamp } (mais recente primeiro) das mensagens recebidas.
+  // Faz DUAS coisas:
+  //  1) readMessages → envia o "visto" azul ao contato
+  //  2) chatModify(markRead) → limpa o badge "não lida" no SEU WhatsApp (sync entre aparelhos)
+  async markRead(sessionId, phone, msgs = []) {
     const session = this.sessions.get(sessionId);
-    if (!session?.sock || session.status !== 'connected' || !waIds.length) return false;
+    if (!session?.sock || session.status !== 'connected' || !msgs.length) return false;
     const cleaned = String(phone).replace(/\D/g, '');
     const jid = `${cleaned}@s.whatsapp.net`;
     try {
-      const keys = waIds.filter(Boolean).map(id => ({ remoteJid: jid, id, fromMe: false }));
+      const keys = msgs.filter(m => m?.id).map(m => ({ remoteJid: jid, id: m.id, fromMe: false }));
       if (keys.length) await session.sock.readMessages(keys);
+
+      // chatModify precisa da última mensagem com timestamp (em segundos)
+      const last = msgs.find(m => m?.id);
+      if (last) {
+        const tsSec = last.timestamp ? Math.floor(new Date(last.timestamp).getTime() / 1000) : Math.floor(Date.now() / 1000);
+        await session.sock.chatModify({
+          markRead: true,
+          lastMessages: [{ key: { remoteJid: jid, id: last.id, fromMe: false }, messageTimestamp: tsSec }],
+        }, jid);
+      }
       return true;
     } catch (e) {
       return false;
