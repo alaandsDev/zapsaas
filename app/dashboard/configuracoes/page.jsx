@@ -61,7 +61,7 @@ export default function ConfiguracoesPage() {
     setInviting(true);
     try {
       await api("/api/workspace/invites", { method: "POST", body: { email: inviteEmail, role: inviteRole } });
-      setInviteMsg({ type: "ok", text: `Convite enviado para ${inviteEmail}` });
+      setInviteMsg({ type: "ok", text: `Convite criado! Copie o link abaixo e envie para ${inviteEmail} (por WhatsApp, por ex.).` });
       setInviteEmail("");
       load();
     } catch (err) {

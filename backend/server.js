@@ -4729,7 +4729,7 @@ app.get('/api/workspace/invites', requireAuth, async (req, res) => {
     const ownerId = uid(req);
     const { data, error } = await supabase
       .from('workspace_invites')
-      .select('id, email, role, status, invited_at, expires_at')
+      .select('id, email, role, status, invited_at, expires_at, token')
       .eq('owner_id', ownerId)
       .order('invited_at', { ascending: false })
       .limit(50);
@@ -4795,7 +4795,7 @@ app.post('/api/workspace/invites', requireAuth, rateLimit(60 * 60 * 1000, 20), a
       </body></html>`,
     }).catch(() => {});
 
-    res.json({ message: 'Convite enviado com sucesso', token });
+    res.json({ message: 'Convite enviado com sucesso', token, acceptUrl });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
