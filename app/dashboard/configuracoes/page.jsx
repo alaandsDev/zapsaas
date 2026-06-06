@@ -251,11 +251,11 @@ export default function ConfiguracoesPage() {
                       </div>
                       <RoleBadge role={inv.role} />
                       <button
-                        onClick={() => copyInviteLink(inv.id)}
+                        onClick={() => copyInviteLink(inv.token)}
                         title="Copiar link do convite"
                         className="size-8 flex items-center justify-center rounded-lg text-ink-500 hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
                       >
-                        {copied === inv.id ? <Check className="size-4 text-primary" /> : <Copy className="size-4" />}
+                        {copied === inv.token ? <Check className="size-4 text-primary" /> : <Copy className="size-4" />}
                       </button>
                       <button
                         onClick={() => cancelInvite(inv.id)}
