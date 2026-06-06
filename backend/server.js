@@ -5448,6 +5448,21 @@ app.post('/api/ycloud/test-send', requireAuth, blockAgents, async (req, res) => 
   }
 });
 
+// Lista templates da conta YCloud (descobrir nome/idioma corretos)
+app.get('/api/ycloud/templates', requireAuth, blockAgents, async (req, res) => {
+  try {
+    const apiKey = process.env.YCLOUD_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'YCLOUD_API_KEY não configurada' });
+    const items = await ycloud.listTemplates({ apiKey, wabaId: req.query.wabaId });
+    res.json((items || []).map(t => ({
+      name: t.name, language: t.language, status: t.status, category: t.category,
+    })));
+  } catch (e) {
+    console.error('[ycloud/templates]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Webhook de entrada do YCloud — recebe mensagens dos clientes
 app.post('/api/ycloud/webhook', async (req, res) => {
   res.sendStatus(200); // responde rápido sempre

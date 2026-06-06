@@ -61,6 +61,21 @@ async function sendImage({ apiKey, from }, to, link, caption = '') {
   });
 }
 
+// Lista templates da conta (para descobrir nome/idioma/status corretos)
+async function listTemplates({ apiKey, wabaId }) {
+  const qs = new URLSearchParams({ limit: '100', includeTotal: 'true' });
+  if (wabaId) qs.set('filter.wabaId', wabaId);
+  const res = await fetch(`${BASE}/whatsapp/templates?${qs}`, {
+    headers: { 'X-API-Key': apiKey },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = json?.error?.message || json?.message || JSON.stringify(json).slice(0, 300);
+    throw new Error(`YCloud HTTP ${res.status}${detail ? ' — ' + detail : ''}`);
+  }
+  return json.items || json.data || [];
+}
+
 // Template aprovado (única forma fora da janela de 24h)
 async function sendTemplate({ apiKey, from }, to, templateName, language = 'pt_BR', variables = []) {
   const components = variables.length > 0 ? [{
@@ -100,4 +115,4 @@ function parseInbound(event) {
   return out;
 }
 
-module.exports = { sendText, sendImage, sendTemplate, parseInbound, e164 };
+module.exports = { sendText, sendImage, sendTemplate, listTemplates, parseInbound, e164, intl };

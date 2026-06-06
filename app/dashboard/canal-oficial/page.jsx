@@ -326,6 +326,21 @@ function YCloudTestCard() {
   };
   const sendTemplate = () => send({ template: "hello_world", language: "en_US" }, "Template enviado! Deve chegar no destino.");
 
+  const [templates, setTemplates] = useState(null);
+  async function loadTemplates() {
+    setResult(null);
+    try {
+      const list = await api("/api/ycloud/templates");
+      setTemplates(list || []);
+      if (!list?.length) setResult({ ok: false, text: "Nenhum template na conta ainda." });
+    } catch (e) {
+      setResult({ ok: false, text: e.message || "Falha ao listar templates" });
+    }
+  }
+  function sendNamed(t) {
+    send({ template: t.name, language: t.language }, `Template "${t.name}" enviado!`);
+  }
+
   return (
     <section className="rounded-2xl border border-secondary/30 bg-secondary/[0.04] p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -351,11 +366,31 @@ function YCloudTestCard() {
           className="px-4 py-2 rounded-lg text-xs font-medium text-ink-200 border border-white/[0.12] hover:bg-white/[0.04] disabled:opacity-60">
           Enviar texto livre
         </button>
+        <button onClick={loadTemplates} disabled={sending}
+          className="px-4 py-2 rounded-lg text-xs font-medium text-ink-200 border border-white/[0.12] hover:bg-white/[0.04] disabled:opacity-60">
+          Listar templates
+        </button>
         {result && (
           <span className={`text-xs ${result.ok ? "text-primary" : "text-red-400"}`}>{result.text}</span>
         )}
       </div>
-      <p className="text-[10px] text-ink-600 mt-2">Use o template para testar a entrega real. Texto livre só chega depois que o cliente responde (janela de 24h).</p>
+
+      {templates && templates.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <p className="text-[10px] text-ink-500">Templates da conta — clique para enviar ao destino:</p>
+          {templates.map((t, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
+              <span className="font-medium text-ink-100">{t.name}</span>
+              <span className="text-ink-500">· {t.language}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: t.status === "APPROVED" ? "#00FF8820" : "#FBBF2420", color: t.status === "APPROVED" ? "#00FF88" : "#FBBF24" }}>{t.status}</span>
+              <button onClick={() => sendNamed(t)} disabled={sending || t.status !== "APPROVED"}
+                className="ml-auto text-primary hover:underline disabled:opacity-40 disabled:no-underline">enviar →</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="text-[10px] text-ink-600 mt-2">Use um template aprovado para testar a entrega real. Texto livre só chega depois que o cliente responde (janela de 24h).</p>
     </section>
   );
 }
