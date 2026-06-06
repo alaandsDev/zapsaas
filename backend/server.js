@@ -3885,6 +3885,7 @@ app.post('/api/whatsapp/bulk', requireAuth, rateLimit(60 * 1000, 5), async (req,
               .replace(/\{nome\}/gi, p.name || '')
               .replace(/\{name\}/gi, p.name || '')
               .replace(/\{numero\}/gi, p.phone || '');
+            if (media) media.caption = msgText; // legenda da imagem personalizada por contato
             const sendResult = await wpp.sendMessage(session.key, p.phone, msgText, media);
             updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${session.slot}`, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || session.phone || null };
             sent++;
@@ -3899,6 +3900,7 @@ app.post('/api/whatsapp/bulk', requireAuth, rateLimit(60 * 1000, 5), async (req,
                   .replace(/\{nome\}/gi, p.name || '')
                   .replace(/\{name\}/gi, p.name || '')
                   .replace(/\{numero\}/gi, p.phone || '');
+                if (media) media.caption = msgText; // legenda personalizada por contato
                 const sendResult = await wpp.sendMessage(fallbackSession.key, p.phone, msgText, media);
                 updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: `slot${fallbackSession.slot}`, whatsappMessageId: sendResult.messageId || null, sentFrom: sendResult.from || fallbackSession.phone || null };
                 sent++;
