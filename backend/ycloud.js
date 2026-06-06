@@ -4,11 +4,15 @@
 
 const BASE = 'https://api.ycloud.com/v2';
 
-// Garante E.164 com DDI Brasil e prefixo "+"
+// Normaliza para E.164. Respeita números já internacionais (com "+" ou DDI).
+// Só assume Brasil (55) quando é um número local de 10-11 dígitos sem "+".
 function e164(phone) {
-  const d = String(phone || '').replace(/\D/g, '');
-  const withCountry = d.startsWith('55') ? d : `55${d}`;
-  return `+${withCountry}`;
+  const raw = String(phone || '').trim();
+  const d = raw.replace(/\D/g, '');
+  if (!d) return '';
+  if (raw.startsWith('+')) return `+${d}`;       // já veio internacional (ex: +1..., +55...)
+  if (d.length <= 11) return `+55${d}`;          // brasileiro sem DDI (DDD + número)
+  return `+${d}`;                                // já tem DDI (ex: 5513..., 1555...)
 }
 
 async function call(apiKey, path, body) {
