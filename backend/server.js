@@ -5463,17 +5463,130 @@ app.get('/api/ycloud/templates', requireAuth, blockAgents, async (req, res) => {
   }
 });
 
+// ── Números YCloud por tenant (mapeia número da empresa → usuário) ──
+// Lista
+app.get('/api/ycloud/numbers', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('ycloud_numbers')
+      .select('id, phone, waba_id, label, created_at')
+      .eq('user_id', uid(req)).order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Cadastra (owner/admin)
+app.post('/api/ycloud/numbers', requireAuth, blockAgents, async (req, res) => {
+  try {
+    const phone = String(req.body.phone || '').replace(/\D/g, '');
+    if (!phone) return res.status(400).json({ error: 'Número obrigatório' });
+    const { data, error } = await supabase.from('ycloud_numbers').insert({
+      user_id: uid(req), phone, waba_id: req.body.waba_id || null, label: req.body.label || null,
+    }).select().single();
+    if (error) {
+      if (error.code === '23505') return res.status(400).json({ error: 'Este número já está cadastrado.' });
+      throw error;
+    }
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Remove (owner/admin)
+app.delete('/api/ycloud/numbers/:id', requireAuth, blockAgents, async (req, res) => {
+  try {
+    await supabase.from('ycloud_numbers').delete().eq('id', req.params.id).eq('user_id', uid(req));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Persiste mensagem recebida do YCloud (slot 0 = Canal Oficial) em chats/chat_messages,
+// cria/qualifica lead e notifica via SSE — espelha o fluxo do Baileys.
+async function persistYcloudInbound(userId, p) {
+  const slot = 0;
+  const phone = p.phone;
+  const ts = p.timestamp || new Date().toISOString();
+  const preview = p.text || (p.mediaUrl ? '📎 mídia' : '');
+
+  // upsert do chat
+  let { data: chat } = await supabase.from('chats').select('id, unread, name')
+    .eq('user_id', userId).eq('session_slot', slot).eq('phone', phone).maybeSingle();
+  if (!chat) {
+    const { data: created } = await supabase.from('chats').insert({
+      user_id: userId, session_slot: slot, phone,
+      name: p.pushName || null, last_message: preview, last_message_at: ts, unread: 1,
+    }).select('id').single();
+    chat = created;
+  } else {
+    await supabase.from('chats').update({
+      last_message: preview, last_message_at: ts, updated_at: ts,
+      unread: (chat.unread || 0) + 1,
+      ...(p.pushName && !chat.name ? { name: p.pushName } : {}),
+    }).eq('id', chat.id);
+  }
+  if (!chat?.id) return;
+
+  // insere a mensagem (evita duplicar pelo wamid)
+  const msgData = {
+    chat_id: chat.id, user_id: userId, direction: 'in',
+    type: p.type || 'text', text: p.text || null,
+    media_url: p.mediaUrl || null, mime_type: p.mimeType || null,
+    timestamp: ts,
+  };
+  if (p.wamid) {
+    await supabase.from('chat_messages').upsert({ ...msgData, wa_id: p.wamid }, { onConflict: 'chat_id,wa_id', ignoreDuplicates: true });
+  } else {
+    await supabase.from('chat_messages').insert(msgData);
+  }
+
+  // SSE para a aba aberta
+  sseSend(userId, 'message', {
+    chatId: chat.id, slot, phone, name: p.pushName,
+    direction: 'in', type: p.type, text: p.text,
+    media_url: p.mediaUrl, mime_type: p.mimeType, timestamp: ts,
+  });
+
+  // Lead: cria se novo, registra resposta e qualifica (até Qualificado)
+  let { data: lead } = await supabase.from('leads')
+    .select('id, status, pipeline_stage_id').eq('user_id', userId).eq('phone', phone).maybeSingle();
+  if (!lead) {
+    const { data: first } = await supabase.from('pipeline_stages')
+      .select('id').eq('user_id', userId).order('position').limit(1).maybeSingle();
+    const { data: nl } = await supabase.from('leads').insert({
+      user_id: userId, name: p.pushName || phone, phone, source: 'whatsapp_oficial',
+      status: 'new', interest: '', pipeline_stage_id: first?.id || null,
+      last_interaction_at: ts,
+    }).select('id, status, pipeline_stage_id').single();
+    lead = nl;
+    if (lead) await supabase.from('lead_activities').insert({
+      lead_id: lead.id, user_id: userId, type: 'created', content: 'Lead criado via WhatsApp Oficial',
+    });
+  }
+  if (lead) {
+    const patch = { last_interaction_at: ts };
+    if (lead.status === 'new') patch.status = 'contacted';
+    await supabase.from('leads').update(patch).eq('id', lead.id);
+    await supabase.from('lead_activities').insert({
+      lead_id: lead.id, user_id: userId, type: 'message_received', content: 'Cliente respondeu (oficial)',
+    });
+    await autoQualifyLead(userId, lead);
+  }
+}
+
 // Webhook de entrada do YCloud — recebe mensagens dos clientes
 app.post('/api/ycloud/webhook', async (req, res) => {
   res.sendStatus(200); // responde rápido sempre
   try {
     const parsed = ycloud.parseInbound(req.body);
-    if (!parsed) return;
-    console.log('[ycloud webhook] inbound', JSON.stringify({
-      from: parsed.phone, to: parsed.businessPhone, type: parsed.type,
-      text: (parsed.text || '').slice(0, 60), name: parsed.pushName,
-    }));
-    // TODO: persistir em chats/chat_messages + criar lead + SSE (fase 2)
+    if (!parsed || !parsed.businessPhone) return;
+    // Descobre o tenant dono do número da empresa
+    const { data: num } = await supabase.from('ycloud_numbers')
+      .select('user_id').eq('phone', parsed.businessPhone).maybeSingle();
+    if (!num) {
+      console.warn('[ycloud webhook] número não mapeado:', parsed.businessPhone);
+      return;
+    }
+    await persistYcloudInbound(num.user_id, parsed);
+    console.log('[ycloud webhook] ok', parsed.phone, '→', parsed.businessPhone, parsed.type);
   } catch (e) {
     console.error('[ycloud webhook] erro:', e.message);
   }
