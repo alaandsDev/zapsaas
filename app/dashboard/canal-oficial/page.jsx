@@ -296,6 +296,60 @@ function VerificationModal({ verificationStatus, onContinue, onClose }) {
   );
 }
 
+/* ════════════════════ TESTE YCLOUD (BSP) ════════════════════ */
+function YCloudTestCard() {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [msg, setMsg] = useState("Teste de envio via YCloud ✅");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState(null); // { ok, text }
+
+  async function send() {
+    setResult(null);
+    if (!from.trim() || !to.trim() || !msg.trim()) {
+      setResult({ ok: false, text: "Preencha número YCloud, destino e mensagem." });
+      return;
+    }
+    setSending(true);
+    try {
+      await api("/api/ycloud/test-send", { method: "POST", body: { from: from.trim(), to: to.trim(), message: msg.trim() } });
+      setResult({ ok: true, text: "Enviado! Confira o WhatsApp do destino." });
+    } catch (e) {
+      setResult({ ok: false, text: e.message || "Falha ao enviar" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-secondary/30 bg-secondary/[0.04] p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Zap className="size-4 text-secondary" />
+        <h3 className="text-sm font-semibold text-ink-100">Teste YCloud (BSP)</h3>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary/15 text-secondary border border-secondary/25">beta</span>
+      </div>
+      <div className="grid sm:grid-cols-3 gap-2 mb-2">
+        <input value={from} onChange={e => setFrom(e.target.value)} placeholder="Número YCloud (from), ex: 5513..."
+          className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-secondary/40" />
+        <input value={to} onChange={e => setTo(e.target.value)} placeholder="Enviar para (seu número)"
+          className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-secondary/40" />
+        <input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Mensagem"
+          className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-secondary/40" />
+      </div>
+      <div className="flex items-center gap-3">
+        <button onClick={send} disabled={sending}
+          className="px-4 py-2 rounded-lg text-xs font-semibold text-bg disabled:opacity-60"
+          style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}>
+          {sending ? "Enviando..." : "Enviar teste"}
+        </button>
+        {result && (
+          <span className={`text-xs ${result.ok ? "text-primary" : "text-red-400"}`}>{result.text}</span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /* ════════════════════ PÁGINA PRINCIPAL ════════════════════ */
 export default function CanalOficialPage() {
   /* config */
@@ -598,6 +652,9 @@ export default function CanalOficialPage() {
         actions={syncBtn}
       />
       <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
+
+        {/* ── TESTE YCLOUD ── */}
+        <YCloudTestCard />
 
         {/* ── HEALTH SCORE ── */}
         <HealthScore config={config} account={account} quality={quality} templates={templates} verify={verify} />
