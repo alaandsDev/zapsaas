@@ -1,0 +1,92 @@
+// YCloud — WhatsApp Business Platform (BSP oficial)
+// Docs: https://docs.ycloud.com/reference/whatsapp_message-send-directly
+// API key é da conta YCloud (env YCLOUD_API_KEY). O "from" é o número do cliente (E.164).
+
+const BASE = 'https://api.ycloud.com/v2';
+
+// Garante E.164 com DDI Brasil e prefixo "+"
+function e164(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  const withCountry = d.startsWith('55') ? d : `55${d}`;
+  return `+${withCountry}`;
+}
+
+async function call(apiKey, path, body) {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = json?.message || json?.whatsappApiError?.message || `YCloud HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.details = json;
+    throw err;
+  }
+  return json;
+}
+
+// Texto livre (dentro da janela de 24h após o cliente responder)
+async function sendText({ apiKey, from }, to, text) {
+  return call(apiKey, '/whatsapp/messages/sendDirectly', {
+    from: e164(from),
+    to: e164(to),
+    type: 'text',
+    text: { body: String(text).slice(0, 4096) },
+  });
+}
+
+// Imagem por URL pública + legenda
+async function sendImage({ apiKey, from }, to, link, caption = '') {
+  return call(apiKey, '/whatsapp/messages/sendDirectly', {
+    from: e164(from),
+    to: e164(to),
+    type: 'image',
+    image: { link, caption: caption || undefined },
+  });
+}
+
+// Template aprovado (única forma fora da janela de 24h)
+async function sendTemplate({ apiKey, from }, to, templateName, language = 'pt_BR', variables = []) {
+  const components = variables.length > 0 ? [{
+    type: 'body',
+    parameters: variables.map((v) => ({ type: 'text', text: String(v) })),
+  }] : [];
+  return call(apiKey, '/whatsapp/messages/sendDirectly', {
+    from: e164(from),
+    to: e164(to),
+    type: 'template',
+    template: { name: templateName, language: { code: language }, components },
+  });
+}
+
+// Normaliza o payload do webhook de entrada para o formato interno do app
+// Evento: whatsapp.inbound_message.received
+function parseInbound(event) {
+  if (event?.type !== 'whatsapp.inbound_message.received') return null;
+  const m = event.whatsappInboundMessage || {};
+  const out = {
+    wamid: m.wamid || m.id || null,
+    phone: String(m.from || '').replace(/\D/g, ''),      // cliente
+    businessPhone: String(m.to || '').replace(/\D/g, ''), // número do cliente Wayvo
+    pushName: m.customerProfile?.name || null,
+    type: m.type || 'text',
+    text: null,
+    mediaUrl: null,
+    caption: null,
+    mimeType: null,
+    timestamp: m.sendTime || new Date().toISOString(),
+  };
+  if (m.type === 'text') out.text = m.text?.body || '';
+  else if (m.image) { out.mediaUrl = m.image.link; out.caption = m.image.caption || null; out.mimeType = m.image.mime_type || 'image/jpeg'; }
+  else if (m.video) { out.mediaUrl = m.video.link; out.caption = m.video.caption || null; out.mimeType = m.video.mime_type || 'video/mp4'; }
+  else if (m.audio) { out.mediaUrl = m.audio.link; out.mimeType = m.audio.mime_type || 'audio/ogg'; }
+  else if (m.document) { out.mediaUrl = m.document.link; out.caption = m.document.caption || null; out.mimeType = m.document.mime_type || 'application/octet-stream'; }
+  return out;
+}
+
+module.exports = { sendText, sendImage, sendTemplate, parseInbound, e164 };

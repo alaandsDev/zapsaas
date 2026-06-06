@@ -7,6 +7,7 @@ const { createClient } = require('@supabase/supabase-js');
 const wpp = require('./whatsapp');
 const workflowEngine = require('./workflow-engine');
 const wppCloud = require('./whatsapp_cloud');
+const ycloud = require('./ycloud');
 const zenvia = require('./zenvia');
 const Stripe = require('stripe');
 const cron = require('node-cron');
@@ -5419,6 +5420,41 @@ async function recalcScore(userId, leadId) {
     await supabase.from('leads').update({ score }).eq('id', leadId);
   } catch {}
 }
+
+// ════════════════════════════════════════════════════════════
+// YCLOUD (BSP oficial) — teste de envio + webhook de entrada
+// ════════════════════════════════════════════════════════════
+
+// Teste de envio — só owner/admin. Body: { from, to, message }
+app.post('/api/ycloud/test-send', requireAuth, blockAgents, async (req, res) => {
+  try {
+    const apiKey = process.env.YCLOUD_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'YCLOUD_API_KEY não configurada no servidor' });
+    const { from, to, message } = req.body;
+    if (!from || !to || !message) return res.status(400).json({ error: 'from, to e message são obrigatórios' });
+    const r = await ycloud.sendText({ apiKey, from }, to, message);
+    res.json({ ok: true, result: r });
+  } catch (e) {
+    console.error('[ycloud/test-send]', e.message, e.details || '');
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Webhook de entrada do YCloud — recebe mensagens dos clientes
+app.post('/api/ycloud/webhook', async (req, res) => {
+  res.sendStatus(200); // responde rápido sempre
+  try {
+    const parsed = ycloud.parseInbound(req.body);
+    if (!parsed) return;
+    console.log('[ycloud webhook] inbound', JSON.stringify({
+      from: parsed.phone, to: parsed.businessPhone, type: parsed.type,
+      text: (parsed.text || '').slice(0, 60), name: parsed.pushName,
+    }));
+    // TODO: persistir em chats/chat_messages + criar lead + SSE (fase 2)
+  } catch (e) {
+    console.error('[ycloud webhook] erro:', e.message);
+  }
+});
 
 // Handler de erros — captura uploads grandes (multer) e devolve JSON amigável
 app.use((err, req, res, next) => {
