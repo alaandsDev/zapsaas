@@ -1313,8 +1313,8 @@ app.get('/api/stats', requireAuth, async (req, res) => {
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', userId).gte('last_interaction_at', since30d),
       supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', userId),
       supabase.from('dispatches').select('*', { count: 'exact', head: true }).eq('user_id', userId),
-      // Soma de mensagens enviadas via RPC para não limitar em 1000 linhas
-      supabase.rpc('sum_dispatches_sent', { p_user_id: userId }).then((r) => ({ count: r.data ?? 0 })),
+      // Mensagens enviadas = todas as mensagens de saída (igual ao gráfico de performance)
+      supabase.from('chat_messages').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('direction', 'out').then((r) => ({ count: r.count ?? 0 })),
       supabase.from('leads').select('id, name, phone, status, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(5)
     ]);
 
