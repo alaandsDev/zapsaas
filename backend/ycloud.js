@@ -4,15 +4,20 @@
 
 const BASE = 'https://api.ycloud.com/v2';
 
-// Normaliza para E.164. Respeita números já internacionais (com "+" ou DDI).
-// Só assume Brasil (55) quando é um número local de 10-11 dígitos sem "+".
+// Internacional puro: só normaliza com "+". Usar no "from" (número já registrado).
+function intl(phone) {
+  const d = String(phone || '').replace(/\D/g, '');
+  return d ? `+${d}` : '';
+}
+
+// Destino: pode vir como número local brasileiro. Adiciona DDI 55 quando faltar.
 function e164(phone) {
   const raw = String(phone || '').trim();
   const d = raw.replace(/\D/g, '');
   if (!d) return '';
-  if (raw.startsWith('+')) return `+${d}`;       // já veio internacional (ex: +1..., +55...)
+  if (raw.startsWith('+')) return `+${d}`;       // já internacional
   if (d.length <= 11) return `+55${d}`;          // brasileiro sem DDI (DDD + número)
-  return `+${d}`;                                // já tem DDI (ex: 5513..., 1555...)
+  return `+${d}`;                                // já tem DDI
 }
 
 async function call(apiKey, path, body) {
@@ -39,7 +44,7 @@ async function call(apiKey, path, body) {
 // Texto livre (dentro da janela de 24h após o cliente responder)
 async function sendText({ apiKey, from }, to, text) {
   return call(apiKey, '/whatsapp/messages/sendDirectly', {
-    from: e164(from),
+    from: intl(from),
     to: e164(to),
     type: 'text',
     text: { body: String(text).slice(0, 4096) },
@@ -49,7 +54,7 @@ async function sendText({ apiKey, from }, to, text) {
 // Imagem por URL pública + legenda
 async function sendImage({ apiKey, from }, to, link, caption = '') {
   return call(apiKey, '/whatsapp/messages/sendDirectly', {
-    from: e164(from),
+    from: intl(from),
     to: e164(to),
     type: 'image',
     image: { link, caption: caption || undefined },
@@ -63,7 +68,7 @@ async function sendTemplate({ apiKey, from }, to, templateName, language = 'pt_B
     parameters: variables.map((v) => ({ type: 'text', text: String(v) })),
   }] : [];
   return call(apiKey, '/whatsapp/messages/sendDirectly', {
-    from: e164(from),
+    from: intl(from),
     to: e164(to),
     type: 'template',
     template: { name: templateName, language: { code: language }, components },
