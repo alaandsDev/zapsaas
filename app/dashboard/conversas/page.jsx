@@ -346,10 +346,19 @@ export default function Conversas() {
     if (!activeChat?.id) return;
     try {
       const list = await api(`/api/chats/${activeChat.id}/messages`);
-      setMsgs(list || []);
+      const server = list || [];
+      // Mescla: preserva mensagens locais recentes (<60s) que o servidor ainda
+      // não devolveu, para o reload do polling nunca "sumir" com o que acabou de enviar.
+      setMsgs((prev) => {
+        const recentLocal = prev.filter((m) =>
+          (String(m.id).startsWith("tmp_") || String(m.id).startsWith("sse_")) &&
+          Date.now() - new Date(m.timestamp).getTime() < 60_000 &&
+          !server.some((s) => s.direction === m.direction && (s.text || "") === (m.text || ""))
+        );
+        return [...server, ...recentLocal];
+      });
     } catch {}
-    // Depende só do ID: evita recarregar (e perder msg otimista) quando
-    // só metadados do chat mudam (foto de perfil, unread via SSE).
+    // Depende só do ID: evita recarregar quando só metadados mudam (foto, unread via SSE).
   }, [activeChat?.id]);
 
   // ── Init ────────────────────────────────────────────────────────────────────
