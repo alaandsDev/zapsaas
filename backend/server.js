@@ -3399,12 +3399,12 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
         await supabase.from('chats').update({ last_message: message, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
       }
       if (chat?.id) {
-        await supabase.from('chat_messages').insert({
+        const { error: insErr } = await supabase.from('chat_messages').insert({
           chat_id: chat.id, user_id: uid(req),
           direction: 'out', type: 'text', text: message,
           status: 'sent', timestamp: ts,
-          external_id: r?.messages?.[0]?.id || null,
         });
+        if (insErr) console.error('[chats/send cloud] insert msg:', insErr.message);
         sseSend(req.user.id, 'message', {
           chatId: chat.id, slot: 0, phone: cleanedPhone,
           direction: 'out', type: 'text', text: message, timestamp: ts,
@@ -3467,19 +3467,18 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
       await supabase.from('chats').update({ last_message: lastPreview, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
     }
     if (chat?.id) {
-      await supabase.from('chat_messages').insert({
+      const { error: insErr } = await supabase.from('chat_messages').insert({
         chat_id: chat.id, user_id: uid(req),
         direction: 'out', type: msgType,
         text: message || null,
         media_url: mediaUrl || null,
-        media_filename: mediaFilename || null,
         status: 'sent', timestamp: ts,
       });
+      if (insErr) console.error('[chats/send] insert msg:', insErr.message);
       sseSend(req.user.id, 'message', {
         chatId: chat.id, slot: useSlot, phone: cleanedPhone,
         direction: 'out', type: msgType,
-        text: message || null, media_url: mediaUrl || null,
-        media_filename: mediaFilename || null, timestamp: ts,
+        text: message || null, media_url: mediaUrl || null, timestamp: ts,
       });
     }
     res.json({ ok: true, sentTo: r?.to });
@@ -3544,19 +3543,18 @@ app.post('/api/chats/send-media', requireAuth, upload.single('file'), async (req
       }).eq('id', chat.id);
     }
     if (chat?.id) {
-      await supabase.from('chat_messages').insert({
+      const { error: insErr } = await supabase.from('chat_messages').insert({
         chat_id: chat.id, user_id: userId,
         direction: 'out', type: msgType,
         text: caption || null,
         media_url: mediaUrl,
-        media_filename: originalname,
         status: 'sent', timestamp: ts,
       });
+      if (insErr) console.error('[chats/send-media] insert msg:', insErr.message);
       sseSend(userId, 'message', {
         chatId: chat.id, slot: useSlot, phone: cleanedPhone,
         direction: 'out', type: msgType,
-        text: caption || null, media_url: mediaUrl,
-        media_filename: originalname, timestamp: ts,
+        text: caption || null, media_url: mediaUrl, timestamp: ts,
       });
     }
     res.json({ ok: true, mediaUrl });
