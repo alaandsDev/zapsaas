@@ -22,7 +22,9 @@ async function call(apiKey, path, body) {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = json?.message || json?.whatsappApiError?.message || `YCloud HTTP ${res.status}`;
+    const detail = json?.error?.message || json?.message || json?.whatsappApiError?.message
+      || (Object.keys(json).length ? JSON.stringify(json).slice(0, 300) : '');
+    const msg = `YCloud HTTP ${res.status}${detail ? ' — ' + detail : ''}`;
     const err = new Error(msg);
     err.details = json;
     throw err;
