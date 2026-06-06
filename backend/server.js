@@ -2248,8 +2248,8 @@ app.post('/api/sms/purchase', requireAuth, async (req, res) => {
         packageId,
         credits: String(pkg.credits)
       },
-      success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/dashboard/sms?paid=1`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/dashboard/sms?cancelled=1`,
+      success_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/dashboard/sms?paid=1`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/dashboard/sms?cancelled=1`,
     });
 
     // Cria purchase pendente (idempotência)
@@ -4448,8 +4448,8 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       phone_number_collection: { enabled: true },
       tax_id_collection: { enabled: true },
       line_items: [{ price: plan.priceId, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=success&plan=${planId}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/?payment=success&plan=${planId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/?payment=cancelled`,
       metadata: { userId: uid(req), planId },
     });
 
@@ -4467,7 +4467,7 @@ app.post('/api/stripe/portal', requireAuth, async (req, res) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripe_customer_id,
-      return_url: process.env.FRONTEND_URL || 'https://zapsaas.vercel.app',
+      return_url: process.env.FRONTEND_URL || 'https://www.wayvo.app.br',
     });
     res.json({ url: session.url });
   } catch (e) {
@@ -4776,7 +4776,7 @@ app.post('/api/workspace/invites', requireAuth, rateLimit(60 * 60 * 1000, 20), a
     // Busca nome do dono para o email
     const { data: owner } = await supabase.from('users').select('name').eq('id', ownerId).single();
     const ownerName = owner?.name || 'Um usuário';
-    const acceptUrl = `${process.env.FRONTEND_URL || 'https://zapsaas.vercel.app'}/convite/${token}`;
+    const acceptUrl = `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/convite/${token}`;
 
     // Envia email de convite
     await sendEmail({

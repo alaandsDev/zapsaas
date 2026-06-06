@@ -7,7 +7,7 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM_EMAIL     = process.env.FROM_EMAIL     || 'Wayvo <noreply@wayvo.com.br>';
-const FRONTEND_URL   = process.env.FRONTEND_URL   || 'https://zapsaas.vercel.app';
+const FRONTEND_URL   = process.env.FRONTEND_URL   || 'https://www.wayvo.app.br';
 
 // ── base send ────────────────────────────────────────────────────
 async function sendEmail({ to, subject, html }) {
