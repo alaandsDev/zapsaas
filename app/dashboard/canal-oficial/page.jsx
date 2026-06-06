@@ -304,22 +304,27 @@ function YCloudTestCard() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null); // { ok, text }
 
-  async function send() {
+  async function send(body, okText) {
     setResult(null);
-    if (!from.trim() || !to.trim() || !msg.trim()) {
-      setResult({ ok: false, text: "Preencha número YCloud, destino e mensagem." });
+    if (!from.trim() || !to.trim()) {
+      setResult({ ok: false, text: "Preencha número YCloud e destino." });
       return;
     }
     setSending(true);
     try {
-      await api("/api/ycloud/test-send", { method: "POST", body: { from: from.trim(), to: to.trim(), message: msg.trim() } });
-      setResult({ ok: true, text: "Enviado! Confira o WhatsApp do destino." });
+      await api("/api/ycloud/test-send", { method: "POST", body: { from: from.trim(), to: to.trim(), ...body } });
+      setResult({ ok: true, text: okText });
     } catch (e) {
       setResult({ ok: false, text: e.message || "Falha ao enviar" });
     } finally {
       setSending(false);
     }
   }
+  const sendText = () => {
+    if (!msg.trim()) return setResult({ ok: false, text: "Digite a mensagem." });
+    send({ message: msg.trim() }, "Aceito! (texto livre só entrega dentro da janela de 24h)");
+  };
+  const sendTemplate = () => send({ template: "hello_world", language: "en_US" }, "Template enviado! Deve chegar no destino.");
 
   return (
     <section className="rounded-2xl border border-secondary/30 bg-secondary/[0.04] p-4">
@@ -336,16 +341,21 @@ function YCloudTestCard() {
         <input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Mensagem"
           className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-secondary/40" />
       </div>
-      <div className="flex items-center gap-3">
-        <button onClick={send} disabled={sending}
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={sendTemplate} disabled={sending}
           className="px-4 py-2 rounded-lg text-xs font-semibold text-bg disabled:opacity-60"
           style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}>
-          {sending ? "Enviando..." : "Enviar teste"}
+          {sending ? "Enviando..." : "Enviar template (hello_world) ✅"}
+        </button>
+        <button onClick={sendText} disabled={sending}
+          className="px-4 py-2 rounded-lg text-xs font-medium text-ink-200 border border-white/[0.12] hover:bg-white/[0.04] disabled:opacity-60">
+          Enviar texto livre
         </button>
         {result && (
           <span className={`text-xs ${result.ok ? "text-primary" : "text-red-400"}`}>{result.text}</span>
         )}
       </div>
+      <p className="text-[10px] text-ink-600 mt-2">Use o template para testar a entrega real. Texto livre só chega depois que o cliente responde (janela de 24h).</p>
     </section>
   );
 }

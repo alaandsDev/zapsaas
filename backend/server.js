@@ -5425,14 +5425,22 @@ async function recalcScore(userId, leadId) {
 // YCLOUD (BSP oficial) — teste de envio + webhook de entrada
 // ════════════════════════════════════════════════════════════
 
-// Teste de envio — só owner/admin. Body: { from, to, message }
+// Teste de envio — só owner/admin.
+// Body: { from, to, message }  → texto livre (só entrega dentro da janela 24h)
+//       { from, to, template, language } → template aprovado (entrega iniciando conversa)
 app.post('/api/ycloud/test-send', requireAuth, blockAgents, async (req, res) => {
   try {
     const apiKey = process.env.YCLOUD_API_KEY;
     if (!apiKey) return res.status(400).json({ error: 'YCLOUD_API_KEY não configurada no servidor' });
-    const { from, to, message } = req.body;
-    if (!from || !to || !message) return res.status(400).json({ error: 'from, to e message são obrigatórios' });
-    const r = await ycloud.sendText({ apiKey, from }, to, message);
+    const { from, to, message, template, language } = req.body;
+    if (!from || !to) return res.status(400).json({ error: 'from e to são obrigatórios' });
+    let r;
+    if (template) {
+      r = await ycloud.sendTemplate({ apiKey, from }, to, template, language || 'en_US', []);
+    } else {
+      if (!message) return res.status(400).json({ error: 'message obrigatório' });
+      r = await ycloud.sendText({ apiKey, from }, to, message);
+    }
     res.json({ ok: true, result: r });
   } catch (e) {
     console.error('[ycloud/test-send]', e.message, e.details || '');
