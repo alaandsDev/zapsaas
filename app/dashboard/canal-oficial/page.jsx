@@ -1146,7 +1146,8 @@ export default function CanalOficialPage() {
               </section>
             )}
 
-            {/* ESTIMATIVA DE CUSTOS */}
+            {/* ESTIMATIVA DE CUSTOS — oculta do cliente final por enquanto (trocar para true p/ reexibir) */}
+            {false && (
             <section className="glass p-5">
               <h2 className="font-semibold flex items-center gap-2"><Wallet className="size-4 text-primary" /> Estimativa de custos</h2>
               <p className="text-xs text-ink-500 mt-0.5 mb-4">Projeção por volume diário de conversas</p>
@@ -1187,6 +1188,7 @@ export default function CanalOficialPage() {
                 </a>.
               </p>
             </section>
+            )}
 
             {/* DIAGNÓSTICO */}
             <section className="glass p-5">
