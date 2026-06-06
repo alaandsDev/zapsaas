@@ -550,6 +550,8 @@ export default function Conversas() {
   async function sendFile(file, caption = "") {
     if (!file || !activeChat) return;
     setUploadingFile(true);
+    const cap = caption || draft.trim();
+    setDraft(""); // legenda enviada com a mídia — limpa o campo
     const tempId = `tmp_${Date.now()}`;
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
@@ -558,7 +560,7 @@ export default function Conversas() {
     const localUrl = URL.createObjectURL(file);
     setMsgs((m) => [...m, {
       id: tempId, direction: "out", type: msgType,
-      text: caption || null, media_url: localUrl,
+      text: cap || null, media_url: localUrl,
       status: "pending", timestamp: new Date().toISOString(),
     }]);
     try {
@@ -567,7 +569,7 @@ export default function Conversas() {
       form.append("file", file);
       form.append("slot", String(activeChat.slot));
       form.append("phone", activeChat.phone);
-      form.append("caption", caption || draft.trim());
+      form.append("caption", cap);
       const res = await fetch(`${API_URL}/api/chats/send-media`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
