@@ -7,7 +7,14 @@ import {
   Radio, BadgeCheck, LifeBuoy, Pin, Sparkles,
   MoreHorizontal, Kanban,
 } from "lucide-react";
-import { api } from "../../lib/api";
+import { api, getRole } from "../../lib/api";
+
+// Páginas que cada cargo pode ver. Owner/Admin veem tudo.
+const AGENT_ALLOWED = new Set(["/dashboard/conversas", "/dashboard/crm"]);
+function canSee(role, href) {
+  if (role === "agent") return AGENT_ALLOWED.has(href);
+  return true; // owner e admin veem tudo
+}
 
 const SECTIONS = [
   {
@@ -57,7 +64,14 @@ export default function Sidebar() {
   const [usage, setUsage] = useState(null);
   const [pinned, setPinned] = useState(false);
   const [hover, setHover] = useState(false);
+  const [role, setRole] = useState("owner");
   const ref = useRef(null);
+
+  useEffect(() => { setRole(getRole()); }, []);
+  // Esconde seções/itens que o cargo não pode ver
+  const sections = SECTIONS
+    .map((s) => ({ ...s, items: s.items.filter((it) => canSee(role, it.href)) }))
+    .filter((s) => s.items.length > 0);
 
   useEffect(() => { api("/api/usage").then(setUsage).catch(() => {}); }, [pathname]);
   useEffect(() => { if (localStorage.getItem("sidebar_pinned") === "1") setPinned(true); }, []);
@@ -73,8 +87,9 @@ export default function Sidebar() {
 
   const openCopilot = () => window.dispatchEvent(new CustomEvent("wayvo:open-copilot"));
   const [mobileExpanded, setMobileExpanded] = useState(false);
-  const mobilePrimary = ALL.filter((it) => MOBILE_PRIMARY.includes(it.href));
-  const mobileSecondary = ALL.filter((it) => !MOBILE_PRIMARY.includes(it.href));
+  const visibleAll = ALL.filter((it) => canSee(role, it.href));
+  const mobilePrimary = visibleAll.filter((it) => MOBILE_PRIMARY.includes(it.href));
+  const mobileSecondary = visibleAll.filter((it) => !MOBILE_PRIMARY.includes(it.href));
 
   const NavLink = ({ item }) => {
     const active = isActive(item);
@@ -158,7 +173,7 @@ export default function Sidebar() {
 
         {/* Nav por categorias */}
         <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden space-y-4">
-          {SECTIONS.map((sec) => (
+          {sections.map((sec) => (
             <div key={sec.title}>
               {expanded ? (
                 <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-600">{sec.title}</div>

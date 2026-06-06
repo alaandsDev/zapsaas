@@ -1,20 +1,28 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { getToken, getUser } from "../../lib/api";
+import { useRouter, usePathname } from "next/navigation";
+import { getToken, getRole } from "../../lib/api";
+
+// Páginas que o Agent pode acessar (mesma lista do Sidebar)
+const AGENT_ALLOWED = ["/dashboard/conversas", "/dashboard/crm"];
 
 export default function AuthGuard({ children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [ok, setOk] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
       router.replace("/login");
-    } else {
-      setOk(true);
+      return;
     }
-  }, [router]);
+    // Agent tentando acessar página bloqueada → manda pra Conversas
+    if (getRole() === "agent" && !AGENT_ALLOWED.some((p) => pathname.startsWith(p))) {
+      router.replace("/dashboard/conversas");
+      return;
+    }
+    setOk(true);
+  }, [router, pathname]);
 
   if (!ok) {
     return (
@@ -24,18 +32,14 @@ export default function AuthGuard({ children }) {
     );
   }
 
-  const user = getUser();
-  const isAgent = !!user?.workspace_owner_id;
+  const isAgent = getRole() === "agent";
 
   return (
     <>
       {isAgent && (
         <div className="fixed top-0 inset-x-0 z-[60] flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium bg-blue-600/90 backdrop-blur-sm text-white">
           <span className="size-1.5 rounded-full bg-blue-300 animate-pulse" />
-          Modo Agente — operando no workspace de outro usuário
-          <Link href="/dashboard/configuracoes" className="underline underline-offset-2 opacity-80 hover:opacity-100 ml-2">
-            Ver equipe
-          </Link>
+          Modo Agente
         </div>
       )}
       <div className={isAgent ? "pt-7" : ""}>{children}</div>

@@ -521,6 +521,15 @@ async function requireAuth(req, res, next) {
 // Helper: retorna o userId efetivo (owner ID para agentes, próprio ID para owners)
 function uid(req) { return req.user.effectiveId || req.user.id; }
 
+// Middleware: bloqueia agentes em ações sensíveis (campanhas, canais, faturamento).
+// Owner e admin passam.
+function blockAgents(req, res, next) {
+  if (req.user?.workspaceRole === 'agent') {
+    return res.status(403).json({ error: 'Seu cargo não tem permissão para esta ação.' });
+  }
+  next();
+}
+
 // Limpa cache de auth expirado a cada 5 minutos
 setInterval(() => {
   const now = Date.now();
@@ -899,7 +908,7 @@ app.get('/api/dispatches', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/dispatches', requireAuth, rateLimit(60 * 1000, 10), async (req, res) => {
+app.post('/api/dispatches', requireAuth, blockAgents, rateLimit(60 * 1000, 10), async (req, res) => {
   try {
     const { messageId, contactIds, scheduledAt, useWhatsapp, dualChip, channel, mediaUrl, mediaMimetype, mediaFilename, sourceSessionSlot } = req.body;
     if (!messageId || !contactIds?.length) {
@@ -3637,7 +3646,7 @@ app.post('/api/whatsapp/sessions/:slot/disconnect', requireAuth, async (req, res
 });
 
 // Manter rotas antigas funcionando (slot 1 = padrão)
-app.post('/api/whatsapp/connect', requireAuth, async (req, res) => {
+app.post('/api/whatsapp/connect', requireAuth, blockAgents, async (req, res) => {
   try {
     const key = sessionKey(uid(req), 1);
     const result = await wpp.createSession(key);
@@ -3651,7 +3660,7 @@ app.get('/api/whatsapp/status', requireAuth, async (req, res) => {
   res.json(wpp.getStatus(sessionKey(uid(req), 1)));
 });
 
-app.post('/api/whatsapp/disconnect', requireAuth, async (req, res) => {
+app.post('/api/whatsapp/disconnect', requireAuth, blockAgents, async (req, res) => {
   try {
     await wpp.disconnectSession(sessionKey(uid(req), 1));
     res.json({ message: 'Desconectado com sucesso' });
@@ -3661,7 +3670,7 @@ app.post('/api/whatsapp/disconnect', requireAuth, async (req, res) => {
 });
 
 // Iniciar / conectar sessão (gera QR)
-app.post('/api/whatsapp/connect_legacy', requireAuth, async (req, res) => {
+app.post('/api/whatsapp/connect_legacy', requireAuth, blockAgents, async (req, res) => {
   try {
     const sessionId = req.user.id;
     const result = await wpp.createSession(sessionId);
@@ -3750,7 +3759,7 @@ app.post('/api/whatsapp/dispatch', requireAuth, async (req, res) => {
 });
 
 // Disparo em massa por lista de números diretos (contatos importados)
-app.post('/api/whatsapp/bulk', requireAuth, rateLimit(60 * 1000, 5), async (req, res) => {
+app.post('/api/whatsapp/bulk', requireAuth, blockAgents, rateLimit(60 * 1000, 5), async (req, res) => {
   try {
     const { phones, message, delay, pauseEvery, pauseDuration, scheduledAt, dualChip, mediaUrl, mediaMimetype, mediaFilename, channel, sourceSessionSlot } = req.body;
     if (!message || !phones?.length) {
