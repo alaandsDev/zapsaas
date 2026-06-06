@@ -395,6 +395,66 @@ function YCloudTestCard() {
   );
 }
 
+/* ════════════════════ NÚMEROS YCLOUD ════════════════════ */
+function YCloudNumbersCard() {
+  const [list, setList] = useState([]);
+  const [phone, setPhone] = useState("");
+  const [label, setLabel] = useState("");
+  const [err, setErr] = useState("");
+
+  const load = useCallback(() => {
+    api("/api/ycloud/numbers").then(d => setList(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function add() {
+    setErr("");
+    if (!phone.trim()) { setErr("Informe o número."); return; }
+    try {
+      await api("/api/ycloud/numbers", { method: "POST", body: { phone: phone.trim(), label: label.trim() || undefined } });
+      setPhone(""); setLabel(""); load();
+    } catch (e) { setErr(e.message || "Falha ao cadastrar"); }
+  }
+  async function remove(id) {
+    try { await api(`/api/ycloud/numbers/${id}`, { method: "DELETE" }); load(); } catch {}
+  }
+
+  return (
+    <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Building2 className="size-4 text-ink-400" />
+        <h3 className="text-sm font-semibold text-ink-100">Números YCloud (oficial)</h3>
+      </div>
+      <p className="text-[11px] text-ink-500 mb-3">Cadastre o número da empresa para receber mensagens dele aqui no Wayvo. Use só dígitos com DDI (ex: 15559850060).</p>
+
+      <div className="flex flex-wrap gap-2 mb-3">
+        <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Número (ex: 15559850060)"
+          className="flex-1 min-w-[180px] bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-primary/40" />
+        <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Apelido (opcional)"
+          className="flex-1 min-w-[140px] bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-primary/40" />
+        <button onClick={add} className="px-4 py-2 rounded-lg text-xs font-semibold text-bg" style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
+          Cadastrar
+        </button>
+      </div>
+      {err && <p className="text-xs text-red-400 mb-2">{err}</p>}
+
+      {list.length > 0 ? (
+        <div className="space-y-1.5">
+          {list.map(n => (
+            <div key={n.id} className="flex items-center gap-2 text-xs bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
+              <span className="font-medium text-ink-100">+{n.phone}</span>
+              {n.label && <span className="text-ink-500">· {n.label}</span>}
+              <button onClick={() => remove(n.id)} className="ml-auto text-ink-500 hover:text-red-400">remover</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-ink-600">Nenhum número cadastrado ainda.</p>
+      )}
+    </section>
+  );
+}
+
 /* ════════════════════ PÁGINA PRINCIPAL ════════════════════ */
 export default function CanalOficialPage() {
   /* config */
@@ -700,6 +760,9 @@ export default function CanalOficialPage() {
 
         {/* ── TESTE YCLOUD ── */}
         <YCloudTestCard />
+
+        {/* ── NÚMEROS YCLOUD ── */}
+        <YCloudNumbersCard />
 
         {/* ── HEALTH SCORE ── */}
         <HealthScore config={config} account={account} quality={quality} templates={templates} verify={verify} />
