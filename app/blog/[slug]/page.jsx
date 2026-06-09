@@ -4,6 +4,7 @@ import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
 import JsonLd from "../../../components/JsonLd";
 import { getPost, getAllPosts, fmtDate } from "../../../lib/blog";
+import BlogImage from "../../../components/BlogImage";
 
 const SITE = "https://www.wayvo.app.br";
 
@@ -86,9 +87,11 @@ export default function BlogPost({ params }) {
           <span>{post.readingMinutes} min de leitura</span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-ink-50 leading-tight mb-8">
+        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-ink-50 leading-tight mb-6">
           {post.title}
         </h1>
+
+        <BlogImage cover={post.cover} height="h-64" className="rounded-2xl border border-white/[0.08] mb-8" />
 
         <article>
           {post.content.map((b, i) => <Block key={i} b={b} />)}

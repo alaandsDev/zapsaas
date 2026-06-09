@@ -2,6 +2,7 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { getAllPosts, fmtDate } from "../../lib/blog";
+import BlogImage from "../../components/BlogImage";
 
 export const metadata = {
   title: "Blog — Estratégias de vendas pelo WhatsApp",
@@ -35,12 +36,7 @@ export default function BlogIndex() {
         <div className="grid sm:grid-cols-2 gap-6">
           {posts.map((p) => (
             <Link key={p.slug} href={`/blog/${p.slug}`} className="card-hover group overflow-hidden">
-              <div className="h-40 relative flex items-center justify-center text-5xl"
-                style={{ background: `linear-gradient(135deg, ${p.cover.from}22, ${p.cover.to}22)` }}>
-                <div className="absolute inset-0 opacity-30"
-                  style={{ background: `radial-gradient(circle at 30% 30%, ${p.cover.from}40, transparent 60%)` }} />
-                <span className="relative">{p.cover.icon}</span>
-              </div>
+              <BlogImage cover={p.cover} height="h-40" />
               <div className="p-5">
                 <div className="flex items-center gap-2 text-[11px] text-ink-500 mb-2">
                   <span className="badge-muted">{p.tag}</span>
