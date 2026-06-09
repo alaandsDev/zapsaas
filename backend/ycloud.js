@@ -112,6 +112,13 @@ function parseInbound(event) {
   else if (m.video) { out.mediaUrl = m.video.link; out.caption = m.video.caption || null; out.mimeType = m.video.mime_type || 'video/mp4'; }
   else if (m.audio) { out.mediaUrl = m.audio.link; out.mimeType = m.audio.mime_type || 'audio/ogg'; }
   else if (m.document) { out.mediaUrl = m.document.link; out.caption = m.document.caption || null; out.mimeType = m.document.mime_type || 'application/octet-stream'; }
+  // Resposta de botão de template (quick reply)
+  else if (m.button) { out.type = 'text'; out.text = m.button.text || m.button.payload || '(botão)'; }
+  // Resposta de botão/lista interativa
+  else if (m.interactive) {
+    out.type = 'text';
+    out.text = m.interactive.button_reply?.title || m.interactive.list_reply?.title || '(interativo)';
+  }
   return out;
 }
 
