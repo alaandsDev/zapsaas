@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
-import ComingSoonOverlay from "../../../components/dashboard/ComingSoonOverlay";
 
 export default function SmsPage() {
   const [balance, setBalance] = useState(0);
+  const [base, setBase] = useState(0);
+  const [paid, setPaid] = useState(0);
   const [packages, setPackages] = useState([]);
   const [phones, setPhones] = useState("");
   const [message, setMessage] = useState("");
@@ -18,6 +19,8 @@ export default function SmsPage() {
     try {
       const b = await api("/api/sms/balance");
       setBalance(b.credits);
+      setBase(b.base ?? 0);
+      setPaid(b.paid ?? 0);
       setPackages(b.packages);
       const h = await api("/api/sms/dispatches");
       setHistory(h);
@@ -79,7 +82,7 @@ export default function SmsPage() {
   const totalCost = segments * parsePhones().length;
 
   return (
-    <ComingSoonOverlay title="SMS em breve">
+    <>
       <div className="page-x">
       <header className="mb-8 flex items-end justify-between flex-wrap gap-4">
         <div>
@@ -91,8 +94,11 @@ export default function SmsPage() {
             <svg className="size-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </div>
           <div>
-            <div className="text-xs text-ink-400 uppercase tracking-wider">Saldo</div>
+            <div className="text-xs text-ink-400 uppercase tracking-wider">Saldo total</div>
             <div className="text-2xl font-bold">{balance} <span className="text-sm text-ink-300 font-normal">SMS</span></div>
+            <div className="text-[11px] text-ink-500 mt-0.5">
+              {base} base <span className="text-ink-600">(renova/mês)</span> · {paid} comprados
+            </div>
           </div>
         </div>
       </header>
@@ -186,6 +192,6 @@ export default function SmsPage() {
         </div>
       </section>
       </div>
-    </ComingSoonOverlay>
+    </>
   );
 }

@@ -31,6 +31,7 @@ const SECTIONS = [
     title: "Automação",
     items: [
       { href: "/dashboard/campanhas", label: "Campanhas", Icon: Megaphone },
+      { href: "/dashboard/sms", label: "SMS", Icon: MessageSquare },
     ],
   },
   {
