@@ -7,6 +7,7 @@ export default function SmsPage() {
   const [base, setBase] = useState(0);
   const [paid, setPaid] = useState(0);
   const [packages, setPackages] = useState([]);
+  const [lists, setLists] = useState([]);
   const [phones, setPhones] = useState("");
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("");
@@ -24,9 +25,24 @@ export default function SmsPage() {
       setPackages(b.packages);
       const h = await api("/api/sms/dispatches");
       setHistory(h);
+      const ls = await api("/api/lists").catch(() => []);
+      setLists(Array.isArray(ls) ? ls : []);
     } catch (e) { setErr(e.message); }
   }
   useEffect(() => { load(); }, []);
+
+  // Preenche os contatos a partir de uma lista salva (nome|número)
+  function importList(listId) {
+    const list = lists.find((l) => l.id === listId);
+    if (!list) return;
+    const contacts = Array.isArray(list.contacts) ? list.contacts : [];
+    const lines = contacts.map((c) => {
+      const phone = String(c.NUMERO || c.phone || c.telefone || c.numero || c.número || "").replace(/\D/g, "");
+      const name = c.NOME || c.name || c.nome || c.Nome || "";
+      return phone ? `${phone}${name ? "|" + name : ""}` : null;
+    }).filter(Boolean);
+    setPhones(lines.join("\n"));
+  }
 
   async function buy(packageId) {
     setErr(""); setOk("");
@@ -131,6 +147,20 @@ export default function SmsPage() {
               className="mt-1 w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-primary"
               placeholder="Ex: Promoção quinta" />
           </div>
+          {lists.length > 0 && (
+            <div>
+              <label className="text-xs text-ink-400 uppercase tracking-wider">Importar de uma lista</label>
+              <select onChange={(e) => { if (e.target.value) importList(e.target.value); e.target.value = ""; }}
+                defaultValue=""
+                className="mt-1 w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-primary text-sm">
+                <option value="">Selecione uma lista…</option>
+                {lists.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name} ({(l.contacts?.length ?? l.total ?? 0)} contatos)</option>
+                ))}
+              </select>
+              <div className="text-xs text-ink-500 mt-1">Puxa nome + número da lista para o campo abaixo.</div>
+            </div>
+          )}
           <div>
             <label className="text-xs text-ink-400 uppercase tracking-wider">Contatos (1 por linha — pode ser <code>número|nome</code>)</label>
             <textarea value={phones} onChange={(e) => setPhones(e.target.value)} rows={6}
