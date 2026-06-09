@@ -3394,12 +3394,19 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
 
       // Preferência: YCloud (BSP) se o usuário tiver número cadastrado + key
       const ycloudKey = process.env.YCLOUD_API_KEY;
-      const { data: ycNum } = await supabase.from('ycloud_numbers')
-        .select('phone').eq('user_id', uid(req)).order('created_at').limit(1).maybeSingle();
+      // Número de saída: o da conversa (via_number) se houver; senão o primeiro cadastrado
+      const { data: existingChat } = await supabase.from('chats')
+        .select('via_number').eq('user_id', uid(req)).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
+      let fromNumber = existingChat?.via_number || null;
+      if (!fromNumber) {
+        const { data: ycNum } = await supabase.from('ycloud_numbers')
+          .select('phone').eq('user_id', uid(req)).order('created_at').limit(1).maybeSingle();
+        fromNumber = ycNum?.phone || null;
+      }
 
-      if (ycloudKey && ycNum?.phone) {
+      if (ycloudKey && fromNumber) {
         if (mediaUrl) return res.status(400).json({ error: 'Envio de mídia pelo Canal Oficial ainda não suportado nesta interface.' });
-        await ycloud.sendText({ apiKey: ycloudKey, from: ycNum.phone }, cleanedPhone, message);
+        await ycloud.sendText({ apiKey: ycloudKey, from: fromNumber }, cleanedPhone, message);
         const ts = new Date().toISOString();
         let { data: chat } = await supabase.from('chats').select('id')
           .eq('user_id', uid(req)).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
@@ -5503,11 +5510,14 @@ app.get('/api/ycloud/templates', requireAuth, blockAgents, async (req, res) => {
 // Lista
 app.get('/api/ycloud/numbers', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('ycloud_numbers')
-      .select('id, phone, waba_id, label, created_at')
-      .eq('user_id', uid(req)).order('created_at', { ascending: false });
+    const userId = uid(req);
+    const [{ data, error }, { data: owner }] = await Promise.all([
+      supabase.from('ycloud_numbers').select('id, phone, waba_id, label, created_at')
+        .eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase.from('users').select('official_numbers_limit').eq('id', userId).maybeSingle(),
+    ]);
     if (error) throw error;
-    res.json(data || []);
+    res.json({ numbers: data || [], limit: owner?.official_numbers_limit ?? 1, used: (data || []).length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5516,8 +5526,22 @@ app.post('/api/ycloud/numbers', requireAuth, blockAgents, async (req, res) => {
   try {
     const phone = String(req.body.phone || '').replace(/\D/g, '');
     if (!phone) return res.status(400).json({ error: 'Número obrigatório' });
+
+    const userId = uid(req);
+    const [{ data: owner }, { count: used }] = await Promise.all([
+      supabase.from('users').select('official_numbers_limit').eq('id', userId).maybeSingle(),
+      supabase.from('ycloud_numbers').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+    ]);
+    const limit = owner?.official_numbers_limit ?? 1;
+    if ((used || 0) >= limit) {
+      return res.status(403).json({
+        error: `Limite de números oficiais atingido (${used}/${limit}). Contrate um número adicional para liberar mais.`,
+        code: 'OFFICIAL_NUMBER_LIMIT', used, limit,
+      });
+    }
+
     const { data, error } = await supabase.from('ycloud_numbers').insert({
-      user_id: uid(req), phone, waba_id: req.body.waba_id || null, label: req.body.label || null,
+      user_id: userId, phone, waba_id: req.body.waba_id || null, label: req.body.label || null,
     }).select().single();
     if (error) {
       if (error.code === '23505') return res.status(400).json({ error: 'Este número já está cadastrado.' });
@@ -5543,13 +5567,14 @@ async function persistYcloudInbound(userId, p) {
   const ts = p.timestamp || new Date().toISOString();
   const preview = p.text || (p.mediaUrl ? '📎 mídia' : '');
 
-  // upsert do chat
+  // upsert do chat (grava o número oficial por onde a conversa entrou)
   let { data: chat } = await supabase.from('chats').select('id, unread, name')
     .eq('user_id', userId).eq('session_slot', slot).eq('phone', phone).maybeSingle();
   if (!chat) {
     const { data: created } = await supabase.from('chats').insert({
       user_id: userId, session_slot: slot, phone,
       name: p.pushName || null, last_message: preview, last_message_at: ts, unread: 1,
+      via_number: p.businessPhone || null,
     }).select('id').single();
     chat = created;
   } else {
@@ -5557,6 +5582,7 @@ async function persistYcloudInbound(userId, p) {
       last_message: preview, last_message_at: ts, updated_at: ts,
       unread: (chat.unread || 0) + 1,
       ...(p.pushName && !chat.name ? { name: p.pushName } : {}),
+      ...(p.businessPhone ? { via_number: p.businessPhone } : {}),
     }).eq('id', chat.id);
   }
   if (!chat?.id) return;

@@ -409,12 +409,17 @@ function YCloudTestCard() {
 /* ════════════════════ NÚMEROS YCLOUD ════════════════════ */
 function YCloudNumbersCard() {
   const [list, setList] = useState([]);
+  const [limit, setLimit] = useState(1);
   const [phone, setPhone] = useState("");
   const [label, setLabel] = useState("");
   const [err, setErr] = useState("");
 
   const load = useCallback(() => {
-    api("/api/ycloud/numbers").then(d => setList(Array.isArray(d) ? d : [])).catch(() => {});
+    api("/api/ycloud/numbers").then(d => {
+      const arr = Array.isArray(d) ? d : (d?.numbers || []);
+      setList(arr);
+      if (d?.limit != null) setLimit(d.limit);
+    }).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -435,8 +440,9 @@ function YCloudNumbersCard() {
       <div className="flex items-center gap-2 mb-1">
         <Building2 className="size-4 text-ink-400" />
         <h3 className="text-sm font-semibold text-ink-100">Números YCloud (oficial)</h3>
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-ink-400">{list.length}/{limit} usado(s)</span>
       </div>
-      <p className="text-[11px] text-ink-500 mb-3">Cadastre o número da empresa para receber mensagens dele aqui no Wayvo. Use só dígitos com DDI (ex: 15559850060).</p>
+      <p className="text-[11px] text-ink-500 mb-3">Cadastre o número da empresa para receber mensagens dele aqui no Wayvo. Use só dígitos com DDI (ex: 15559850060). Seu plano permite {limit} número(s) oficial(is).</p>
 
       <div className="flex flex-wrap gap-2 mb-3">
         <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Número (ex: 15559850060)"
