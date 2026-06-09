@@ -7,7 +7,7 @@ export const metadata = {
     "Plataforma operacional AI-first para WhatsApp: CRM conversacional, automação inteligente e revenue ops com copiloto de IA. Comece grátis.",
   alternates: { canonical: "/" },
   openGraph: {
-    url: "https://zapflow.vercel.app/",
+    url: "https://www.wayvo.app.br/",
     title: "Wayvo — Conversational Revenue OS para WhatsApp",
     description:
       "CRM conversacional, automação com IA e revenue ops numa só plataforma operacional.",
@@ -40,11 +40,8 @@ export default function Home() {
             { "@type": "Offer", name: "Starter", price: "0", priceCurrency: "BRL" },
             { "@type": "Offer", name: "Pro", price: "0", priceCurrency: "BRL", description: "Sob consulta" },
           ],
-          aggregateRating: {
-            "@type": "AggregateRating",
-            ratingValue: "4.9",
-            reviewCount: "127",
-          },
+          // aggregateRating removido: Google exige avaliações reais (rating falso = penalidade).
+          // Reative quando tiver reviews genuínas de clientes.
         }}
       />
       <JsonLd

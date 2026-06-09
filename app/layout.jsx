@@ -3,7 +3,7 @@ import { ToastProvider } from "../components/Toast";
 import FloatingCTA from "../components/FloatingCTA";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-const SITE_URL = "https://zapflow.vercel.app";
+const SITE_URL = "https://www.wayvo.app.br";
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),

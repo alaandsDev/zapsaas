@@ -1,4 +1,4 @@
-const SITE_URL = "https://zapflow.vercel.app";
+const SITE_URL = "https://www.wayvo.app.br";
 
 export default function sitemap() {
   const now = new Date();
