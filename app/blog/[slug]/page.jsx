@@ -76,7 +76,7 @@ export default function BlogPost({ params }) {
         }}
       />
       <Navbar />
-      <main className="max-w-2xl mx-auto px-5 pt-28 pb-20">
+      <main className="max-w-3xl mx-auto px-5 sm:px-8 pt-28 pb-20">
         <Link href="/blog" className="text-sm text-ink-500 hover:text-ink-300">← Voltar ao blog</Link>
 
         <div className="flex items-center gap-2 text-[11px] text-ink-500 mt-6 mb-3">

@@ -21,7 +21,7 @@ export default function BlogIndex() {
   return (
     <>
       <Navbar />
-      <main className="max-w-5xl mx-auto px-5 pt-28 pb-20">
+      <main className="max-w-6xl mx-auto px-5 sm:px-8 pt-28 pb-20">
         <div className="text-center mb-14">
           <span className="badge-muted">Blog</span>
           <h1 className="mt-4 text-4xl sm:text-5xl font-black tracking-tight text-ink-50">
@@ -33,7 +33,7 @@ export default function BlogIndex() {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((p) => (
             <Link key={p.slug} href={`/blog/${p.slug}`} className="card-hover group overflow-hidden">
               <BlogImage cover={p.cover} height="h-40" />
