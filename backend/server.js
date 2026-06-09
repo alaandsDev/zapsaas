@@ -742,6 +742,57 @@ app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) =>
   }
 });
 
+// Login/cadastro com Google (Google Identity Services)
+app.post('/api/auth/google', rateLimit(15 * 60 * 1000, 20), async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: 'Credencial do Google ausente' });
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) return res.status(400).json({ error: 'Login com Google não configurado no servidor' });
+
+    // Verifica o ID token diretamente com o Google
+    const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    const info = await r.json().catch(() => ({}));
+    if (!r.ok || !info.email) return res.status(401).json({ error: 'Token do Google inválido' });
+    if (info.aud !== clientId) return res.status(401).json({ error: 'Token do Google não pertence a este app' });
+    if (info.email_verified === 'false') return res.status(401).json({ error: 'E-mail do Google não verificado' });
+
+    const normalizedEmail = String(info.email).toLowerCase().trim();
+    const name = info.name || normalizedEmail.split('@')[0];
+
+    // Busca usuário existente; cria se for novo
+    let { data: user } = await supabase.from('users')
+      .select('id, name, email, role, workspace_owner_id, workspace_role')
+      .eq('email', normalizedEmail).maybeSingle();
+
+    if (!user) {
+      // Usuário novo via Google — sem senha utilizável (gera hash aleatório)
+      const randomPass = await hashPassword(crypto.randomBytes(24).toString('hex'));
+      const { data: created, error } = await supabase.from('users').insert({
+        name, email: normalizedEmail, password: randomPass, role: 'user',
+      }).select('id, name, email, role, workspace_owner_id, workspace_role').single();
+      if (error) throw error;
+      user = created;
+      sendWelcome({ to: normalizedEmail, name }).catch(() => {});
+      console.log('[google] novo usuário:', normalizedEmail);
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const userData = {
+      id: user.id, name: user.name, email: user.email, role: user.role,
+      ...(user.workspace_owner_id ? { workspace_owner_id: user.workspace_owner_id, workspace_role: user.workspace_role } : {}),
+    };
+    await supabase.from('sessions').insert({
+      token, user_id: user.id, user_data: userData,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    res.json({ token, user: userData });
+  } catch (e) {
+    console.error('Google auth error:', e.message);
+    res.status(500).json({ error: 'Erro ao entrar com Google' });
+  }
+});
+
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   await supabase.from('sessions').delete().eq('token', token);

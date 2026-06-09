@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AuthShell from "../../components/auth/AuthShell";
 import { Field, Input, Button } from "../../components/ui/Field";
 import { api, setAuth } from "../../lib/api";
+import GoogleButton from "../../components/auth/GoogleButton";
 
 export default function Register() {
   const router = useRouter();
@@ -70,6 +71,7 @@ export default function Register() {
           <Link href="/privacidade" target="_blank" className="text-primary hover:underline">Política de Privacidade</Link>.
         </p>
       </form>
+      <div className="mt-4"><GoogleButton /></div>
     </AuthShell>
   );
 }

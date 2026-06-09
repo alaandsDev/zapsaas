@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AuthShell from "../../components/auth/AuthShell";
 import { Field, Input, Button } from "../../components/ui/Field";
 import { api, setAuth } from "../../lib/api";
+import GoogleButton from "../../components/auth/GoogleButton";
 
 export default function Login() {
   const router = useRouter();
@@ -65,6 +66,7 @@ export default function Login() {
         {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
         <Button type="submit" loading={loading} className="w-full">Entrar →</Button>
       </form>
+      <div className="mt-4"><GoogleButton /></div>
     </AuthShell>
   );
 }
