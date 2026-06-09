@@ -61,6 +61,28 @@ async function sendImage({ apiKey, from }, to, link, caption = '') {
   });
 }
 
+// ── Embedded Signup (onboarding do cliente) ─────────────────────
+// Vincula a WABA do cliente à sua conta YCloud (após o embedded signup)
+async function bindWaba({ apiKey }, wabaId) {
+  return call(apiKey, `/whatsapp/businessAccounts/${wabaId}/tp/bind`, {});
+}
+
+// Registra o número na plataforma (deixa CONNECTED)
+async function registerPhoneNumber({ apiKey }, wabaId, phoneNumberId, pin) {
+  return call(apiKey, `/whatsapp/phoneNumbers/${wabaId}/${phoneNumberId}/register`, pin ? { pin } : {});
+}
+
+// Busca detalhes do número (para descobrir o número E.164 real a partir do phoneNumberId)
+async function getPhoneNumber({ apiKey }, phoneNumberId) {
+  const res = await fetch(`${BASE}/whatsapp/phoneNumbers/${phoneNumberId}`, { headers: { 'X-API-Key': apiKey } });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = json?.error?.message || json?.message || JSON.stringify(json).slice(0, 300);
+    throw new Error(`YCloud HTTP ${res.status}${detail ? ' — ' + detail : ''}`);
+  }
+  return json;
+}
+
 // Lista templates da conta (para descobrir nome/idioma/status corretos)
 async function listTemplates({ apiKey, wabaId }) {
   const qs = new URLSearchParams({ limit: '100', includeTotal: 'true' });
@@ -122,4 +144,8 @@ function parseInbound(event) {
   return out;
 }
 
-module.exports = { sendText, sendImage, sendTemplate, listTemplates, parseInbound, e164, intl };
+module.exports = {
+  sendText, sendImage, sendTemplate, listTemplates,
+  bindWaba, registerPhoneNumber, getPhoneNumber,
+  parseInbound, e164, intl,
+};

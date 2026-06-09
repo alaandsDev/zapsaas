@@ -5560,6 +5560,52 @@ app.delete('/api/ycloud/numbers/:id', requireAuth, blockAgents, async (req, res)
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Conclui o Embedded Signup: vincula a WABA, registra o número e salva no tenant.
+// Body: { wabaId, phoneNumberId, label }
+app.post('/api/ycloud/embedded-signup', requireAuth, blockAgents, async (req, res) => {
+  try {
+    const apiKey = process.env.YCLOUD_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'YCLOUD_API_KEY não configurada' });
+    const { wabaId, phoneNumberId, label } = req.body;
+    if (!wabaId || !phoneNumberId) return res.status(400).json({ error: 'wabaId e phoneNumberId obrigatórios' });
+
+    const userId = uid(req);
+    // Respeita o limite de números do cliente
+    const [{ data: owner }, { count: used }] = await Promise.all([
+      supabase.from('users').select('official_numbers_limit').eq('id', userId).maybeSingle(),
+      supabase.from('ycloud_numbers').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+    ]);
+    const limit = owner?.official_numbers_limit ?? 1;
+    if ((used || 0) >= limit) {
+      return res.status(403).json({ error: `Limite de números oficiais atingido (${used}/${limit}). Contrate um número adicional.`, code: 'OFFICIAL_NUMBER_LIMIT' });
+    }
+
+    // 1) Vincula a WABA à conta YCloud
+    await ycloud.bindWaba({ apiKey }, wabaId);
+    // 2) Registra o número (CONNECTED)
+    await ycloud.registerPhoneNumber({ apiKey }, wabaId, phoneNumberId).catch(e => {
+      console.warn('[ycloud embedded] register aviso:', e.message);
+    });
+    // 3) Descobre o número E.164 real
+    let phone = '';
+    try {
+      const pn = await ycloud.getPhoneNumber({ apiKey }, phoneNumberId);
+      phone = String(pn.phoneNumber || pn.displayPhoneNumber || pn.number || '').replace(/\D/g, '');
+    } catch (e) { console.warn('[ycloud embedded] getPhoneNumber:', e.message); }
+    if (!phone) return res.status(502).json({ error: 'Número vinculado, mas não consegui obter o telefone. Cadastre manualmente em Números YCloud.', wabaId, phoneNumberId });
+
+    // 4) Salva no tenant
+    const { data, error } = await supabase.from('ycloud_numbers').insert({
+      user_id: userId, phone, waba_id: wabaId, label: label || null,
+    }).select().single();
+    if (error && error.code !== '23505') throw error;
+    res.json({ ok: true, phone, number: data || null });
+  } catch (e) {
+    console.error('[ycloud/embedded-signup]', e.message, e.details || '');
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Persiste mensagem recebida do YCloud (slot 0 = Canal Oficial) em chats/chat_messages,
 // cria/qualifica lead e notifica via SSE — espelha o fluxo do Baileys.
 async function persistYcloudInbound(userId, p) {

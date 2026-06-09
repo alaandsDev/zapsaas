@@ -406,6 +406,93 @@ function YCloudTestCard() {
   );
 }
 
+/* ════════════════════ EMBEDDED SIGNUP (onboarding 1 clique) ════════════════════ */
+const FB_APP_ID = process.env.NEXT_PUBLIC_FB_APP_ID;
+const FB_CONFIG_ID = process.env.NEXT_PUBLIC_FB_CONFIG_ID;
+const FB_SOLUTION_ID = process.env.NEXT_PUBLIC_YCLOUD_SOLUTION_ID;
+
+function YCloudEmbeddedSignup({ onConnected }) {
+  const [status, setStatus] = useState(null); // { ok, text }
+  const [loading, setLoading] = useState(false);
+  const sessionData = useRef(null);
+
+  useEffect(() => {
+    if (!FB_APP_ID || typeof window === "undefined") return;
+    if (!window.FB) {
+      window.fbAsyncInit = function () { window.FB.init({ appId: FB_APP_ID, version: "v22.0" }); };
+      const s = document.createElement("script");
+      s.src = "https://connect.facebook.net/en_US/sdk.js";
+      s.async = true; s.defer = true; s.crossOrigin = "anonymous";
+      document.body.appendChild(s);
+    }
+    const onMsg = (event) => {
+      if (!String(event.origin || "").endsWith("facebook.com")) return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "WA_EMBEDDED_SIGNUP" && data.event === "FINISH") {
+          sessionData.current = data.data; // { phone_number_id, waba_id }
+        }
+      } catch {}
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  function connect() {
+    setStatus(null);
+    if (!window.FB) { setStatus({ ok: false, text: "SDK do Facebook ainda carregando, tente de novo." }); return; }
+    sessionData.current = null;
+    window.FB.login(() => finish(), {
+      config_id: FB_CONFIG_ID,
+      response_type: "code",
+      override_default_response_type: true,
+      extras: {
+        setup: FB_SOLUTION_ID ? { solutionID: FB_SOLUTION_ID } : {},
+        sessionInfoVersion: "3",
+      },
+    });
+  }
+
+  async function finish() {
+    const sd = sessionData.current;
+    if (!sd?.waba_id || !sd?.phone_number_id) {
+      setStatus({ ok: false, text: "Onboarding cancelado ou não concluído." });
+      return;
+    }
+    setLoading(true);
+    try {
+      const r = await api("/api/ycloud/embedded-signup", { method: "POST", body: { wabaId: sd.waba_id, phoneNumberId: sd.phone_number_id } });
+      setStatus({ ok: true, text: `Número +${r.phone} conectado! 🎉` });
+      onConnected?.();
+    } catch (e) {
+      setStatus({ ok: false, text: e.message || "Falha ao concluir o onboarding." });
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <section className="rounded-2xl border border-secondary/30 bg-secondary/[0.04] p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Zap className="size-4 text-secondary" />
+        <h3 className="text-sm font-semibold text-ink-100">Conectar número oficial (1 clique)</h3>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary/15 text-secondary border border-secondary/25">novo</span>
+      </div>
+      <p className="text-[11px] text-ink-500 mb-3">Conecte sua conta WhatsApp Business pela Meta sem copiar tokens. O número fica pronto pra usar no Wayvo.</p>
+      {!FB_APP_ID ? (
+        <p className="text-xs text-amber-400">⚠ Embedded Signup ainda não configurado no servidor (faltam as variáveis NEXT_PUBLIC_FB_APP_ID / FB_CONFIG_ID / YCLOUD_SOLUTION_ID).</p>
+      ) : (
+        <div className="flex items-center gap-3">
+          <button onClick={connect} disabled={loading}
+            className="px-4 py-2 rounded-lg text-xs font-semibold text-bg disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}>
+            {loading ? "Conectando..." : "Conectar com a Meta →"}
+          </button>
+          {status && <span className={`text-xs ${status.ok ? "text-primary" : "text-red-400"}`}>{status.text}</span>}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ════════════════════ NÚMEROS YCLOUD ════════════════════ */
 function YCloudNumbersCard() {
   const [list, setList] = useState([]);
@@ -777,6 +864,9 @@ export default function CanalOficialPage() {
 
         {/* ── TESTE YCLOUD ── */}
         <YCloudTestCard />
+
+        {/* ── EMBEDDED SIGNUP ── */}
+        <YCloudEmbeddedSignup />
 
         {/* ── NÚMEROS YCLOUD ── */}
         <YCloudNumbersCard />
