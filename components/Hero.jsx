@@ -179,10 +179,22 @@ function SocialProofLogos() {
       <p className="text-center text-xs uppercase tracking-[0.2em] text-ink-500 mb-6">
         Usado por 200+ negócios pelo Brasil
       </p>
-      <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-50 grayscale hover:opacity-80 hover:grayscale-0 transition-all">
-        {["BellaPele", "SaborMix", "VisãoClara", "LarIdeal", "BemViver", "MundoPet", "MoveFit", "AutoPrime"].map((name) => (
-          <div key={name} className="text-lg font-bold tracking-tight text-ink-200">
-            {name}
+      <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+        {[
+          { name: "BellaPele", file: "bellapele.png" },
+          { name: "SaborMix", file: "sabormix.png" },
+          { name: "VisãoClara", file: "visaoclara.png" },
+          { name: "LarIdeal", file: "larideal.png" },
+          { name: "BemViver", file: "bemviver.png" },
+          { name: "MundoPet", file: "mundopet.png" },
+          { name: "MoveFit", file: "movefit.png" },
+          { name: "AutoPrime", file: "autoprime.png" },
+        ].map((p) => (
+          <div
+            key={p.file}
+            className="bg-white rounded-xl px-4 py-2.5 flex items-center justify-center shadow-sm opacity-90 hover:opacity-100 transition-opacity"
+          >
+            <img src={`/partners/${p.file}`} alt={p.name} className="h-8 sm:h-9 w-auto object-contain" />
           </div>
         ))}
       </div>
