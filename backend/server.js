@@ -3388,14 +3388,49 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
     if (!phone || (!message && !mediaUrl)) return res.status(400).json({ error: 'phone e message ou mediaUrl obrigatórios' });
     const useSlot = slot != null ? parseInt(slot) : 1;
 
-    // ── Slot 0 = Canal Oficial (Cloud API) ──────────────────────────────────
+    // ── Slot 0 = Canal Oficial ──────────────────────────────────────────────
     if (useSlot === 0) {
+      const cleanedPhone = String(phone).replace(/\D/g, '');
+
+      // Preferência: YCloud (BSP) se o usuário tiver número cadastrado + key
+      const ycloudKey = process.env.YCLOUD_API_KEY;
+      const { data: ycNum } = await supabase.from('ycloud_numbers')
+        .select('phone').eq('user_id', uid(req)).order('created_at').limit(1).maybeSingle();
+
+      if (ycloudKey && ycNum?.phone) {
+        if (mediaUrl) return res.status(400).json({ error: 'Envio de mídia pelo Canal Oficial ainda não suportado nesta interface.' });
+        await ycloud.sendText({ apiKey: ycloudKey, from: ycNum.phone }, cleanedPhone, message);
+        const ts = new Date().toISOString();
+        let { data: chat } = await supabase.from('chats').select('id')
+          .eq('user_id', uid(req)).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
+        if (!chat) {
+          const { data: created } = await supabase.from('chats').insert({
+            user_id: uid(req), session_slot: 0, phone: cleanedPhone,
+            last_message: message, last_message_at: ts, unread: 0,
+          }).select('id').single();
+          chat = created;
+        } else {
+          await supabase.from('chats').update({ last_message: message, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
+        }
+        if (chat?.id) {
+          await supabase.from('chat_messages').insert({
+            chat_id: chat.id, user_id: uid(req), direction: 'out', type: 'text',
+            text: message, status: 'sent', timestamp: ts,
+          });
+          sseSend(req.user.id, 'message', {
+            chatId: chat.id, slot: 0, phone: cleanedPhone, direction: 'out',
+            type: 'text', text: message, timestamp: ts,
+          });
+        }
+        return res.json({ ok: true, sentTo: cleanedPhone, via: 'ycloud' });
+      }
+
+      // Fallback: Meta Cloud API direto
       const c = await getCloudConfig(uid(req));
       if (!c?.access_token) return res.status(400).json({ error: 'Canal Oficial não configurado' });
       if (mediaUrl) return res.status(400).json({ error: 'Envio de mídia via Canal Oficial ainda não suportado nesta interface. Use um template ou envie pelo painel Meta.' });
       const r = await wppCloud.sendText({ token: c.access_token, phoneNumberId: c.phone_number_id }, phone, message);
 
-      const cleanedPhone = String(phone).replace(/\D/g, '');
       const ts = new Date().toISOString();
       let { data: chat } = await supabase.from('chats').select('id')
         .eq('user_id', uid(req)).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
