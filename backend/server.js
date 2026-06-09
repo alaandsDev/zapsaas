@@ -168,7 +168,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         if (sub.status === 'active') {
           await extendPlan(user.id, 'pro', sub.customer, sub.current_period_end);
         } else if (['canceled', 'unpaid', 'past_due'].includes(sub.status)) {
-          await supabase.from('users').update({ plan: 'free', plan_expires_at: null }).eq('id', user.id);
+          await supabase.from('users').update({ plan: 'free', plan_expires_at: null, sms_credits_base: 0 }).eq('id', user.id);
           console.log(`[stripe] ⚠️ Plano rebaixado para free (status: ${sub.status})`);
         }
       }
@@ -178,7 +178,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const sub = event.data.object;
       const user = await getUserByCustomer(sub.customer);
       if (user) {
-        await supabase.from('users').update({ plan: 'free', plan_expires_at: null }).eq('id', user.id);
+        await supabase.from('users').update({ plan: 'free', plan_expires_at: null, sms_credits_base: 0 }).eq('id', user.id);
         console.log(`[stripe] ❌ Assinatura cancelada para customer ${sub.customer}`);
       }
     }
@@ -717,8 +717,7 @@ app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) =>
       password: hashed,
       role: 'user',
       phone: cleanedPhone || null,
-      sms_credits_base: SMS_BASE_GRANT,
-      sms_base_reset_at: new Date().toISOString(),
+      // Free começa com 0 SMS base — só ganha base ao contratar o Pro
     }).select('id, name, email, role').single();
 
     if (error) throw error;
@@ -772,7 +771,6 @@ app.post('/api/auth/google', rateLimit(15 * 60 * 1000, 20), async (req, res) => 
       const randomPass = await hashPassword(crypto.randomBytes(24).toString('hex'));
       const { data: created, error } = await supabase.from('users').insert({
         name, email: normalizedEmail, password: randomPass, role: 'user',
-        sms_credits_base: SMS_BASE_GRANT, sms_base_reset_at: new Date().toISOString(),
       }).select('id, name, email, role, workspace_owner_id, workspace_role').single();
       if (error) throw error;
       user = created;
@@ -4600,17 +4598,18 @@ app.post('/api/stripe/portal', requireAuth, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 // ── RESTART DIÁRIO DO BANCO às 04:00 BRT ────────────────────────────────────
-// Recarga mensal da base de SMS (1000) — cobre usuários sem assinatura (free).
-// Pro renova via Stripe (extendPlan); aqui pega quem está 30+ dias sem reset.
+// Recarga mensal da base de SMS — SOMENTE Pro (free não tem base).
+// Fallback: Pro renova via Stripe (extendPlan); aqui pega quem ficou 30+ dias sem reset.
 cron.schedule('30 4 * * *', async () => {
   try {
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase.from('users')
       .update({ sms_credits_base: SMS_BASE_GRANT, sms_base_reset_at: new Date().toISOString() })
+      .eq('plan', 'pro')
       .lt('sms_base_reset_at', cutoff)
       .select('id');
     if (error) throw error;
-    if (data?.length) console.log(`[sms-base] 🔄 Base recarregada para ${data.length} usuário(s).`);
+    if (data?.length) console.log(`[sms-base] 🔄 Base recarregada para ${data.length} Pro(s).`);
   } catch (e) {
     console.error('[sms-base] erro na recarga mensal:', e.message);
   }

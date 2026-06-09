@@ -10,10 +10,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_credits_paid INT NOT NULL DEFAULT
 -- Quando a base foi recarregada pela última vez
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_base_reset_at TIMESTAMPTZ;
 
--- Backfill: saldo antigo vira "pago" (não reseta); todos ganham base 1000
+-- Backfill: saldo antigo vira "pago" (não reseta).
 UPDATE users SET sms_credits_paid = sms_credits_paid + COALESCE(sms_credits, 0)
   WHERE COALESCE(sms_credits, 0) > 0;
-UPDATE users SET sms_credits_base = 1000, sms_base_reset_at = NOW()
+-- Base: só quem é Pro ganha 1000; Free começa com 0.
+UPDATE users SET
+  sms_credits_base = CASE WHEN plan = 'pro' THEN 1000 ELSE 0 END,
+  sms_base_reset_at = NOW()
   WHERE sms_base_reset_at IS NULL;
 
 -- Consome base primeiro, depois pago. Retorna saldo total restante; -1 se insuficiente.
