@@ -4022,7 +4022,7 @@ async function requireAdmin(req, res, next) {
 }
 
 const ADMIN_USER_BASE_FIELDS = 'id, name, email, role, created_at';
-const ADMIN_USER_FULL_FIELDS = `${ADMIN_USER_BASE_FIELDS}, plan, plan_expires_at, stripe_customer_id`;
+const ADMIN_USER_FULL_FIELDS = `${ADMIN_USER_BASE_FIELDS}, plan, plan_expires_at, stripe_customer_id, official_numbers_limit`;
 
 function normalizeAdminUser(user) {
   return {
@@ -4157,7 +4157,7 @@ app.get('/api/admin/users/:id', requireAdmin, async (req, res) => {
 // Atualiza cargo/plano do usuário
 app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
   try {
-    const { role, plan, plan_expires_at } = req.body;
+    const { role, plan, plan_expires_at, official_numbers_limit } = req.body;
     // Impede admin de alterar o próprio cargo
     if (req.params.id === req.user.id && role && role !== 'admin') {
       return res.status(400).json({ error: 'Você não pode remover o próprio cargo de admin' });
@@ -4166,6 +4166,7 @@ app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (role) updates.role = role;
     if (plan) updates.plan = plan;
     if (plan_expires_at !== undefined) updates.plan_expires_at = plan_expires_at;
+    if (official_numbers_limit !== undefined) updates.official_numbers_limit = Math.max(0, parseInt(official_numbers_limit) || 0);
 
     const { data, error } = await supabase.from('users').update(updates).eq('id', req.params.id).select().single();
     if (error) throw error;

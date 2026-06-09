@@ -525,6 +525,11 @@ select:focus{border-color:var(--red)}
         <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Plano expira em (deixe vazio para sem expiração)</label>
         <input type="datetime-local" id="edit-plan-expires" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-size:13px;outline:none"/>
       </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Números oficiais (API) permitidos</label>
+        <input type="number" min="0" id="edit-official-limit" placeholder="1" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-size:13px;outline:none"/>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Base = 1. Suba ao vender número adicional na mesma conta.</div>
+      </div>
       <div>
         <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Nova Senha (opcional)</label>
         <input type="text" id="edit-new-password" placeholder="Deixe vazio para não alterar" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-size:13px;outline:none"/>
@@ -1032,6 +1037,7 @@ function openEditUser(userId) {
   document.getElementById('edit-role').value = user.role || 'user';
   document.getElementById('edit-plan').value = user.plan || 'free';
   document.getElementById('edit-plan-expires').value = user.plan_expires_at ? user.plan_expires_at.slice(0,16) : '';
+  document.getElementById('edit-official-limit').value = user.official_numbers_limit ?? 1;
   document.getElementById('edit-new-password').value = '';
   document.getElementById('edit-modal').classList.add('open');
 }
@@ -1043,13 +1049,15 @@ async function saveEdit() {
   const role = document.getElementById('edit-role').value;
   const plan = document.getElementById('edit-plan').value;
   const expiresVal = document.getElementById('edit-plan-expires').value;
+  const officialLimit = parseInt(document.getElementById('edit-official-limit').value);
   const newPassword = document.getElementById('edit-new-password').value.trim();
 
   try {
     const updates = {
       role,
       plan,
-      plan_expires_at: expiresVal ? new Date(expiresVal).toISOString() : null
+      plan_expires_at: expiresVal ? new Date(expiresVal).toISOString() : null,
+      official_numbers_limit: Number.isFinite(officialLimit) ? Math.max(0, officialLimit) : 1
     };
     const res = await authFetch(`${API}/admin/users/${editingUserId}`, {
       method: 'PATCH',
