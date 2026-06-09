@@ -180,7 +180,7 @@ function SocialProofLogos() {
         Usado por 200+ negócios pelo Brasil
       </p>
       <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-50 grayscale hover:opacity-80 hover:grayscale-0 transition-all">
-        {["SoftBeauty", "PizzaExpress", "OticaVista", "ImobMax", "BurgerKing+", "ClinicaDra", "DoceLar", "TechStore"].map((name) => (
+        {["BellaPele", "SaborMix", "VisãoClara", "LarIdeal", "BemViver", "MundoPet", "MoveFit", "AutoPrime"].map((name) => (
           <div key={name} className="text-lg font-bold tracking-tight text-ink-200">
             {name}
           </div>
