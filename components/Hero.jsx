@@ -192,9 +192,13 @@ function SocialProofLogos() {
         ].map((p) => (
           <div
             key={p.file}
-            className="bg-white rounded-2xl size-20 sm:size-24 p-1.5 flex items-center justify-center shadow-sm hover:scale-105 transition-transform"
+            className="group bg-white rounded-2xl size-20 sm:size-24 p-1.5 flex items-center justify-center shadow-sm hover:shadow-xl hover:shadow-primary/20 hover:scale-110 hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer"
           >
-            <img src={`/partners/${p.file}`} alt={p.name} className="max-h-full max-w-full object-contain" />
+            <img
+              src={`/partners/${p.file}`}
+              alt={p.name}
+              className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110"
+            />
           </div>
         ))}
       </div>
