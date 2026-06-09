@@ -101,6 +101,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       }).eq('id', userId);
       if (error) console.error('[stripe] Erro ao atualizar plano:', error.message);
       else console.log(`[stripe] ✅ Plano ${planId} ativo até ${expires} para user ${userId}`);
+      // Renovação recarrega a base de SMS para 1000 (não acumula)
+      await supabase.rpc('reset_sms_base', { p_user_id: userId, p_amount: SMS_BASE_GRANT }).catch(() => {});
     };
 
     if (event.type === 'checkout.session.completed') {
@@ -120,11 +122,9 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           await supabase.from('sms_purchases').update({
             status: 'paid', paid_at: new Date().toISOString()
           }).eq('id', purchase.id);
-          // Soma créditos
-          const { data: u } = await supabase.from('users').select('sms_credits').eq('id', meta.userId).single();
-          const current = u?.sms_credits || 0;
-          await supabase.from('users').update({ sms_credits: current + credits }).eq('id', meta.userId);
-          console.log(`[stripe] ✅ +${credits} SMS creditados para user ${meta.userId}`);
+          // Créditos COMPRADOS vão para o balde pago (nunca resetam)
+          await supabase.rpc('add_paid_sms_credits', { p_user_id: meta.userId, p_amount: credits });
+          console.log(`[stripe] ✅ +${credits} SMS (pago) creditados para user ${meta.userId}`);
         }
       }
 
@@ -716,7 +716,9 @@ app.post('/api/auth/register', rateLimit(60 * 60 * 1000, 5), async (req, res) =>
       email: normalizedEmail,
       password: hashed,
       role: 'user',
-      phone: cleanedPhone || null
+      phone: cleanedPhone || null,
+      sms_credits_base: SMS_BASE_GRANT,
+      sms_base_reset_at: new Date().toISOString(),
     }).select('id, name, email, role').single();
 
     if (error) throw error;
@@ -770,6 +772,7 @@ app.post('/api/auth/google', rateLimit(15 * 60 * 1000, 20), async (req, res) => 
       const randomPass = await hashPassword(crypto.randomBytes(24).toString('hex'));
       const { data: created, error } = await supabase.from('users').insert({
         name, email: normalizedEmail, password: randomPass, role: 'user',
+        sms_credits_base: SMS_BASE_GRANT, sms_base_reset_at: new Date().toISOString(),
       }).select('id, name, email, role, workspace_owner_id, workspace_role').single();
       if (error) throw error;
       user = created;
@@ -2260,16 +2263,22 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
 // ═══════════════════════════════════════════════════════════════
 
 const SMS_PACKAGES = {
-  sms_500:  { credits: 500,  amountCents: 5000, label: '500 SMS por R$ 50,00' },
-  sms_1000: { credits: 1000, amountCents: 7500, label: '1.000 SMS por R$ 75,00' },
+  sms_1000: { credits: 1000, amountCents: 7000,  label: '1.000 SMS por R$ 70,00' },
+  sms_2500: { credits: 2500, amountCents: 13000, label: '2.500 SMS por R$ 130,00' },
+  sms_5000: { credits: 5000, amountCents: 25000, label: '5.000 SMS por R$ 250,00' },
 };
+const SMS_BASE_GRANT = 1000; // créditos base por renovação
 
-// Saldo + lista de pacotes
+// Saldo (base + pago) + lista de pacotes
 app.get('/api/sms/balance', requireAuth, async (req, res) => {
   try {
-    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', uid(req)).single();
+    const { data: u } = await supabase.from('users')
+      .select('sms_credits_base, sms_credits_paid').eq('id', uid(req)).single();
+    const base = u?.sms_credits_base || 0;
+    const paid = u?.sms_credits_paid || 0;
     res.json({
-      credits: u?.sms_credits || 0,
+      credits: base + paid,   // total (compat com a tela atual)
+      base, paid,
       packages: Object.entries(SMS_PACKAGES).map(([id, p]) => ({ id, ...p }))
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2348,14 +2357,22 @@ app.post('/api/sms/send', requireAuth, async (req, res) => {
     if (!phone || !message) return res.status(400).json({ error: 'Telefone e mensagem obrigatórios' });
 
     const cost = smsSegments(message);
-    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', uid(req)).single();
-    if ((u?.sms_credits || 0) < cost) {
-      return res.status(402).json({ error: `Saldo insuficiente: precisa ${cost} crédito(s)`, code: 'NO_SMS_CREDITS', needed: cost, balance: u?.sms_credits || 0 });
+    // Consome base primeiro, depois pago (atômico). -1 = saldo insuficiente.
+    const { data: remaining } = await supabase.rpc('consume_sms_credits', { p_user_id: uid(req), p_amount: cost });
+    if (remaining === -1 || remaining === null) {
+      const { data: u } = await supabase.from('users').select('sms_credits_base, sms_credits_paid').eq('id', uid(req)).single();
+      const bal = (u?.sms_credits_base || 0) + (u?.sms_credits_paid || 0);
+      return res.status(402).json({ error: `Saldo insuficiente: precisa ${cost} crédito(s)`, code: 'NO_SMS_CREDITS', needed: cost, balance: bal });
     }
 
-    const r = await zenvia.sendSms(phone, message);
-    await supabase.from('users').update({ sms_credits: u.sms_credits - cost }).eq('id', uid(req));
-    res.json({ ...r, segmentsCharged: cost, remainingCredits: u.sms_credits - cost });
+    try {
+      const r = await zenvia.sendSms(phone, message);
+      res.json({ ...r, segmentsCharged: cost, remainingCredits: remaining });
+    } catch (sendErr) {
+      // Falhou o envio — estorna os créditos consumidos
+      await supabase.rpc('add_paid_sms_credits', { p_user_id: uid(req), p_amount: cost }).catch(() => {});
+      throw sendErr;
+    }
   } catch (e) {
     console.error('[sms/send]', e);
     res.status(500).json({ error: e.message });
@@ -2370,8 +2387,8 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Mensagem e contatos obrigatórios' });
     }
 
-    const { data: u } = await supabase.from('users').select('sms_credits').eq('id', uid(req)).single();
-    const balance = u?.sms_credits || 0;
+    const { data: u } = await supabase.from('users').select('sms_credits_base, sms_credits_paid').eq('id', uid(req)).single();
+    const balance = (u?.sms_credits_base || 0) + (u?.sms_credits_paid || 0);
     // Estimativa de custo: usa o template puro (variáveis costumam ser curtas)
     const baseSegments = smsSegments(message);
     const estimatedCost = baseSegments * phones.length;
@@ -2417,13 +2434,8 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
           const charged = smsSegments(personalized);
           updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString(), segments: charged };
           sent++;
-          // Débito atômico — sem race condition de read-modify-write
-          await supabase.rpc('decrement_sms_credits', { p_user_id: _smsBulkUserId, p_amount: charged }).catch(() => {
-            // Fallback se RPC não existir: read-modify-write (menos seguro mas funcional)
-            supabase.from('users').select('sms_credits').eq('id', _smsBulkUserId).single()
-              .then(({ data: cur }) => supabase.from('users').update({ sms_credits: Math.max(0, (cur?.sms_credits || 0) - charged) }).eq('id', _smsBulkUserId))
-              .catch(() => {});
-          });
+          // Débito atômico (base primeiro, depois pago)
+          await supabase.rpc('consume_sms_credits', { p_user_id: _smsBulkUserId, p_amount: charged }).catch(() => {});
         } catch (e) {
           updated[i] = { ...updated[i], status: 'failed', error: e.message };
           failed++;
@@ -4588,6 +4600,22 @@ app.post('/api/stripe/portal', requireAuth, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 // ── RESTART DIÁRIO DO BANCO às 04:00 BRT ────────────────────────────────────
+// Recarga mensal da base de SMS (1000) — cobre usuários sem assinatura (free).
+// Pro renova via Stripe (extendPlan); aqui pega quem está 30+ dias sem reset.
+cron.schedule('30 4 * * *', async () => {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase.from('users')
+      .update({ sms_credits_base: SMS_BASE_GRANT, sms_base_reset_at: new Date().toISOString() })
+      .lt('sms_base_reset_at', cutoff)
+      .select('id');
+    if (error) throw error;
+    if (data?.length) console.log(`[sms-base] 🔄 Base recarregada para ${data.length} usuário(s).`);
+  } catch (e) {
+    console.error('[sms-base] erro na recarga mensal:', e.message);
+  }
+});
+
 cron.schedule('0 4 * * *', async () => {
   const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
   const projectRef  = process.env.SUPABASE_PROJECT_REF || 'uromuawgcexyixncuygx';
