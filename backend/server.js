@@ -5432,11 +5432,11 @@ app.post('/api/ycloud/test-send', requireAuth, blockAgents, async (req, res) => 
   try {
     const apiKey = process.env.YCLOUD_API_KEY;
     if (!apiKey) return res.status(400).json({ error: 'YCLOUD_API_KEY não configurada no servidor' });
-    const { from, to, message, template, language } = req.body;
+    const { from, to, message, template, language, params } = req.body;
     if (!from || !to) return res.status(400).json({ error: 'from e to são obrigatórios' });
     let r;
     if (template) {
-      r = await ycloud.sendTemplate({ apiKey, from }, to, template, language || 'en_US', []);
+      r = await ycloud.sendTemplate({ apiKey, from }, to, template, language || 'en_US', Array.isArray(params) ? params : []);
     } else {
       if (!message) return res.status(400).json({ error: 'message obrigatório' });
       r = await ycloud.sendText({ apiKey, from }, to, message);
@@ -5456,6 +5456,7 @@ app.get('/api/ycloud/templates', requireAuth, blockAgents, async (req, res) => {
     const items = await ycloud.listTemplates({ apiKey, wabaId: req.query.wabaId });
     res.json((items || []).map(t => ({
       name: t.name, language: t.language, status: t.status, category: t.category,
+      components: t.components || null,
     })));
   } catch (e) {
     console.error('[ycloud/templates]', e.message);

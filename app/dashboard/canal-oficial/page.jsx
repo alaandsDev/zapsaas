@@ -338,7 +338,20 @@ function YCloudTestCard() {
     }
   }
   function sendNamed(t) {
-    send({ template: t.name, language: t.language }, `Template "${t.name}" enviado!`);
+    // Conta variáveis {{n}} no corpo do template
+    const body = (t.components || []).find(c => c.type === "BODY")?.text || "";
+    const n = (body.match(/\{\{\s*\d+\s*\}\}/g) || []).length;
+    let params = [];
+    if (n > 0) {
+      const input = window.prompt(`Este template tem ${n} variável(is). Informe os valores separados por vírgula:\n\n"${body}"`, "");
+      if (input === null) return; // cancelou
+      params = input.split(",").map(s => s.trim());
+      if (params.length !== n) {
+        setResult({ ok: false, text: `Esperado ${n} valor(es), você informou ${params.length}.` });
+        return;
+      }
+    }
+    send({ template: t.name, language: t.language, params }, `Template "${t.name}" enviado!`);
   }
 
   return (
