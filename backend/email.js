@@ -1,12 +1,12 @@
 /**
  * email.js — Transactional emails via Resend
  * Requires: RESEND_API_KEY env var
- * Optional: FROM_EMAIL (default: noreply@wayvo.com.br)
+ * Optional: FROM_EMAIL (default: noreply@wayvo.app.br)
  *           FRONTEND_URL (default: https://zapsaas.vercel.app)
  */
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const FROM_EMAIL     = process.env.FROM_EMAIL     || 'Wayvo <noreply@wayvo.com.br>';
+const FROM_EMAIL     = process.env.FROM_EMAIL     || 'Wayvo <noreply@wayvo.app.br>';
 const FRONTEND_URL   = process.env.FRONTEND_URL   || 'https://www.wayvo.app.br';
 
 // ── base send ────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ function layout(content) {
             © 2025 Wayvo — Automação de WhatsApp para negócios<br/>
             <a href="${FRONTEND_URL}/dashboard" style="color:#00FF88;text-decoration:none;">Acessar painel</a>
             &nbsp;·&nbsp;
-            <a href="mailto:suporte@wayvo.com.br" style="color:#6B7280;text-decoration:none;">Suporte</a>
+            <a href="mailto:suporte@wayvo.app.br" style="color:#6B7280;text-decoration:none;">Suporte</a>
           </p>
         </td></tr>
 
@@ -134,7 +134,7 @@ async function sendWelcome({ to, name }) {
     <div style="padding:20px 40px;background:rgba(0,255,136,0.04);border-top:1px solid rgba(255,255,255,0.05);text-align:center;">
       <p style="margin:0;font-size:13px;color:#6B7280;">
         Dúvidas? Fale com a gente em
-        <a href="mailto:suporte@wayvo.com.br" style="color:#00FF88;text-decoration:none;">suporte@wayvo.com.br</a>
+        <a href="mailto:suporte@wayvo.app.br" style="color:#00FF88;text-decoration:none;">suporte@wayvo.app.br</a>
       </p>
     </div>
   `);

@@ -278,7 +278,7 @@ export default function ConfiguracoesPage() {
           <span>·</span>
           <a href="/privacidade" target="_blank" className="hover:text-primary transition-colors">Política de Privacidade</a>
           <span>·</span>
-          <a href="mailto:privacidade@wayvo.com.br" className="hover:text-primary transition-colors">privacidade@wayvo.com.br</a>
+          <a href="mailto:privacidade@wayvo.app.br" className="hover:text-primary transition-colors">privacidade@wayvo.app.br</a>
         </div>
 
       </div>
