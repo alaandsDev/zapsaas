@@ -8,7 +8,7 @@ const wpp = require('./whatsapp');
 const workflowEngine = require('./workflow-engine');
 const wppCloud = require('./whatsapp_cloud');
 const ycloud = require('./ycloud');
-const zenvia = require('./zenvia');
+const sms = require('./sms'); // camada de provedor (comtele | zenvia)
 const Stripe = require('stripe');
 const cron = require('node-cron');
 const { sendEmail, sendWelcome, sendCampaignCompleted, sendSessionDisconnected } = require('./email');
@@ -2364,7 +2364,7 @@ app.post('/api/sms/send', requireAuth, async (req, res) => {
     }
 
     try {
-      const r = await zenvia.sendSms(phone, message);
+      const r = await sms.sendSms(phone, message);
       res.json({ ...r, segmentsCharged: cost, remainingCredits: remaining });
     } catch (sendErr) {
       // Falhou o envio — estorna os créditos consumidos
@@ -2428,7 +2428,7 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
             .replace(/\{nome\}/gi, name)
             .replace(/\{name\}/gi, name)
             .replace(/\{numero\}/gi, phoneStr);
-          await zenvia.sendSms(phoneStr, personalized);
+          await sms.sendSms(phoneStr, personalized);
           const charged = smsSegments(personalized);
           updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString(), segments: charged };
           sent++;
