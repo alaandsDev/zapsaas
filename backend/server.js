@@ -2758,9 +2758,17 @@ wpp.on('qr', ({ sessionId, qr }) => {
   if (!userId) return;
   sseSend(userId, 'connection', { slot, status: 'qr_ready', qr });
 });
+// Debounce de desconexão: blips do Baileys reconectam em segundos.
+// Só tratamos como desconexão REAL se ficar fora por 90s sem reconectar.
+const pendingDisconnect = new Map(); // sessionId -> timeout
+const DISCONNECT_GRACE_MS = 90 * 1000;
+
 wpp.on('connected', ({ sessionId, phone }) => {
   const { userId, slot } = parseSessionId(sessionId);
   if (!userId) return;
+  // Reconectou antes do prazo → era só um blip, cancela o alerta pendente
+  const t = pendingDisconnect.get(sessionId);
+  if (t) { clearTimeout(t); pendingDisconnect.delete(sessionId); }
   sseSend(userId, 'connection', { slot, status: 'connected', phone });
 });
 wpp.on('reconnecting', ({ sessionId, attempt, delayMs }) => {
@@ -2773,26 +2781,46 @@ wpp.on('disconnected', ({ sessionId, isLoggedOut }) => {
   if (!userId) return;
   sseSend(userId, 'connection', { slot, status: 'disconnected' });
 
-  // E-mail de alerta só quando é desconexão inesperada (não logout voluntário)
-  if (!isLoggedOut) {
-    supabase.from('users').select('email, name').eq('id', userId).single().then(({ data: u }) => {
-      if (u?.email) {
-        const phone = wpp.getStatus(sessionId)?.phone || null;
-        sendSessionDisconnected({ to: u.email, name: u.name || 'Cliente', slot, phone }).catch(() => {});
-      }
-    }).catch(() => {});
+  // Ações "pesadas" (e-mail + cancelar disparos) só quando a desconexão é REAL
+  const handleRealDisconnect = () => {
+    pendingDisconnect.delete(sessionId);
+    // E-mail só em desconexão inesperada (não logout voluntário)
+    if (!isLoggedOut) {
+      supabase.from('users').select('email, name').eq('id', userId).single().then(({ data: u }) => {
+        if (u?.email) {
+          const phone = wpp.getStatus(sessionId)?.phone || null;
+          sendSessionDisconnected({ to: u.email, name: u.name || 'Cliente', slot, phone }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+    // Cancela disparos ativos desse slot para não enviar com número desconectado
+    supabase.from('dispatches')
+      .update({ status: 'cancelled', cancel_reason: 'Número desconectado' })
+      .eq('user_id', userId)
+      .eq('session_slot', slot)
+      .in('status', ['sending', 'scheduled', 'paused'])
+      .then(({ error }) => {
+        if (error) console.error(`[disconnect] Erro ao cancelar disparos do slot${slot}:`, error.message);
+        else console.log(`[disconnect] Disparos ativos do user=${userId} slot=${slot} cancelados por desconexão`);
+      });
+  };
+
+  if (isLoggedOut) {
+    // Logout voluntário (ou sessão expulsa) = definitivo, age na hora
+    const t = pendingDisconnect.get(sessionId);
+    if (t) { clearTimeout(t); pendingDisconnect.delete(sessionId); }
+    handleRealDisconnect();
+    return;
   }
 
-  // Cancela disparos ativos desse slot para não enviar com número desconectado
-  supabase.from('dispatches')
-    .update({ status: 'cancelled', cancel_reason: 'Número desconectado' })
-    .eq('user_id', userId)
-    .eq('session_slot', slot)
-    .in('status', ['sending', 'scheduled', 'paused'])
-    .then(({ error }) => {
-      if (error) console.error(`[disconnect] Erro ao cancelar disparos do slot${slot}:`, error.message);
-      else console.log(`[disconnect] Disparos ativos do user=${userId} slot=${slot} cancelados por desconexão`);
-    });
+  // Desconexão inesperada: aguarda o prazo. Se reconectar antes (handler 'connected'),
+  // o timer é cancelado e nada acontece (era só um blip).
+  if (pendingDisconnect.has(sessionId)) return; // já há um alerta agendado
+  const timer = setTimeout(() => {
+    if (wpp.getStatus(sessionId)?.status === 'connected') { pendingDisconnect.delete(sessionId); return; }
+    handleRealDisconnect();
+  }, DISCONNECT_GRACE_MS);
+  pendingDisconnect.set(sessionId, timer);
 });
 
 // SSE stream — autentica via Authorization header OU ?token=...
