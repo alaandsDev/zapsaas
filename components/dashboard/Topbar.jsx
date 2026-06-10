@@ -24,7 +24,7 @@ export default function Topbar({ title, subtitle, actions }) {
       </div>
 
       {actions && (
-        <div className="flex items-center gap-2 overflow-x-auto">{actions}</div>
+        <div className="flex items-center gap-2 overflow-x-auto min-w-0">{actions}</div>
       )}
 
       <div className="flex items-center gap-1">

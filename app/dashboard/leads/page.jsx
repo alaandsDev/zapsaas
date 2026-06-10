@@ -429,13 +429,13 @@ export default function LeadsPage() {
         actions={
           <>
             <Button variant="ghost" onClick={syncAllLists} disabled={syncing}>
-              <Zap className="size-4" /> {syncing ? "Sincronizando…" : "Sincronizar Listas"}
+              <Zap className="size-4" /> <span className="hidden sm:inline">{syncing ? "Sincronizando…" : "Sincronizar Listas"}</span>
             </Button>
-<Button variant="ghost" onClick={() => setOpenImport(true)}>
-              <Upload className="size-4" /> Importar
+            <Button variant="ghost" onClick={() => setOpenImport(true)}>
+              <Upload className="size-4" /> <span className="hidden sm:inline">Importar</span>
             </Button>
             <Button onClick={() => setOpenLead(true)}>
-              <Plus className="size-4" /> Novo Lead
+              <Plus className="size-4" /> <span className="hidden sm:inline">Novo Lead</span>
             </Button>
           </>
         }
