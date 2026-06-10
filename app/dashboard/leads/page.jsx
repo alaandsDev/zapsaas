@@ -412,9 +412,9 @@ export default function LeadsPage() {
     >
       {dot ? <span className="size-2 rounded-full shrink-0" style={{ background: dot }} />
            : Icon && <Icon className="size-4 shrink-0" />}
-      <span className="flex-1 text-left truncate">{label}</span>
+      <span className="flex-1 min-w-0 text-left truncate">{label}</span>
       {count != null && (
-        <span className={`text-[11px] tabular-nums ${active ? "text-primary" : "text-ink-500"}`}>
+        <span className={`text-[11px] tabular-nums shrink-0 ${active ? "text-primary" : "text-ink-500"}`}>
           {count.toLocaleString("pt-BR")}
         </span>
       )}
@@ -441,7 +441,7 @@ export default function LeadsPage() {
         }
       />
 
-      <div className="px-4 sm:px-6 py-5 space-y-5">
+      <div className="px-4 sm:px-6 py-5 space-y-5 overflow-x-hidden">
 
         {/* Banner de resultado da sincronização */}
         {syncResult && (
@@ -495,7 +495,7 @@ export default function LeadsPage() {
         <div className="grid lg:grid-cols-[230px_1fr] xl:grid-cols-[230px_1fr_340px] gap-4">
 
           {/* SIDEBAR ESQUERDA */}
-          <div className="glass p-3 space-y-5 h-fit lg:sticky lg:top-4">
+          <div className="glass p-3 space-y-5 h-fit min-w-0 lg:sticky lg:top-4">
             <div>
               <div className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-500">Segmentos</div>
               <div className="space-y-1">
