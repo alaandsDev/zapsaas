@@ -225,9 +225,9 @@ export default function Sidebar() {
         {/* Drawer com itens secundários */}
         {mobileExpanded && (
           <>
-            <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setMobileExpanded(false)} />
-            <div className="absolute bottom-full inset-x-0 z-50 border-t border-white/[0.06] bg-bg/98 backdrop-blur-xl pb-1">
-              <div className="grid grid-cols-4 gap-1 px-2 pt-2 pb-1">
+            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setMobileExpanded(false)} />
+            <div className="absolute bottom-full inset-x-0 z-50 border-t border-white/[0.08] bg-bg rounded-t-2xl shadow-2xl pb-2">
+              <div className="grid grid-cols-4 gap-1 px-3 pt-3 pb-1">
                 {mobileSecondary.map((item) => {
                   const active = isActive(item);
                   const { Icon } = item;

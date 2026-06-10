@@ -10,7 +10,7 @@ export default function DashboardLayout({ children }) {
     <AuthGuard>
       <div className="flex min-h-screen flex-col md:flex-row">
         <Sidebar />
-        <main className="flex-1 min-w-0 pb-24 md:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 pb-24 md:pb-0 overflow-x-clip">{children}</main>
         <AiCopilot />
         <NotificationProvider />
       </div>

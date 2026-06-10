@@ -441,7 +441,7 @@ export default function LeadsPage() {
         }
       />
 
-      <div className="px-4 sm:px-6 py-5 space-y-5 overflow-x-hidden">
+      <div className="px-4 sm:px-6 py-5 space-y-5">
 
         {/* Banner de resultado da sincronização */}
         {syncResult && (
