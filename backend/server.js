@@ -1117,6 +1117,8 @@ async function updateLeadsInteraction(contacts, userId) {
 async function executeRealDispatch(dispatchId, userId) {
   const { data: dispatch } = await supabase.from('dispatches').select('*').eq('id', dispatchId).single();
   if (!dispatch) return;
+  // Não reprocessa disparo já finalizado (evita reenvio + e-mail de conclusão duplicado)
+  if (['completed', 'cancelled'].includes(dispatch.status)) return;
 
   await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatchId);
 
@@ -1724,6 +1726,7 @@ function cloudTokenError(c) {
 async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
   const dispatch = await supabase.from('dispatches').select('*').eq('id', dispatchId).single().then(r => r.data);
   if (!dispatch) return;
+  if (['completed', 'cancelled'].includes(dispatch.status)) return;
 
   const config = await getCloudConfig(userId);
   if (!config?.access_token || !config?.phone_number_id) {
