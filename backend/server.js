@@ -3652,26 +3652,36 @@ app.post('/api/chats/send-media', requireAuth, upload.single('file'), async (req
     const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
     const mediaUrl = urlData.publicUrl;
 
-    // 2) Envia via Baileys usando o buffer diretamente (sem re-download)
-    const key = sessionKey(userId, useSlot);
-    const status = wpp.getStatus(key);
-    if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
-
-    const media = {
-      buffer: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer),
-      mimetype,
-      filename: originalname,
-      caption: caption || '',
-    };
-    await wpp.sendMessage(key, phone, '', media);
-
-    // 3) Persiste no banco
     const cleanedPhone = String(phone).replace(/\D/g, '');
-    const ts = new Date().toISOString();
     const msgType = mimetype.startsWith('image/') ? 'image'
       : mimetype.startsWith('video/') ? 'video'
       : mimetype.startsWith('audio/') ? 'audio'
       : 'document';
+
+    // 2) Envia — slot 0 = Canal Oficial (YCloud, por URL); 1-5 = Baileys (buffer)
+    if (useSlot === 0) {
+      const ycloudKey = process.env.YCLOUD_API_KEY;
+      const { data: ycNum } = await supabase.from('ycloud_numbers')
+        .select('phone').eq('user_id', userId).order('created_at').limit(1).maybeSingle();
+      if (!ycloudKey || !ycNum?.phone) return res.status(400).json({ error: 'Canal Oficial (YCloud) não configurado' });
+      await ycloud.sendMedia({ apiKey: ycloudKey, from: ycNum.phone }, cleanedPhone, {
+        type: msgType, link: mediaUrl, caption: caption || '', filename: originalname,
+      });
+    } else {
+      const key = sessionKey(userId, useSlot);
+      const status = wpp.getStatus(key);
+      if (status.status !== 'connected') return res.status(400).json({ error: `Slot ${useSlot} não conectado` });
+      const media = {
+        buffer: Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer),
+        mimetype,
+        filename: originalname,
+        caption: caption || '',
+      };
+      await wpp.sendMessage(key, phone, '', media);
+    }
+
+    // 3) Persiste no banco
+    const ts = new Date().toISOString();
 
     let { data: chat } = await supabase.from('chats').select('id')
       .eq('user_id', userId).eq('session_slot', useSlot).eq('phone', cleanedPhone).maybeSingle();

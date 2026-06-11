@@ -61,6 +61,19 @@ async function sendImage({ apiKey, from }, to, link, caption = '') {
   });
 }
 
+// Mídia genérica por URL pública. type: image | video | audio | document
+async function sendMedia({ apiKey, from }, to, { type, link, caption, filename }) {
+  const media = { link };
+  if (caption && type !== 'audio') media.caption = caption;
+  if (type === 'document' && filename) media.filename = filename;
+  return call(apiKey, '/whatsapp/messages/sendDirectly', {
+    from: intl(from),
+    to: e164(to),
+    type,
+    [type]: media,
+  });
+}
+
 // ── Embedded Signup (onboarding do cliente) ─────────────────────
 // Vincula a WABA do cliente à sua conta YCloud (após o embedded signup)
 async function bindWaba({ apiKey }, wabaId) {
@@ -145,7 +158,7 @@ function parseInbound(event) {
 }
 
 module.exports = {
-  sendText, sendImage, sendTemplate, listTemplates,
+  sendText, sendImage, sendMedia, sendTemplate, listTemplates,
   bindWaba, registerPhoneNumber, getPhoneNumber,
   parseInbound, e164, intl,
 };

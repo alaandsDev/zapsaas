@@ -1240,7 +1240,7 @@ export default function Conversas() {
                 {activeChat?.slot === 0 && (
                   <div className="mb-2 px-3 py-1.5 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-[11px] text-accent-blue flex items-center gap-1.5">
                     <span className="size-1.5 rounded-full bg-accent-blue shrink-0" />
-                    Canal Oficial · só texto livre (janela 24h). Para iniciar, use um template aprovado.
+                    Canal Oficial · texto e mídia só na janela de 24h. Para iniciar a conversa, use um template aprovado.
                   </div>
                 )}
                 <div className="flex gap-2 items-end">
@@ -1258,9 +1258,9 @@ export default function Conversas() {
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadingFile || activeChat?.slot === 0}
+                      disabled={uploadingFile}
                       className="size-8 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200 hover:bg-white/[0.05] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      title={activeChat?.slot === 0 ? "Mídia não suportada no Canal Oficial" : "Anexar arquivo"}
+                      title="Anexar arquivo"
                     >
                       {uploadingFile ? <RefreshCw className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
                     </button>
