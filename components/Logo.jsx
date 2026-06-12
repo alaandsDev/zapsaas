@@ -1,11 +1,14 @@
+import Image from "next/image";
+
 export default function Logo({ size = 28, showWordmark = true }) {
   return (
     <div className="flex items-center gap-2.5">
-      <img
+      <Image
         src="/wayvo-icon.png"
         alt="Wayvo"
         width={size}
         height={size}
+        priority
         style={{ width: size, height: size, objectFit: "contain" }}
         className="shrink-0 select-none"
         draggable={false}

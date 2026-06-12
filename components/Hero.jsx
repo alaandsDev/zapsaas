@@ -1,3 +1,4 @@
+import Image from "next/image";
 import BackgroundPaths from "./BackgroundPaths";
 
 export default function Hero({
@@ -194,9 +195,12 @@ function SocialProofLogos() {
             key={p.file}
             className="group bg-white rounded-2xl size-20 sm:size-24 p-1.5 flex items-center justify-center shadow-sm hover:shadow-xl hover:shadow-primary/20 hover:scale-110 hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer"
           >
-            <img
+            <Image
               src={`/partners/${p.file}`}
               alt={p.name}
+              width={96}
+              height={96}
+              loading="lazy"
               className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110"
             />
           </div>
