@@ -2,15 +2,15 @@ import Navbar from "../components/Navbar";
 import JsonLd from "../components/JsonLd";
 
 export const metadata = {
-  title: "Wayvo — Conversational Revenue OS para WhatsApp",
+  title: "Wayvo — Automação de Vendas no WhatsApp: CRM, Disparos e IA",
   description:
-    "Plataforma operacional AI-first para WhatsApp: CRM conversacional, automação inteligente e revenue ops com copiloto de IA. Comece grátis.",
+    "Transforme seu WhatsApp em uma máquina de vendas: disparos em massa, CRM de leads, chatbot e automação com IA. Plano grátis pra começar hoje.",
   alternates: { canonical: "/" },
   openGraph: {
     url: "https://www.wayvo.app.br/",
-    title: "Wayvo — Conversational Revenue OS para WhatsApp",
+    title: "Wayvo — Automação de Vendas no WhatsApp: CRM, Disparos e IA",
     description:
-      "CRM conversacional, automação com IA e revenue ops numa só plataforma operacional.",
+      "Disparos em massa, CRM de leads, chatbot e automação com IA numa só plataforma. Comece grátis.",
   },
 };
 import Hero from "../components/Hero";
