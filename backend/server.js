@@ -3183,8 +3183,12 @@ wpp.on('message', async (evt) => {
     }
     if (!chatId) { console.error('[chat] chatId nulo'); return; }
 
-    // Não notifica nem incrementa unread para mensagens do histórico (append)
-    if (!evt.isNewMessage) return;
+    // Processa mensagens novas (notify) E mensagens RECENTES que você enviou do
+    // próprio celular (chegam como 'append', mas são reais — não histórico).
+    // Pula só o histórico antigo sincronizado ao conectar.
+    const ageMs = Date.now() - new Date(ts).getTime();
+    const isRecent = ageMs >= 0 && ageMs < 2 * 60 * 1000;
+    if (!evt.isNewMessage && !(evt.fromMe && isRecent)) return;
 
     // Busca foto em background e notifica frontend via SSE quando atualizar
     refreshProfilePic(userId, slot, evt.sessionId, evt.phone, existing).then(newUrl => {
