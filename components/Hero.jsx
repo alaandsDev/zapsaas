@@ -1,4 +1,6 @@
+"use client";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import BackgroundPaths from "./BackgroundPaths";
 
 export default function Hero({
@@ -93,11 +95,75 @@ function LiveCounter() {
   );
 }
 
+// Roteiro do momento autoral: a IA fecha uma venda em tempo real.
+// Cada passo é a menor unidade de "o que a IA está fazendo agora" —
+// a digitação existe para tornar a resposta um evento, não um corte.
+const SCRIPT = [
+  { at: 200,  type: "bubble", side: "in",  text: "Tem promoção hoje?" },
+  { at: 1100, type: "typing", side: "out" },
+  { at: 2400, type: "bubble", side: "out", text: "Oi Maria! 👋 Hoje só pra você: 40% off no kit completo. Garante o seu?" },
+  { at: 3300, type: "bubble", side: "in",  text: "Quero! Como pago?" },
+  { at: 4200, type: "typing", side: "out" },
+  { at: 5400, type: "bubble", side: "out", text: "Manda PIX pra wayvo@... Já reservei o último kit pro seu nome 🚀" },
+  { at: 6300, type: "badge" },
+];
+const LOOP_PAUSE = 3200; // tempo parado no estado final antes de reiniciar
+
 function ProductMockup() {
+  const [step, setStep] = useState(0);
+  const reducedRef = useRef(false);
+
+  useEffect(() => {
+    reducedRef.current =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    if (reducedRef.current) {
+      setStep(SCRIPT.length); // estado final direto, sem coreografia
+      return;
+    }
+
+    let cancelled = false;
+    const timers = [];
+
+    function run() {
+      setStep(0);
+      SCRIPT.forEach((_, i) => {
+        timers.push(setTimeout(() => { if (!cancelled) setStep(i + 1); }, SCRIPT[i].at));
+      });
+      const last = SCRIPT[SCRIPT.length - 1].at + LOOP_PAUSE;
+      timers.push(setTimeout(() => { if (!cancelled) run(); }, last));
+    }
+
+    // Só anima quando o card está visível na tela (evita gastar ciclos escondido).
+    const el = document.getElementById("hero-chat-mockup");
+    let io;
+    if (el && "IntersectionObserver" in window) {
+      io = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+          run();
+          io.disconnect();
+        }
+      }, { threshold: 0.3 });
+      io.observe(el);
+    } else {
+      run();
+    }
+
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+      io?.disconnect();
+    };
+  }, []);
+
+  const visible = SCRIPT.slice(0, step);
+  const showTyping = visible.at(-1)?.type === "typing";
+
   return (
     <div className="relative">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent-blue/20 blur-2xl rounded-3xl" />
-      <div className="relative card p-3 shadow-2xl shadow-primary/10 rotate-1 hover:rotate-0 transition-transform duration-500">
+      <div id="hero-chat-mockup" className="relative card p-3 shadow-2xl shadow-primary/10 rotate-1 hover:rotate-0 transition-transform duration-500">
         {/* Header do "celular" */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
@@ -112,17 +178,20 @@ function ProductMockup() {
           </div>
         </div>
 
-        {/* Conversa */}
+        {/* Conversa — encenada em tempo real, não um GIF de coreografia fixa */}
         <div className="space-y-2 p-3 min-h-[280px]">
-          <Bubble side="in" delay="0">Tem promoção hoje?</Bubble>
-          <Bubble side="out" delay=".4s">Oi Maria! 👋 Hoje só pra você: 40% off no kit completo. Garante o seu?</Bubble>
-          <Bubble side="in" delay="1.2s">Quero! Como pago?</Bubble>
-          <Bubble side="out" delay="1.6s">Manda PIX pra wayvo@... Já reservei o último kit pro seu nome 🚀</Bubble>
-          <div className="flex justify-center mt-3 animate-fade-in" style={{ animationDelay: "2.2s" }}>
-            <div className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
-              ✓ Convertido pela IA em 47s
-            </div>
-          </div>
+          {visible.map((s, i) =>
+            s.type === "bubble" ? (
+              <Bubble key={i} side={s.side}>{s.text}</Bubble>
+            ) : s.type === "badge" ? (
+              <div key={i} className="flex justify-center mt-3 animate-scale-in">
+                <div className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full animate-glow-pulse">
+                  ✓ Convertido pela IA em 47s
+                </div>
+              </div>
+            ) : null
+          )}
+          {showTyping && <TypingIndicator />}
         </div>
       </div>
 
@@ -158,18 +227,35 @@ function ProductMockup() {
   );
 }
 
-function Bubble({ side, children, delay }) {
+function Bubble({ side, children }) {
   const isOut = side === "out";
   return (
     <div
-      className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm opacity-0 animate-fade-in ${
+      className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm animate-slide-up ${
         isOut
           ? "ml-auto bg-primary/15 border border-primary/20 rounded-br-sm"
           : "bg-card2 border border-white/10 rounded-bl-sm"
       }`}
-      style={{ animationDelay: delay, animationFillMode: "forwards" }}
     >
       {children}
+    </div>
+  );
+}
+
+// A digitação é o que faz a resposta da IA ler como uma ação acontecendo
+// agora, não como texto que só apareceu — o "custo" que a mensagem seguinte precisa pagar.
+function TypingIndicator() {
+  return (
+    <div className="max-w-[80%] ml-auto px-3.5 py-2.5 rounded-2xl rounded-br-sm bg-primary/15 border border-primary/20 animate-slide-up">
+      <div className="flex items-center gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="size-1.5 rounded-full bg-primary/70"
+            style={{ animation: "typingDot 1.1s ease-in-out infinite", animationDelay: `${i * 0.15}s` }}
+          />
+        ))}
+      </div>
     </div>
   );
 }

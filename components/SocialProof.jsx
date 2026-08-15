@@ -1,3 +1,5 @@
+import Reveal from "./ui/Reveal";
+
 export default function SocialProof({ stats, testimonials }) {
   return (
     <section className="py-24 border-t border-white/[0.06]">
@@ -5,8 +7,9 @@ export default function SocialProof({ stats, testimonials }) {
         {/* Stats premium */}
         <div className="grid lg:grid-cols-3 gap-4 mb-16">
           {stats.map((s, i) => (
-            <div
+            <Reveal
               key={i}
+              delay={Math.min(i * 90, 180)}
               className="glass p-8 text-center bg-gradient-to-b from-card to-card/40 relative overflow-hidden"
             >
               <div className="absolute -top-10 left-1/2 -translate-x-1/2 size-32 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
@@ -14,7 +17,7 @@ export default function SocialProof({ stats, testimonials }) {
                 <div className="text-5xl font-bold gradient-text">{s.value}</div>
                 <div className="text-ink-300 mt-3">{s.label}</div>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
 
@@ -30,8 +33,10 @@ export default function SocialProof({ stats, testimonials }) {
         {/* Testimonials com métrica concreta */}
         <div className="grid md:grid-cols-3 gap-5">
           {testimonials.map((t, i) => (
-            <figure
+            <Reveal
               key={i}
+              delay={Math.min(i * 90, 180)}
+              as="figure"
               className="glass p-6 relative hover:border-primary/30 transition-colors group"
             >
               {/* Resultado destacado em badge no topo */}
@@ -69,7 +74,7 @@ export default function SocialProof({ stats, testimonials }) {
                   </svg>
                 </div>
               </figcaption>
-            </figure>
+            </Reveal>
           ))}
         </div>
       </div>

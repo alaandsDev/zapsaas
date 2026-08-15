@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
   LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
   Radio, BadgeCheck, LifeBuoy, Pin, Sparkles,
@@ -104,10 +105,13 @@ export default function Sidebar() {
           ${active ? "text-primary" : "text-ink-300 hover:text-ink-50"}`}
       >
         {active && (
-          <>
-            <span className="absolute inset-0 rounded-xl bg-primary/10 border border-primary/20" />
+          <motion.span
+            layoutId="sidebar-active-pill"
+            className="absolute inset-0 rounded-xl bg-primary/10 border border-primary/20"
+            transition={{ type: "spring", stiffness: 500, damping: 42, mass: 0.7 }}
+          >
             <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary shadow-[0_0_10px_rgba(0,255,136,0.7)]" />
-          </>
+          </motion.span>
         )}
         {!active && <span className="absolute inset-0 rounded-xl bg-white/0 group-hover:bg-white/[0.04] transition-colors" />}
         <Icon className={`relative size-[18px] shrink-0 transition-transform group-hover:scale-110 ${item.highlight && !active ? "text-secondary" : ""}`} />
