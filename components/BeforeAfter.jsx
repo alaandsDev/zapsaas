@@ -1,17 +1,19 @@
+import Icon from "./ui/Icon";
+
 const BEFORE = [
-  { icon: "😩", text: "Cliente manda mensagem e fica horas sem resposta" },
-  { icon: "📋", text: "Lista de contatos parada na planilha — dinheiro morto" },
-  { icon: "🌙", text: "Fim de semana e feriado: WhatsApp em silêncio total" },
-  { icon: "🔁", text: "Você respondendo a mesma pergunta 50 vezes por dia" },
-  { icon: "💸", text: "Vendas perdidas porque ninguém deu follow-up" },
+  { icon: "sem-resposta", text: "Cliente manda mensagem e fica horas sem resposta" },
+  { icon: "planilha", text: "Lista de contatos parada na planilha — dinheiro morto" },
+  { icon: "silencio", text: "Fim de semana e feriado: WhatsApp em silêncio total" },
+  { icon: "repeticao", text: "Você respondendo a mesma pergunta 50 vezes por dia" },
+  { icon: "venda-perdida", text: "Vendas perdidas porque ninguém deu follow-up" },
 ];
 
 const AFTER = [
-  { icon: "⚡", text: "Resposta automática personalizada em 1 segundo" },
-  { icon: "🚀", text: "Reativa toda a base com 1 clique — vendas chegando" },
-  { icon: "🌙", text: "Vende dormindo, almoçando, no churrasco do domingo" },
-  { icon: "🤖", text: "Bot atende 80% das dúvidas, você fecha as vendas" },
-  { icon: "📈", text: "Cada lead recebe a mensagem certa no momento certo" },
+  { icon: "instantaneo", text: "Resposta automática personalizada em 1 segundo" },
+  { icon: "disparo", text: "Reativa toda a base com 1 clique — vendas chegando" },
+  { icon: "madrugada", text: "Vende dormindo, almoçando, no churrasco do domingo" },
+  { icon: "bot", text: "Bot atende 80% das dúvidas, você fecha as vendas" },
+  { icon: "timing", text: "Cada lead recebe a mensagem certa no momento certo" },
 ];
 
 export default function BeforeAfter() {
@@ -34,17 +36,18 @@ export default function BeforeAfter() {
           <div className="glass p-7 relative overflow-hidden border-red-500/20">
             <div className="absolute -top-12 -right-12 size-40 rounded-full bg-red-500/5 blur-3xl pointer-events-none" />
             <div className="relative">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/25 text-red-300 text-xs font-bold mb-5">
-                <span>❌</span> ANTES DO WAYVO
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/25 text-red-300 text-xs font-bold mb-5 tracking-wide">
+                <Icon name="x" className="size-3.5" strokeWidth={2.5} />
+                ANTES DO WAYVO
               </div>
               <h3 className="text-xl font-bold text-ink-200 mb-5">Você refém do WhatsApp</h3>
-              <ul className="space-y-3">
+              <ul className="space-y-3.5">
                 {BEFORE.map((b, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="size-8 shrink-0 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-base">
-                      {b.icon}
+                  <li key={i} className="flex items-center gap-3.5">
+                    <span className="size-9 shrink-0 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-300/90">
+                      <Icon name={b.icon} className="size-[18px]" />
                     </span>
-                    <span className="text-sm text-ink-300 leading-relaxed pt-1">{b.text}</span>
+                    <span className="text-sm text-ink-300 leading-snug">{b.text}</span>
                   </li>
                 ))}
               </ul>
@@ -55,17 +58,18 @@ export default function BeforeAfter() {
           <div className="glass p-7 relative overflow-hidden border-primary/30 bg-gradient-to-b from-primary/[0.04] to-card">
             <div className="absolute -top-12 -right-12 size-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
             <div className="relative">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold mb-5">
-                <span>✓</span> COM O WAYVO
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-bold mb-5 tracking-wide">
+                <Icon name="check" className="size-3.5" strokeWidth={2.5} />
+                COM O WAYVO
               </div>
               <h3 className="text-xl font-bold mb-5">WhatsApp trabalhando por você</h3>
-              <ul className="space-y-3">
+              <ul className="space-y-3.5">
                 {AFTER.map((a, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="size-8 shrink-0 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-base">
-                      {a.icon}
+                  <li key={i} className="flex items-center gap-3.5">
+                    <span className="size-9 shrink-0 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
+                      <Icon name={a.icon} className="size-[18px]" />
                     </span>
-                    <span className="text-sm text-ink-100 leading-relaxed pt-1 font-medium">{a.text}</span>
+                    <span className="text-sm text-ink-100 leading-snug font-medium">{a.text}</span>
                   </li>
                 ))}
               </ul>

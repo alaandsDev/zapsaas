@@ -1,4 +1,5 @@
 import Reveal from "./ui/Reveal";
+import Icon from "./ui/Icon";
 
 export default function SocialProof({ stats, testimonials }) {
   return (
@@ -41,8 +42,8 @@ export default function SocialProof({ stats, testimonials }) {
             >
               {/* Resultado destacado em badge no topo */}
               {t.result && (
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-bold mb-4">
-                  <span>📈</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-bold mb-4">
+                  <Icon name="revenue" className="size-3.5" strokeWidth={2.25} />
                   <span>{t.result}</span>
                 </div>
               )}

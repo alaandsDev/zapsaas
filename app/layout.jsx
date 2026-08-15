@@ -43,7 +43,7 @@ export const metadata = {
     siteName: "Wayvo",
     title: "Wayvo — Sistema de Vendas Automáticas pelo WhatsApp 24h",
     description:
-      "Venda todos os dias pelo WhatsApp no automático. Disparos em massa, chatbot e CRM. Plano Starter grátis. Pro por R$ 97/mês.",
+      "Venda todos os dias pelo WhatsApp no automático. Disparos em massa, chatbot e CRM. Plano Starter grátis. Pro por R$ 47/mês.",
     images: [
       {
         url: "/og.png",

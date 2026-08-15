@@ -1,4 +1,5 @@
 import Reveal from "./ui/Reveal";
+import Icon from "./ui/Icon";
 
 export default function Features({ title, items }) {
   return (
@@ -13,8 +14,8 @@ export default function Features({ title, items }) {
             <Reveal key={i} delay={Math.min(i * 80, 240)}>
               <div className="card p-7 h-full hover:border-white/15 transition-all">
                 <div className="flex items-start gap-4">
-                  <div className="size-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xl shrink-0">
-                    {f.icon}
+                  <div className="size-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                    <Icon name={f.icon} className="size-[22px]" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">{f.title}</h3>

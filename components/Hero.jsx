@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import BackgroundPaths from "./BackgroundPaths";
+import Icon from "./ui/Icon";
 
 export default function Hero({
   eyebrow = "Conversational Revenue OS · AI-first",
@@ -173,8 +174,9 @@ function ProductMockup() {
               <div className="text-[10px] text-primary">online</div>
             </div>
           </div>
-          <div className="text-[10px] text-ink-500 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-semibold">
-            ✨ IA ativa
+          <div className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-semibold">
+            <Icon name="ai-sparkle" className="size-3" strokeWidth={2.25} />
+            IA ativa
           </div>
         </div>
 
@@ -185,8 +187,9 @@ function ProductMockup() {
               <Bubble key={i} side={s.side}>{s.text}</Bubble>
             ) : s.type === "badge" ? (
               <div key={i} className="flex justify-center mt-3 animate-scale-in">
-                <div className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full animate-glow-pulse">
-                  ✓ Convertido pela IA em 47s
+                <div className="inline-flex items-center gap-1.5 text-[10px] text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full animate-glow-pulse">
+                  <Icon name="check" className="size-3" strokeWidth={2.5} />
+                  Convertido pela IA em 47s
                 </div>
               </div>
             ) : null
@@ -199,7 +202,7 @@ function ProductMockup() {
       <div className="hidden lg:block absolute -left-8 bottom-8 card p-4 shadow-xl bg-bg/95 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
-            📈
+            <Icon name="revenue" className="size-5" />
           </div>
           <div>
             <div className="text-xs text-ink-400">Receita atribuída hoje</div>
@@ -220,7 +223,7 @@ function ProductMockup() {
           </div>
         </div>
         <div className="text-[10px] text-ink-300 bg-primary/5 border border-primary/15 rounded-lg px-2 py-1.5 leading-relaxed">
-          "Faturei R$ 8k em 3 dias só pelo Wayvo" 🔥
+          "Faturei R$ 8k em 3 dias só pelo Wayvo"
         </div>
       </div>
     </div>

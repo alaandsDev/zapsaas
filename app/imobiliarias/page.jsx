@@ -47,10 +47,10 @@ export default function Page() {
       ctaLabel="Quero vender mais imóveis"
       benefitsTitle="Lead trabalhado, visita agendada, venda fechada"
       benefits={[
-        { icon: "🏠", title: "Follow-up que não falha", desc: "Cada lead recebe a sequência certa de mensagens nos dias certos. Nada cai pelo vão da escada." },
-        { icon: "📲", title: "Nutrição de leads automática", desc: "Manda fotos, vídeos, plantas e tour virtual no momento ideal. Lead frio vira lead quente sozinho." },
-        { icon: "📅", title: "Agendamento de visitas", desc: "Lead interessado escolhe o horário direto pelo WhatsApp. Sua agenda enche sem você pegar no telefone." },
-        { icon: "🎯", title: "Reativação de base parada", desc: "Aquele lead de 3 meses atrás que sumiu? Volta pra ativa com a oferta certa do imóvel ideal." },
+        { icon: "imovel", title: "Follow-up que não falha", desc: "Cada lead recebe a sequência certa de mensagens nos dias certos. Nada cai pelo vão da escada." },
+        { icon: "nutricao", title: "Nutrição de leads automática", desc: "Manda fotos, vídeos, plantas e tour virtual no momento ideal. Lead frio vira lead quente sozinho." },
+        { icon: "visita", title: "Agendamento de visitas", desc: "Lead interessado escolhe o horário direto pelo WhatsApp. Sua agenda enche sem você pegar no telefone." },
+        { icon: "campanha", title: "Reativação de base parada", desc: "Aquele lead de 3 meses atrás que sumiu? Volta pra ativa com a oferta certa do imóvel ideal." },
       ]}
       steps={[
         { title: "Conecte o WhatsApp da imobiliária", desc: "30 segundos pra ligar seu número. Funciona com vários corretores ou um número central." },

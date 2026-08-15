@@ -48,10 +48,10 @@ export default function Page() {
       ctaLabel="Quero mais pedidos"
       benefitsTitle="Mais pedidos. Mais margem. Cliente fiel."
       benefits={[
-        { icon: "🍔", title: "Promoções que viram pedido", desc: "Promoção de quinta, combo do fim de semana, oferta-relâmpago. Wayvo dispara pra base toda e os pedidos chegam." },
-        { icon: "🔁", title: "Cliente voltando todo mês", desc: "Quem pediu uma vez recebe a mensagem certa pra pedir de novo. Recorrência sem depender de plataforma cara." },
-        { icon: "💸", title: "Margem de volta no seu bolso", desc: "Venda direto pelo WhatsApp e fuja da taxa de 27% das plataformas. Cada pedido vale mais." },
-        { icon: "🎁", title: "Aniversário e datas especiais", desc: "Mensagem automática no aniversário com oferta. Cliente lembra de você no momento que conta." },
+        { icon: "cardapio", title: "Promoções que viram pedido", desc: "Promoção de quinta, combo do fim de semana, oferta-relâmpago. Wayvo dispara pra base toda e os pedidos chegam." },
+        { icon: "recorrencia", title: "Cliente voltando todo mês", desc: "Quem pediu uma vez recebe a mensagem certa pra pedir de novo. Recorrência sem depender de plataforma cara." },
+        { icon: "margem", title: "Margem de volta no seu bolso", desc: "Venda direto pelo WhatsApp e fuja da taxa de 27% das plataformas. Cada pedido vale mais." },
+        { icon: "presente", title: "Aniversário e datas especiais", desc: "Mensagem automática no aniversário com oferta. Cliente lembra de você no momento que conta." },
       ]}
       steps={[
         { title: "Conecte o WhatsApp do delivery", desc: "Sem trocar número. Em 30 segundos seu WhatsApp vira uma máquina de pedidos." },

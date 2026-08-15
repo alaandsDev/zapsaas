@@ -48,10 +48,10 @@ export default function Page() {
       ctaLabel="Quero encher minha agenda"
       benefitsTitle="Agenda cheia. Faltas reduzidas. Faturamento previsível."
       benefits={[
-        { icon: "📅", title: "Agendamento automático", desc: "Paciente recebe a mensagem, escolhe o horário e a agenda é preenchida sozinha. Sem ligação, sem fila no telefone." },
-        { icon: "✅", title: "Confirmação e redução de faltas", desc: "Lembrete automático antes da consulta. Faltas caem em até 70% — cada horário vira receita." },
-        { icon: "🔄", title: "Reativação de pacientes inativos", desc: "Quem não voltou nos últimos 6 meses recebe a mensagem certa e volta a marcar. Recorrência no automático." },
-        { icon: "💼", title: "Pré-venda de procedimentos", desc: "Avalie interesse em procedimentos novos, gere lista de espera e venda pacotes antes mesmo de divulgar." },
+        { icon: "agendamento", title: "Agendamento automático", desc: "Paciente recebe a mensagem, escolhe o horário e a agenda é preenchida sozinha. Sem ligação, sem fila no telefone." },
+        { icon: "confirmacao", title: "Confirmação e redução de faltas", desc: "Lembrete automático antes da consulta. Faltas caem em até 70% — cada horário vira receita." },
+        { icon: "reativacao", title: "Reativação de pacientes inativos", desc: "Quem não voltou nos últimos 6 meses recebe a mensagem certa e volta a marcar. Recorrência no automático." },
+        { icon: "pre-venda", title: "Pré-venda de procedimentos", desc: "Avalie interesse em procedimentos novos, gere lista de espera e venda pacotes antes mesmo de divulgar." },
       ]}
       steps={[
         { title: "Conecte o WhatsApp da clínica", desc: "Em 30 segundos. Sem trocar de número, sem app paralelo. Tudo no número que seus pacientes já conhecem." },

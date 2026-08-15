@@ -44,7 +44,7 @@ export default function Home() {
             {
               "@type": "Offer",
               name: "Pro",
-              price: "97.00",
+              price: "47.00",
               priceCurrency: "BRL",
               description: "Assinatura mensal, sem fidelidade",
             },
@@ -73,10 +73,10 @@ export default function Home() {
         title="Não é um disparador. É a infraestrutura de comunicação do seu negócio."
         subtitle="Uma plataforma operacional que transforma cada conversa em receita previsível."
         items={[
-          { icon: "🧠", title: "Copiloto de IA operacional", desc: "A IA lê sua operação, prioriza leads quentes e recomenda a próxima ação — em todas as telas." },
-          { icon: "💬", title: "CRM conversacional", desc: "Cada conversa com contexto comercial: score do lead, histórico, automações e receita atribuída." },
-          { icon: "⚙️", title: "Automação que opera por você", desc: "Workflows visuais que qualificam, respondem e recuperam leads sem você tocar no celular." },
-          { icon: "📊", title: "Revenue Ops de verdade", desc: "Atribuição de receita por campanha e fluxo. Saiba exatamente o que gera caixa." },
+          { icon: "ai-copilot", title: "Copiloto de IA operacional", desc: "A IA lê sua operação, prioriza leads quentes e recomenda a próxima ação — em todas as telas." },
+          { icon: "crm", title: "CRM conversacional", desc: "Cada conversa com contexto comercial: score do lead, histórico, automações e receita atribuída." },
+          { icon: "automation", title: "Automação que opera por você", desc: "Workflows visuais que qualificam, respondem e recuperam leads sem você tocar no celular." },
+          { icon: "revenue", title: "Revenue Ops de verdade", desc: "Atribuição de receita por campanha e fluxo. Saiba exatamente o que gera caixa." },
         ]}
       />
       <HowItWorks
@@ -102,10 +102,10 @@ export default function Home() {
       <Features
         title="Uma plataforma operacional completa — não um conjunto de ferramentas soltas"
         items={[
-          { icon: "🧠", title: "Wayvo AI Copilot", desc: "Insights priorizados, score de leads, melhor horário e alertas de saúde — gerados dos seus dados reais." },
-          { icon: "🔀", title: "Workflow Builder", desc: "Editor visual de automações com IA que monta o fluxo. Qualificação, follow-up e recuperação no automático." },
-          { icon: "📈", title: "Revenue analytics", desc: "Receita atribuída, ROI por campanha e funil real. Decisões com base em caixa, não em achismo." },
-          { icon: "🛡️", title: "Engine de estabilidade", desc: "Balanceamento inteligente e distribuição operacional entre canais para entrega consistente." },
+          { icon: "ai-sparkle", title: "Wayvo AI Copilot", desc: "Insights priorizados, score de leads, melhor horário e alertas de saúde — gerados dos seus dados reais." },
+          { icon: "workflow-builder", title: "Workflow Builder", desc: "Editor visual de automações com IA que monta o fluxo. Qualificação, follow-up e recuperação no automático." },
+          { icon: "analytics", title: "Revenue analytics", desc: "Receita atribuída, ROI por campanha e funil real. Decisões com base em caixa, não em achismo." },
+          { icon: "stability", title: "Engine de estabilidade", desc: "Balanceamento inteligente e distribuição operacional entre canais para entrega consistente." },
         ]}
       />
       <SocialProof

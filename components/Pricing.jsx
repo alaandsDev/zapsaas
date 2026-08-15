@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { track } from "./Analytics";
 import { api, getToken } from "../lib/api";
+import Icon from "./ui/Icon";
 
 const plans = [
   {
@@ -18,7 +19,7 @@ const plans = [
   {
     name: "Pro",
     tagline: "Pra escalar",
-    price: "R$ 97",
+    price: "R$ 47",
     period: "/mês",
     desc: "Campanhas ilimitadas, balanceamento inteligente entre canais, CRM conversacional e Wayvo AI.",
     cta: "Assinar Pro",
@@ -103,7 +104,9 @@ function ConsultarPrecoModal({ open, onClose }) {
         <div className="p-6">
           {sent ? (
             <div className="text-center py-6 space-y-3">
-              <div className="text-4xl">🎉</div>
+              <div className="flex justify-center text-[#00FFAE]">
+                <Icon name="sucesso" className="size-11" strokeWidth={1.5} />
+              </div>
               <h3 className="text-lg font-bold text-white">Recebemos sua solicitação!</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
                 Nossa equipe vai entrar em contato com você em breve no WhatsApp informado com a melhor proposta personalizada.
@@ -196,7 +199,7 @@ export default function Pricing() {
     }
     setCheckingOut(true); setCheckoutErr("");
     try {
-      track("InitiateCheckout", { plano: "pro", valor: 97 });
+      track("InitiateCheckout", { plano: "pro", valor: 47 });
       const r = await api("/api/stripe/checkout", { method: "POST", body: { planId: "pro" } });
       if (!r?.url) throw new Error("checkout sem URL");
       window.location.href = r.url;
@@ -333,7 +336,7 @@ export default function Pricing() {
             LGPD compliant
           </span>
           <span className="inline-flex items-center gap-2">
-            <span>📞</span>
+            <Icon name="suporte" className="size-4 text-primary" strokeWidth={2} />
             Suporte humano em PT-BR
           </span>
         </div>

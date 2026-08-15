@@ -4535,7 +4535,7 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
 
 const PLANS = {
   free: { name: 'Gratuito', price: 0,    priceId: null,                          leads: 50,    dispatches: 3  },
-  pro:  { name: 'Pro',      price: 9700, priceId: process.env.STRIPE_PRICE_PRO,  leads: 99999, dispatches: 999 },
+  pro:  { name: 'Pro',      price: 4700, priceId: process.env.STRIPE_PRICE_PRO,  leads: 99999, dispatches: 999 },
 };
 
 app.get('/api/plans', (req, res) => {

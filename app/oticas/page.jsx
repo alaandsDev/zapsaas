@@ -47,10 +47,10 @@ export default function Page() {
       ctaLabel="Quero ativar na minha ótica"
       benefitsTitle="Sua ótica vendendo enquanto você atende"
       benefits={[
-        { icon: "👓", title: "Reative pacientes que sumiram", desc: "Aquele cliente que comprou há 1 ano e nunca mais voltou recebe a mensagem certa e volta pra trocar a armação." },
-        { icon: "💎", title: "Venda segundo par e lente solar", desc: "Ofertas inteligentes pra quem já comprou de você. O cliente certo, na hora certa, com a oferta certa." },
-        { icon: "📅", title: "Lembrete de troca de lentes", desc: "Avisa automaticamente quem está na hora de trocar grau, lente de contato ou armação. Venda recorrente garantida." },
-        { icon: "🎯", title: "Promoções que dão resultado", desc: "Black Friday, Dia das Mães, Pais — campanhas prontas que disparam pra base toda em segundos." },
+        { icon: "oculos", title: "Reative pacientes que sumiram", desc: "Aquele cliente que comprou há 1 ano e nunca mais voltou recebe a mensagem certa e volta pra trocar a armação." },
+        { icon: "segundo-par", title: "Venda segundo par e lente solar", desc: "Ofertas inteligentes pra quem já comprou de você. O cliente certo, na hora certa, com a oferta certa." },
+        { icon: "troca-lentes", title: "Lembrete de troca de lentes", desc: "Avisa automaticamente quem está na hora de trocar grau, lente de contato ou armação. Venda recorrente garantida." },
+        { icon: "campanha", title: "Promoções que dão resultado", desc: "Black Friday, Dia das Mães, Pais — campanhas prontas que disparam pra base toda em segundos." },
       ]}
       steps={[
         { title: "Conecte o WhatsApp da ótica", desc: "Liga seu número ao Wayvo em 30 segundos. Mantém o mesmo número que seus clientes já conhecem." },

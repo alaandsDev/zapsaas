@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, setAuth } from "../../../lib/api";
+import Icon from "../../../components/ui/Icon";
 
 export default function ConvitePage() {
   const { token } = useParams();
@@ -61,7 +62,9 @@ export default function ConvitePage() {
             </div>
           ) : inviteErr ? (
             <div className="text-center py-8">
-              <div className="text-4xl mb-4">❌</div>
+              <div className="flex justify-center mb-4 text-red-400">
+                <Icon name="erro" className="size-10" strokeWidth={1.5} />
+              </div>
               <h2 className="text-white font-bold text-lg mb-2">Convite inválido</h2>
               <p className="text-gray-400 text-sm mb-6">{inviteErr}</p>
               <Link href="/login" className="text-[#00FF88] text-sm hover:underline">Ir para o login →</Link>
@@ -69,7 +72,9 @@ export default function ConvitePage() {
           ) : (
             <>
               <div className="text-center mb-6">
-                <div className="text-4xl mb-3">🎉</div>
+                <div className="flex justify-center mb-3 text-[#00FF88]">
+                  <Icon name="sucesso" className="size-10" strokeWidth={1.5} />
+                </div>
                 <h1 className="text-white font-bold text-xl mb-1">Você foi convidado!</h1>
                 <p className="text-gray-400 text-sm">
                   Aceite o convite como{" "}
@@ -79,8 +84,9 @@ export default function ConvitePage() {
                 </p>
               </div>
 
-              <div className="bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-3 mb-6 text-sm text-gray-400">
-                📧 <span className="text-white font-medium">{invite?.email}</span>
+              <div className="flex items-center gap-2.5 bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 py-3 mb-6 text-sm text-gray-400">
+                <Icon name="email" className="size-4 shrink-0" />
+                <span className="text-white font-medium">{invite?.email}</span>
               </div>
 
               <form onSubmit={onSubmit} className="space-y-4">
