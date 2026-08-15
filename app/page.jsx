@@ -1,5 +1,7 @@
 import Navbar from "../components/Navbar";
 import JsonLd from "../components/JsonLd";
+import { OG_IMAGE } from "../lib/seo";
+import { FAQ_JSONLD } from "../lib/faq";
 
 export const metadata = {
   title: "Wayvo — Automação de Vendas no WhatsApp: CRM, Disparos e IA",
@@ -11,6 +13,7 @@ export const metadata = {
     title: "Wayvo — Automação de Vendas no WhatsApp: CRM, Disparos e IA",
     description:
       "Disparos em massa, CRM de leads, chatbot e automação com IA numa só plataforma. Comece grátis.",
+    images: OG_IMAGE,
   },
 };
 import Hero from "../components/Hero";
@@ -38,52 +41,19 @@ export default function Home() {
             "Sistema de vendas automáticas pelo WhatsApp: disparos em massa, chatbot 24/7, automações e CRM.",
           offers: [
             { "@type": "Offer", name: "Starter", price: "0", priceCurrency: "BRL" },
-            { "@type": "Offer", name: "Pro", price: "0", priceCurrency: "BRL", description: "Sob consulta" },
+            {
+              "@type": "Offer",
+              name: "Pro",
+              price: "97.00",
+              priceCurrency: "BRL",
+              description: "Assinatura mensal, sem fidelidade",
+            },
           ],
           // aggregateRating removido: Google exige avaliações reais (rating falso = penalidade).
           // Reative quando tiver reviews genuínas de clientes.
         }}
       />
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          mainEntity: [
-            {
-              "@type": "Question",
-              name: "O Wayvo funciona com meu WhatsApp atual?",
-              acceptedAnswer: {
-                "@type": "Answer",
-                text: "Sim. Você conecta seu próprio número em 30 segundos via QR Code, sem trocar de chip nem usar app paralelo.",
-              },
-            },
-            {
-              "@type": "Question",
-              name: "Existe plano gratuito?",
-              acceptedAnswer: {
-                "@type": "Answer",
-                text: "Sim. O plano Starter é gratuito pra sempre, sem cartão de crédito. O plano Pro tem preço personalizado conforme sua operação — clique em Consultar preço para receber uma proposta.",
-              },
-            },
-            {
-              "@type": "Question",
-              name: "Posso fazer disparo em massa pelo WhatsApp?",
-              acceptedAnswer: {
-                "@type": "Answer",
-                text: "Sim. O Wayvo envia campanhas com mensagens personalizadas (nome, oferta, link) com cadência inteligente para manter seu número saudável.",
-              },
-            },
-            {
-              "@type": "Question",
-              name: "Funciona pra clínicas, delivery, imobiliária e ótica?",
-              acceptedAnswer: {
-                "@type": "Answer",
-                text: "Sim. O Wayvo tem fluxos prontos para clínicas (agendamento), delivery (recorrência), imobiliárias (follow-up) e óticas (reativação).",
-              },
-            },
-          ],
-        }}
-      />
+      <JsonLd data={FAQ_JSONLD} />
       <Navbar />
       <Hero
         eyebrow="Conversational Revenue OS · AI-first"

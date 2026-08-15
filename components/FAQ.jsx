@@ -1,40 +1,6 @@
 "use client";
 import { useState } from "react";
-
-const FAQS = [
-  {
-    q: "A entrega das campanhas é estável e segura?",
-    a: "Sim. A Wayvo usa engine de estabilidade com cadência inteligente, intervalos randomizados e balanceamento entre canais (até 2 canais alternando) — entrega consistente e operação saudável. Mais de 200 operações ativas há +6 meses.",
-  },
-  {
-    q: "Funciona com meu WhatsApp atual ou preciso de chip novo?",
-    a: "Funciona com qualquer WhatsApp — você conecta seu número via QR Code em 30 segundos, sem trocar de chip. Para volume alto, recomendamos um canal dedicado para isolar o número de uso pessoal.",
-  },
-  {
-    q: "Existe plano gratuito de verdade?",
-    a: "Sim. O Starter é grátis pra sempre, sem cartão. Você opera até 3 campanhas/mês, 50 leads no CRM e já tem o Wayvo AI Copilot em modo básico. Suficiente pra validar antes de pagar.",
-  },
-  {
-    q: "Quanto custa o Pro e o que vem incluído?",
-    a: "Pro custa R$ 47/mês: campanhas ilimitadas, 2 canais com balanceamento inteligente, CRM conversacional ilimitado, Workflow Builder com IA, Revenue Ops (ROI por campanha), analytics em tempo real e suporte prioritário.",
-  },
-  {
-    q: "Quanto tempo leva pra ver resultado?",
-    a: "Donos de negócio reportam primeiras vendas no mesmo dia da configuração. Em 7 dias a média é +37 vendas extras. O segredo é falar com a base de contatos parada que você já tem.",
-  },
-  {
-    q: "E se eu quiser cancelar?",
-    a: "Cancela com 1 clique no painel, sem multa, sem perguntas. Você mantém acesso até o fim do período pago e seus dados ficam guardados por 30 dias caso queira voltar.",
-  },
-  {
-    q: "Funciona pra clínica / delivery / imobiliária / ótica?",
-    a: "Sim, e temos templates prontos pra cada um. Clínica: agendamento e confirmação automática. Delivery: campanhas de promoção e recorrência. Imobiliária: follow-up de leads. Ótica: reativação e segundo par.",
-  },
-  {
-    q: "Posso enviar mídia (imagem, vídeo, áudio, PDF)?",
-    a: "Sim. A Wayvo suporta imagens, vídeos, áudios e documentos em qualquer campanha ou fluxo. Útil pra catálogo, panfletos, áudios personalizados e PDFs de orçamento.",
-  },
-];
+import { FAQS } from "../lib/faq";
 
 export default function FAQ() {
   const [open, setOpen] = useState(0);
@@ -48,7 +14,11 @@ export default function FAQ() {
           </div>
           <h2 className="text-h2">Tudo que você precisa saber<br />antes de começar</h2>
           <p className="text-ink-300 mt-4 text-lg">
-            Não achou a resposta? <a href="#" className="text-primary hover:underline">Fale com a gente</a>.
+            Não achou a resposta?{" "}
+            <a href="mailto:suporte@wayvo.app.br" className="text-primary hover:underline">
+              Fale com a gente
+            </a>
+            .
           </p>
         </div>
 

@@ -1,7 +1,8 @@
 import NicheLanding from "../../components/NicheLanding";
 import JsonLd from "../../components/JsonLd";
+import { OG_IMAGE } from "../../lib/seo";
 
-const URL = "https://zapflow.vercel.app/delivery";
+const URL = "https://www.wayvo.app.br/delivery";
 
 export const metadata = {
   title: "Wayvo para Delivery — Mais pedidos pelo WhatsApp",
@@ -22,6 +23,7 @@ export const metadata = {
     title: "Wayvo para Delivery — Mais pedidos no automático",
     description:
       "Promoções, recorrência e clientes fiéis pelo WhatsApp. Sem pagar 30% para plataforma.",
+    images: OG_IMAGE,
   },
 };
 
@@ -29,7 +31,7 @@ const BREADCRUMB = {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://www.wayvo.app.br/" },
     { "@type": "ListItem", position: 2, name: "Delivery", item: URL },
   ],
 };

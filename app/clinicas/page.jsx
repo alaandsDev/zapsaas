@@ -1,7 +1,8 @@
 import NicheLanding from "../../components/NicheLanding";
 import JsonLd from "../../components/JsonLd";
+import { OG_IMAGE } from "../../lib/seo";
 
-const URL = "https://zapflow.vercel.app/clinicas";
+const URL = "https://www.wayvo.app.br/clinicas";
 
 export const metadata = {
   title: "Wayvo para Clínicas — Encha sua agenda automaticamente",
@@ -22,6 +23,7 @@ export const metadata = {
     title: "Wayvo para Clínicas — Agenda cheia no automático",
     description:
       "Agendamento, confirmação e reativação de pacientes pelo WhatsApp. Faltas até 70% menores.",
+    images: OG_IMAGE,
   },
 };
 
@@ -29,7 +31,7 @@ const BREADCRUMB = {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://www.wayvo.app.br/" },
     { "@type": "ListItem", position: 2, name: "Clínicas", item: URL },
   ],
 };

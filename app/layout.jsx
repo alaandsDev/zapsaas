@@ -1,6 +1,7 @@
 import "./globals.css";
 import { ToastProvider } from "../components/Toast";
 import FloatingCTA from "../components/FloatingCTA";
+import Analytics from "../components/Analytics";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const SITE_URL = "https://www.wayvo.app.br";
@@ -42,7 +43,7 @@ export const metadata = {
     siteName: "Wayvo",
     title: "Wayvo — Sistema de Vendas Automáticas pelo WhatsApp 24h",
     description:
-      "Venda todos os dias pelo WhatsApp no automático. Disparos em massa, chatbot e CRM. Plano Starter grátis. Pro por R$ 47/mês.",
+      "Venda todos os dias pelo WhatsApp no automático. Disparos em massa, chatbot e CRM. Plano Starter grátis. Pro por R$ 97/mês.",
     images: [
       {
         url: "/og.png",
@@ -131,6 +132,7 @@ export default function RootLayout({ children }) {
         <ToastProvider>
           {children}
           <FloatingCTA />
+          <Analytics />
           <SpeedInsights />
         </ToastProvider>
       </body>

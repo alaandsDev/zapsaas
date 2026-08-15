@@ -4,6 +4,7 @@ import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
 import JsonLd from "../../../components/JsonLd";
 import { getPost, getAllPosts, fmtDate } from "../../../lib/blog";
+import { OG_IMAGE } from "../../../lib/seo";
 import BlogImage from "../../../components/BlogImage";
 
 const SITE = "https://www.wayvo.app.br";
@@ -26,6 +27,7 @@ export function generateMetadata({ params }) {
       title: post.title,
       description: post.description,
       publishedTime: post.date,
+      images: OG_IMAGE,
     },
   };
 }

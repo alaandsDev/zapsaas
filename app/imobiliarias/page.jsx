@@ -1,7 +1,8 @@
 import NicheLanding from "../../components/NicheLanding";
 import JsonLd from "../../components/JsonLd";
+import { OG_IMAGE } from "../../lib/seo";
 
-const URL = "https://zapflow.vercel.app/imobiliarias";
+const URL = "https://www.wayvo.app.br/imobiliarias";
 
 export const metadata = {
   title: "Wayvo para Imobiliárias — Leads em visitas e vendas",
@@ -21,6 +22,7 @@ export const metadata = {
     title: "Wayvo para Imobiliárias — Leads viram vendas",
     description:
       "Follow-up automático, nutrição de leads e visitas agendadas pelo WhatsApp.",
+    images: OG_IMAGE,
   },
 };
 
@@ -28,7 +30,7 @@ const BREADCRUMB = {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://www.wayvo.app.br/" },
     { "@type": "ListItem", position: 2, name: "Imobiliárias", item: URL },
   ],
 };

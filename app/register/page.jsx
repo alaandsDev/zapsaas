@@ -6,6 +6,7 @@ import AuthShell from "../../components/auth/AuthShell";
 import { Field, Input, Button } from "../../components/ui/Field";
 import { api, setAuth } from "../../lib/api";
 import GoogleButton from "../../components/auth/GoogleButton";
+import { track } from "../../components/Analytics";
 
 export default function Register() {
   const router = useRouter();
@@ -28,6 +29,21 @@ export default function Register() {
         body: { name, email, phone, password },
       });
       setAuth(r.token, r.user);
+
+      // Veio do botão "Assinar Pro" na home: retoma o checkout em vez de cair
+      // no painel. Lido do location porque useSearchParams exigiria Suspense.
+      const querPro = new URLSearchParams(window.location.search).get("plano") === "pro";
+      track("CompleteRegistration", { plano: querPro ? "pro" : "starter" });
+
+      if (querPro) {
+        try {
+          const c = await api("/api/stripe/checkout", { method: "POST", body: { planId: "pro" } });
+          if (c?.url) { window.location.href = c.url; return; }
+        } catch (_) {
+          // Conta já foi criada: não trava o usuário, leva pro painel e ele
+          // assina de lá.
+        }
+      }
       router.push("/dashboard");
     } catch (e) {
       setErr(e.message || "Falha ao criar conta");

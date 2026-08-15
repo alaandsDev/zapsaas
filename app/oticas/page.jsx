@@ -1,7 +1,8 @@
 import NicheLanding from "../../components/NicheLanding";
 import JsonLd from "../../components/JsonLd";
+import { OG_IMAGE } from "../../lib/seo";
 
-const URL = "https://zapflow.vercel.app/oticas";
+const URL = "https://www.wayvo.app.br/oticas";
 
 export const metadata = {
   title: "Wayvo para Óticas — Reative pacientes e venda mais",
@@ -21,6 +22,7 @@ export const metadata = {
     title: "Wayvo para Óticas — Reative pacientes no automático",
     description:
       "Reative pacientes, venda segundo par e lentes pelo WhatsApp.",
+    images: OG_IMAGE,
   },
 };
 
@@ -28,7 +30,7 @@ const BREADCRUMB = {
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Home", item: "https://zapflow.vercel.app/" },
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://www.wayvo.app.br/" },
     { "@type": "ListItem", position: 2, name: "Óticas", item: URL },
   ],
 };

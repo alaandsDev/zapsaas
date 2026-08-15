@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Logo from "./Logo";
-import NewsletterForm from "./NewsletterForm";
 
 export default function Footer() {
   return (
@@ -47,13 +46,35 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Newsletter */}
+          {/* Contato + legal */}
           <div className="md:col-span-4">
-            <div className="text-sm font-semibold mb-2">Receba dicas que vendem</div>
-            <p className="text-xs text-ink-400 mb-4">
-              1 e-mail por semana com táticas reais de automação e revenue ops no WhatsApp. Zero spam.
-            </p>
-            <NewsletterForm />
+            <div className="text-sm font-semibold mb-4">Fale com a gente</div>
+            <ul className="space-y-2.5 text-sm text-ink-300">
+              <li>
+                Suporte:{" "}
+                <a href="mailto:suporte@wayvo.app.br" className="text-primary hover:underline">
+                  suporte@wayvo.app.br
+                </a>
+              </li>
+              <li>
+                Privacidade e LGPD:{" "}
+                <a href="mailto:privacidade@wayvo.app.br" className="text-primary hover:underline">
+                  privacidade@wayvo.app.br
+                </a>
+              </li>
+              <li>
+                Jurídico:{" "}
+                <a href="mailto:legal@wayvo.app.br" className="text-primary hover:underline">
+                  legal@wayvo.app.br
+                </a>
+              </li>
+            </ul>
+
+            <div className="text-sm font-semibold mt-7 mb-4">Legal</div>
+            <ul className="space-y-2.5 text-sm text-ink-300">
+              <li><Link href="/privacidade" className="hover:text-ink-100 transition-colors">Política de Privacidade</Link></li>
+              <li><Link href="/termos" className="hover:text-ink-100 transition-colors">Termos de Uso</Link></li>
+            </ul>
           </div>
         </div>
 

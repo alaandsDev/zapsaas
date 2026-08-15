@@ -2,6 +2,7 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { getAllPosts, fmtDate } from "../../lib/blog";
+import { OG_IMAGE } from "../../lib/seo";
 import BlogImage from "../../components/BlogImage";
 
 export const metadata = {
@@ -13,6 +14,7 @@ export const metadata = {
     url: "https://www.wayvo.app.br/blog",
     title: "Blog Wayvo — Estratégias de vendas pelo WhatsApp",
     description: "Guias práticos para vender mais pelo WhatsApp no automático.",
+    images: OG_IMAGE,
   },
 };
 

@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { track } from "./Analytics";
+import { api, getToken } from "../lib/api";
 
 const plans = [
   {
@@ -16,13 +18,12 @@ const plans = [
   {
     name: "Pro",
     tagline: "Pra escalar",
-    price: "Sob consulta",
-    period: "",
+    price: "R$ 97",
+    period: "/mês",
     desc: "Campanhas ilimitadas, balanceamento inteligente entre canais, CRM conversacional e Wayvo AI.",
-    cta: "Consultar preço",
+    cta: "Assinar Pro",
     highlighted: true,
     badge: "Mais escolhido",
-    socialProof: "Junte-se a 200+ negócios",
   },
 ];
 
@@ -55,6 +56,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://delivery-full-produc
 
 function ConsultarPrecoModal({ open, onClose }) {
   const [form, setForm] = useState({ nome: "", whatsapp: "", email: "", disparos: "", usaApi: "" });
+  const [aceite, setAceite] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState("");
@@ -65,15 +67,26 @@ function ConsultarPrecoModal({ open, onClose }) {
     if (!form.nome.trim() || !form.whatsapp.trim() || !form.email.trim() || !form.disparos || !form.usaApi) {
       setErr("Preencha todos os campos para continuar."); return;
     }
+    if (!aceite) {
+      setErr("Marque o aceite da Política de Privacidade para continuar."); return;
+    }
     setSending(true); setErr("");
     try {
-      await fetch(`${API_URL}/api/lead-contact`, {
+      const res = await fetch(`${API_URL}/api/lead-contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-    } catch (_) {}
-    setSent(true); setSending(false);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      track("Lead", { origem: "modal-consultar-preco" });
+      setSent(true);
+    } catch (_) {
+      // Nunca mostrar sucesso sem o lead ter chegado: o cliente iria embora
+      // achando que temos os dados dele.
+      setErr("Não conseguimos enviar agora. Tente de novo ou chame a gente no WhatsApp.");
+    } finally {
+      setSending(false);
+    }
   }
 
   if (!open) return null;
@@ -103,8 +116,8 @@ function ConsultarPrecoModal({ open, onClose }) {
             <>
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-base font-bold text-white">Consultar preço</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Preencha e nossa equipe entra em contato</p>
+                  <h3 className="text-base font-bold text-white">Falar com a gente</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Volume alto ou API oficial? Montamos uma proposta</p>
                 </div>
                 <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
               </div>
@@ -140,10 +153,25 @@ function ConsultarPrecoModal({ open, onClose }) {
                     ))}
                   </div>
                 </div>
+                <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={aceite}
+                    onChange={e => setAceite(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 accent-[#00FFAE] cursor-pointer"
+                  />
+                  <span className="text-[11px] text-gray-400 leading-relaxed">
+                    Autorizo a Wayvo a usar meus dados para entrar em contato com esta proposta,
+                    conforme a{" "}
+                    <a href="/privacidade" target="_blank" className="text-[#00FFAE] hover:underline">
+                      Política de Privacidade
+                    </a>.
+                  </span>
+                </label>
                 {err && <p className="text-[12px] text-red-400 font-medium">{err}</p>}
                 <button onClick={submit} disabled={sending}
                   className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-[#00FFAE] to-[#3B82F6] text-black font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60">
-                  {sending ? "Enviando..." : "Solicitar proposta personalizada →"}
+                  {sending ? "Enviando..." : "Solicitar proposta →"}
                 </button>
               </div>
             </>
@@ -156,6 +184,27 @@ function ConsultarPrecoModal({ open, onClose }) {
 
 export default function Pricing() {
   const [showModal, setShowModal] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState("");
+
+  // Visitante deslogado não tem conta pra assinar: manda criar a conta primeiro
+  // e o /register retoma o checkout logo depois do cadastro.
+  async function assinarPro() {
+    if (!getToken()) {
+      window.location.href = "/register?plano=pro";
+      return;
+    }
+    setCheckingOut(true); setCheckoutErr("");
+    try {
+      track("InitiateCheckout", { plano: "pro", valor: 97 });
+      const r = await api("/api/stripe/checkout", { method: "POST", body: { planId: "pro" } });
+      if (!r?.url) throw new Error("checkout sem URL");
+      window.location.href = r.url;
+    } catch (e) {
+      setCheckoutErr("Não conseguimos abrir o pagamento agora. Tente de novo em instantes.");
+      setCheckingOut(false);
+    }
+  }
 
   return (
     <section id="planos" className="py-24 border-t border-white/[0.06]">
@@ -205,10 +254,11 @@ export default function Pricing() {
               <p className="mt-3 text-ink-300 text-sm">{p.desc}</p>
               {p.highlighted ? (
                 <button
-                  onClick={() => setShowModal(true)}
-                  className="btn-primary w-full mt-6"
+                  onClick={assinarPro}
+                  disabled={checkingOut}
+                  className="btn-primary w-full mt-6 disabled:opacity-60"
                 >
-                  {p.cta} →
+                  {checkingOut ? "Abrindo pagamento..." : `${p.cta} →`}
                 </button>
               ) : (
                 <a href={p.href} className="btn-ghost w-full mt-6">
@@ -216,9 +266,19 @@ export default function Pricing() {
                 </a>
               )}
               {p.highlighted && (
-                <div className="mt-3 text-center text-xs text-ink-500">
-                  ⚡ Proposta personalizada · Sem fidelidade
-                </div>
+                <>
+                  {checkoutErr && (
+                    <p className="mt-3 text-center text-xs text-red-400 font-medium">{checkoutErr}</p>
+                  )}
+                  <div className="mt-3 text-center text-xs text-ink-500">
+                    Cancele quando quiser · Sem fidelidade
+                  </div>
+                  <div className="mt-2 text-center text-xs">
+                    <button onClick={() => setShowModal(true)} className="text-primary hover:underline">
+                      Volume alto ou API oficial? Fale com a gente
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           ))}
