@@ -12,24 +12,27 @@ import Icon from "./ui/Icon";
 
 const plans = [
   {
+    id: "starter",
     name: "Starter",
-    tagline: "Pra testar",
-    price: "Grátis",
-    period: "para sempre",
-    desc: "Comece sem cartão de crédito e ative suas primeiras vendas hoje.",
-    cta: "Começar grátis",
-    href: "/register",
+    tagline: "Pra começar a vender",
+    price: "R$ 97,90",
+    period: "/mês",
+    trial: "7 dias grátis · cartão pedido agora, cobrança só depois do 7º dia",
+    desc: "Campanhas ilimitadas, CRM conversacional, automação com IA e canais com balanceamento inteligente.",
+    cta: "Começar teste de 7 dias",
     highlighted: false,
   },
   {
+    id: "pro",
     name: "Pro",
-    tagline: "Pra escalar",
-    price: "R$ 47",
+    tagline: "Starter + Agente de IA",
+    price: "R$ 197,90",
     period: "/mês",
-    desc: "Campanhas ilimitadas, balanceamento inteligente entre canais, CRM conversacional e Wayvo AI.",
-    cta: "Assinar Pro",
+    trial: "7 dias grátis · cartão pedido agora, cobrança só depois do 7º dia",
+    desc: "Tudo do Starter, mais o Agente de IA: você treina como ele responde, e ele atende sozinho no WhatsApp.",
+    cta: "Começar teste de 7 dias",
     highlighted: true,
-    badge: "Mais escolhido",
+    badge: "Agente de IA incluso",
   },
 ];
 
@@ -37,35 +40,36 @@ const FEATURE_GROUPS = [
   {
     category: "Campanhas & canais",
     items: [
-      { icon: Megaphone, label: "Campanhas por mês", free: "3", pro: "Ilimitadas" },
-      { icon: Radio, label: "Canais conectados", free: "1 canal", pro: "2 canais (balanceamento inteligente)" },
-      { icon: MessagesSquare, label: "Leads / CRM conversacional", free: "Até 50", pro: "Ilimitados" },
-      { icon: ListFilter, label: "Listas e segmentação", free: "1 lista", pro: "Ilimitadas" },
+      { icon: Megaphone, label: "Campanhas por mês", starter: "Ilimitadas", pro: "Ilimitadas" },
+      { icon: Radio, label: "Canais conectados", starter: "2 canais (balanceamento inteligente)", pro: "2 canais (balanceamento inteligente)" },
+      { icon: MessagesSquare, label: "Leads / CRM conversacional", starter: "Ilimitados", pro: "Ilimitados" },
+      { icon: ListFilter, label: "Listas e segmentação", starter: "Ilimitadas", pro: "Ilimitadas" },
     ],
   },
   {
     category: "Conteúdo & atendimento",
     items: [
-      { icon: ImageIcon, label: "Mídia (foto/vídeo/áudio/PDF)", free: true, pro: true },
-      { icon: LayoutTemplate, label: "Templates prontos por nicho", free: true, pro: true },
-      { icon: LayoutDashboard, label: "Painel operacional completo", free: true, pro: true },
+      { icon: ImageIcon, label: "Mídia (foto/vídeo/áudio/PDF)", starter: true, pro: true },
+      { icon: LayoutTemplate, label: "Templates prontos por nicho", starter: true, pro: true },
+      { icon: LayoutDashboard, label: "Painel operacional completo", starter: true, pro: true },
     ],
   },
   {
     category: "IA & automação",
     items: [
-      { icon: Brain, label: "Copiloto de IA", free: "Básico", pro: "Completo" },
-      { icon: Workflow, label: "Automação com IA (monta o fluxo pra você)", free: false, pro: true },
-      { icon: TrendingUp, label: "Receita rastreada por campanha", free: false, pro: true },
+      { icon: Brain, label: "Copiloto de IA operacional", starter: true, pro: true },
+      { icon: Workflow, label: "Automação com IA (monta o fluxo pra você)", starter: true, pro: true },
+      { icon: TrendingUp, label: "Receita rastreada por campanha", starter: true, pro: true },
+      { icon: Sparkles, label: "Agente de IA autônomo — você treina, ele responde no WhatsApp", starter: false, pro: true },
     ],
   },
   {
     category: "Relatórios & suporte",
     items: [
-      { icon: BarChart3, label: "Relatórios e métricas em tempo real", free: false, pro: true },
-      { icon: FileSpreadsheet, label: "Export de relatórios em Excel", free: false, pro: true },
-      { icon: Plug, label: "API oficial WhatsApp (Canal Oficial)", free: false, pro: true },
-      { icon: Headset, label: "Suporte prioritário", free: false, pro: true },
+      { icon: BarChart3, label: "Relatórios e métricas em tempo real", starter: true, pro: true },
+      { icon: FileSpreadsheet, label: "Export de relatórios em Excel", starter: true, pro: true },
+      { icon: Plug, label: "API oficial WhatsApp (Canal Oficial)", starter: true, pro: true },
+      { icon: Headset, label: "Suporte prioritário", starter: true, pro: true },
     ],
   },
 ];
@@ -212,25 +216,26 @@ function ConsultarPrecoModal({ open, onClose }) {
 
 export default function Pricing() {
   const [showModal, setShowModal] = useState(false);
-  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(null); // planId em andamento, ou null
   const [checkoutErr, setCheckoutErr] = useState("");
 
   // Visitante deslogado não tem conta pra assinar: manda criar a conta primeiro
-  // e o /register retoma o checkout logo depois do cadastro.
-  async function assinarPro() {
+  // e o /register já abre o checkout certo logo depois do cadastro.
+  async function subscribe(planId) {
     if (!getToken()) {
-      window.location.href = "/register?plano=pro";
+      window.location.href = `/register?plano=${planId}`;
       return;
     }
-    setCheckingOut(true); setCheckoutErr("");
+    setCheckingOut(planId); setCheckoutErr("");
     try {
-      track("InitiateCheckout", { plano: "pro", valor: 47 });
-      const r = await api("/api/stripe/checkout", { method: "POST", body: { planId: "pro" } });
+      const plan = plans.find((p) => p.id === planId);
+      track("InitiateCheckout", { plano: planId, valor: plan?.price });
+      const r = await api("/api/stripe/checkout", { method: "POST", body: { planId } });
       if (!r?.url) throw new Error("checkout sem URL");
       window.location.href = r.url;
     } catch (e) {
       setCheckoutErr("Não conseguimos abrir o pagamento agora. Tente de novo em instantes.");
-      setCheckingOut(false);
+      setCheckingOut(null);
     }
   }
 
@@ -242,9 +247,9 @@ export default function Pricing() {
             <span className="size-1.5 rounded-full bg-primary animate-pulse" />
             Planos transparentes
           </div>
-          <h2 className="text-h2">Comece grátis. Escale<br />quando quiser.</h2>
+          <h2 className="text-h2">7 dias pra testar.<br />Sem surpresa depois.</h2>
           <p className="mt-4 text-ink-300 text-lg">
-            Sem letra miúda. Cancele com 1 clique.
+            Cartão pedido no cadastro, mas a cobrança só entra depois do 7º dia de uso. Cancele quando quiser.
           </p>
         </div>
 
@@ -269,44 +274,31 @@ export default function Pricing() {
                   <div className="text-sm text-ink-300 font-medium">{p.name}</div>
                   <div className="text-xs text-ink-500 mt-0.5">{p.tagline}</div>
                 </div>
-                {p.socialProof && (
-                  <div className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-full font-semibold">
-                    {p.socialProof}
-                  </div>
-                )}
               </div>
               <div className="mt-5 flex items-baseline gap-1">
                 <span className="text-4xl font-bold tracking-tight">{p.price}</span>
                 {p.period && <span className="text-ink-500 ml-1">{p.period}</span>}
               </div>
               <p className="mt-3 text-ink-300 text-sm">{p.desc}</p>
-              {p.highlighted ? (
-                <button
-                  onClick={assinarPro}
-                  disabled={checkingOut}
-                  className="btn-primary w-full mt-6 disabled:opacity-60"
-                >
-                  {checkingOut ? "Abrindo pagamento..." : `${p.cta} →`}
-                </button>
-              ) : (
-                <a href={p.href} className="btn-ghost w-full mt-6">
-                  {p.cta} →
-                </a>
+              <button
+                onClick={() => subscribe(p.id)}
+                disabled={!!checkingOut}
+                className={`w-full mt-6 disabled:opacity-60 ${p.highlighted ? "btn-primary" : "btn-secondary"}`}
+              >
+                {checkingOut === p.id ? "Abrindo pagamento..." : `${p.cta} →`}
+              </button>
+              {checkoutErr && checkingOut === null && (
+                <p className="mt-3 text-center text-xs text-red-400 font-medium">{checkoutErr}</p>
               )}
+              <div className="mt-3 text-center text-[11px] text-ink-500 leading-relaxed">
+                {p.trial}
+              </div>
               {p.highlighted && (
-                <>
-                  {checkoutErr && (
-                    <p className="mt-3 text-center text-xs text-red-400 font-medium">{checkoutErr}</p>
-                  )}
-                  <div className="mt-3 text-center text-xs text-ink-500">
-                    Cancele quando quiser · Sem fidelidade
-                  </div>
-                  <div className="mt-2 text-center text-xs">
-                    <button onClick={() => setShowModal(true)} className="text-primary hover:underline">
-                      Volume alto ou API oficial? Fale com a gente
-                    </button>
-                  </div>
-                </>
+                <div className="mt-2 text-center text-xs">
+                  <button onClick={() => setShowModal(true)} className="text-primary hover:underline">
+                    Volume alto ou API oficial? Fale com a gente
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -393,7 +385,7 @@ function FeatureGroup({ group }) {
             </span>
           </td>
           <td className="px-5 py-3.5 text-center text-sm border-b border-white/[0.04]">
-            <Cell value={f.free} />
+            <Cell value={f.starter} />
           </td>
           <td className="px-5 py-3.5 text-center text-sm bg-primary/[0.03] border-b border-primary/10 border-l-2 border-primary/25">
             <Cell value={f.pro} highlighted />

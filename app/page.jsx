@@ -6,13 +6,13 @@ import { FAQ_JSONLD } from "../lib/faq";
 export const metadata = {
   title: "Wayvo — Automação de Vendas no WhatsApp: CRM, Disparos e IA",
   description:
-    "Transforme seu WhatsApp em uma máquina de vendas: disparos em massa, CRM de leads, chatbot e automação com IA. Plano grátis pra começar hoje.",
+    "Transforme seu WhatsApp em uma máquina de vendas: disparos em massa, CRM de leads, chatbot e automação com IA. 7 dias de teste grátis.",
   alternates: { canonical: "/" },
   openGraph: {
     url: "https://www.wayvo.app.br/",
     title: "Wayvo — Automação de Vendas no WhatsApp: CRM, Disparos e IA",
     description:
-      "Disparos em massa, CRM de leads, chatbot e automação com IA numa só plataforma. Comece grátis.",
+      "Disparos em massa, CRM de leads, chatbot e automação com IA numa só plataforma. 7 dias de teste grátis.",
     images: OG_IMAGE,
   },
 };
@@ -42,13 +42,19 @@ export default function Home() {
           description:
             "Sistema de vendas automáticas pelo WhatsApp: disparos em massa, chatbot 24/7, automações e CRM.",
           offers: [
-            { "@type": "Offer", name: "Starter", price: "0", priceCurrency: "BRL" },
+            {
+              "@type": "Offer",
+              name: "Starter",
+              price: "97.90",
+              priceCurrency: "BRL",
+              description: "Assinatura mensal, 7 dias de teste grátis, sem fidelidade",
+            },
             {
               "@type": "Offer",
               name: "Pro",
-              price: "47.00",
+              price: "197.90",
               priceCurrency: "BRL",
-              description: "Assinatura mensal, sem fidelidade",
+              description: "Assinatura mensal, 7 dias de teste grátis, sem fidelidade — inclui Agente de IA treinável",
             },
           ],
           // aggregateRating removido: Google exige avaliações reais (rating falso = penalidade).

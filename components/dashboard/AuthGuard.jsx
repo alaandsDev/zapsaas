@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getToken, getRole } from "../../lib/api";
+import { getToken, getRole, api } from "../../lib/api";
+import SubscribeGate from "./SubscribeGate";
 
 // Páginas que o Agent pode acessar (mesma lista do Sidebar)
 const AGENT_ALLOWED = ["/dashboard/conversas", "/dashboard/crm"];
@@ -10,6 +11,7 @@ export default function AuthGuard({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const [ok, setOk] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -21,7 +23,27 @@ export default function AuthGuard({ children }) {
       router.replace("/dashboard/conversas");
       return;
     }
-    setOk(true);
+
+    // Agentes (membros de equipe) não são donos da assinatura — quem
+    // resolve isso é o owner do workspace, não trava o acesso do agente.
+    if (getRole() === "agent") {
+      setOk(true);
+      return;
+    }
+
+    let cancelled = false;
+    api("/api/subscription")
+      .then((sub) => {
+        if (cancelled) return;
+        setBlocked(!sub?.plan || sub.plan === "free");
+        setOk(true);
+      })
+      .catch(() => {
+        // Se a checagem falhar (erro de rede etc), não trava quem já tem
+        // token válido — melhor deixar entrar do que derrubar todo mundo.
+        if (!cancelled) { setOk(true); }
+      });
+    return () => { cancelled = true; };
   }, [router, pathname]);
 
   if (!ok) {
@@ -30,6 +52,10 @@ export default function AuthGuard({ children }) {
         <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
+  }
+
+  if (blocked) {
+    return <SubscribeGate />;
   }
 
   const isAgent = getRole() === "agent";

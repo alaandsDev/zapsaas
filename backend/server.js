@@ -97,12 +97,21 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const { error } = await supabase.from('users').update({
         plan: planId,
         plan_expires_at: expires,
-        stripe_customer_id: customerId
+        stripe_customer_id: customerId,
+        trial_used: true, // uma vez que passou pelo Stripe (com ou sem trial), não ganha outro trial depois
       }).eq('id', userId);
       if (error) console.error('[stripe] Erro ao atualizar plano:', error.message);
       else console.log(`[stripe] ✅ Plano ${planId} ativo até ${expires} para user ${userId}`);
       // Renovação recarrega a base de SMS para 1000 (não acumula)
       await supabase.rpc('reset_sms_base', { p_user_id: userId, p_amount: SMS_BASE_GRANT }).catch(() => {});
+    };
+
+    // Deriva o plano a partir do price da subscription — os handlers de
+    // renovação/atualização não podem mais assumir 'pro' fixo agora que
+    // existem 2 planos pagos (starter e pro).
+    const planIdFromPriceId = (priceId) => {
+      const entry = Object.entries(PLANS).find(([, p]) => p.priceId && p.priceId === priceId);
+      return entry ? entry[0] : null;
     };
 
     if (event.type === 'checkout.session.completed') {
@@ -149,14 +158,16 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         const user = await getUserByCustomer(invoice.customer);
         if (user) {
           let periodEnd = null;
+          let planId = null;
           if (invoice.subscription) {
             try {
               const sub = await stripe.subscriptions.retrieve(invoice.subscription);
               periodEnd = sub.current_period_end;
+              planId = planIdFromPriceId(sub.items?.data?.[0]?.price?.id);
             } catch {}
           }
-          await extendPlan(user.id, 'pro', invoice.customer, periodEnd);
-          console.log(`[stripe] 🔄 Renovação processada para customer ${invoice.customer}`);
+          await extendPlan(user.id, planId || 'pro', invoice.customer, periodEnd);
+          console.log(`[stripe] 🔄 Renovação processada para customer ${invoice.customer} (${planId || 'pro'})`);
         }
       }
     }
@@ -165,8 +176,9 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       const sub = event.data.object;
       const user = await getUserByCustomer(sub.customer);
       if (user) {
-        if (sub.status === 'active') {
-          await extendPlan(user.id, 'pro', sub.customer, sub.current_period_end);
+        if (sub.status === 'active' || sub.status === 'trialing') {
+          const planId = planIdFromPriceId(sub.items?.data?.[0]?.price?.id);
+          await extendPlan(user.id, planId || 'pro', sub.customer, sub.current_period_end);
         } else if (['canceled', 'unpaid', 'past_due'].includes(sub.status)) {
           await supabase.from('users').update({ plan: 'free', plan_expires_at: null, sms_credits_base: 0 }).eq('id', user.id);
           console.log(`[stripe] ⚠️ Plano rebaixado para free (status: ${sub.status})`);
@@ -4533,13 +4545,17 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
 
 
 
+// free: estado interno de "sem assinatura ativa" (nunca finalizou o checkout,
+// trial expirou sem cartão, ou assinatura cancelada/inadimplente) — não é
+// mais um plano oferecido no cadastro.
 const PLANS = {
-  free: { name: 'Gratuito', price: 0,    priceId: null,                          leads: 50,    dispatches: 3  },
-  pro:  { name: 'Pro',      price: 4700, priceId: process.env.STRIPE_PRICE_PRO,  leads: 99999, dispatches: 999 },
+  free:    { name: 'Sem assinatura', price: 0,     priceId: null,                             leads: 0,     dispatches: 0,   aiAgent: false },
+  starter: { name: 'Starter',        price: 9790,  priceId: process.env.STRIPE_PRICE_STARTER, leads: 99999, dispatches: 999, aiAgent: false },
+  pro:     { name: 'Pro',            price: 19790, priceId: process.env.STRIPE_PRICE_PRO,      leads: 99999, dispatches: 999, aiAgent: true  },
 };
 
 app.get('/api/plans', (req, res) => {
-  res.json(Object.entries(PLANS).map(([id, p]) => ({ id, name: p.name, price: p.price, leads: p.leads, dispatches: p.dispatches })));
+  res.json(Object.entries(PLANS).map(([id, p]) => ({ id, name: p.name, price: p.price, leads: p.leads, dispatches: p.dispatches, aiAgent: !!p.aiAgent })));
 });
 
 async function getEffectivePlan(userId) {
@@ -4598,16 +4614,24 @@ app.post('/api/stripe/checkout', requireAuth, async (req, res) => {
       await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', uid(req));
     }
 
+    // Trial de 7 dias só na primeira assinatura de verdade. Usuários migrados
+    // do antigo plano gratuito já usam a carência pós-migração como trial
+    // (marcados com trial_used=true na migração) — ao inserir cartão depois
+    // disso, cobra direto, sem trial novo.
+    const applyTrial = !user?.trial_used;
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_update: { name: 'auto', address: 'auto' },
       mode: 'subscription',
       payment_method_types: ['card'],
+      payment_method_collection: 'always', // cartão obrigatório mesmo durante o trial
       locale: 'pt-BR',
       phone_number_collection: { enabled: true },
       tax_id_collection: { enabled: true },
       line_items: [{ price: plan.priceId, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/?payment=success&plan=${planId}`,
+      ...(applyTrial ? { subscription_data: { trial_period_days: 7 } } : {}),
+      success_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/dashboard?payment=success&plan=${planId}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/?payment=cancelled`,
       metadata: { userId: uid(req), planId },
     });

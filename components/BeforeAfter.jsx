@@ -82,7 +82,7 @@ export default function BeforeAfter() {
           <a href="/register" className="btn-primary text-base inline-flex">
             Quero parar de perder vendas →
           </a>
-          <p className="mt-3 text-xs text-ink-500">Configure em 5 minutos · Plano grátis</p>
+          <p className="mt-3 text-xs text-ink-500">Configure em 5 minutos · 7 dias de teste grátis</p>
         </div>
       </div>
     </section>

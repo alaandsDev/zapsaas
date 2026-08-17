@@ -30,23 +30,20 @@ export default function Register() {
       });
       setAuth(r.token, r.user);
 
-      // Veio do botão "Assinar Pro" na home: retoma o checkout em vez de cair
-      // no painel. Lido do location porque useSearchParams exigiria Suspense.
-      const querPro = new URLSearchParams(window.location.search).get("plano") === "pro";
-      track("CompleteRegistration", { plano: querPro ? "pro" : "starter" });
+      // Starter não é mais grátis: toda conta nova precisa inserir cartão e
+      // começar o trial de 7 dias antes de entrar no painel. Lido do location
+      // porque useSearchParams exigiria Suspense.
+      const planId = new URLSearchParams(window.location.search).get("plano") === "pro" ? "pro" : "starter";
+      track("CompleteRegistration", { plano: planId });
 
-      if (querPro) {
-        try {
-          const c = await api("/api/stripe/checkout", { method: "POST", body: { planId: "pro" } });
-          if (c?.url) { window.location.href = c.url; return; }
-        } catch (_) {
-          // Conta já foi criada: não trava o usuário, leva pro painel e ele
-          // assina de lá.
-        }
-      }
-      router.push("/dashboard");
+      const c = await api("/api/stripe/checkout", { method: "POST", body: { planId } });
+      if (!c?.url) throw new Error("Não foi possível iniciar a assinatura");
+      window.location.href = c.url;
     } catch (e) {
-      setErr(e.message || "Falha ao criar conta");
+      // Conta pode já ter sido criada (o registro passou) — não deixa a
+      // pessoa travada sem saber o que fazer: mostra erro e deixa tentar de
+      // novo, sem mandar pro painel sem assinatura.
+      setErr(e.message || "Falha ao iniciar a assinatura. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -54,8 +51,8 @@ export default function Register() {
 
   return (
     <AuthShell
-      title="Criar conta grátis"
-      subtitle="Plano Starter grátis para sempre. Sem cartão de crédito."
+      title="Criar conta"
+      subtitle="7 dias de teste no plano Starter. Precisa de cartão pra começar, só cobra depois do 7º dia."
       footer={
         <>
           Já tem conta?{" "}
@@ -79,7 +76,9 @@ export default function Register() {
           <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </Field>
         {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-        <Button type="submit" loading={loading} className="w-full">Criar conta grátis →</Button>
+        <Button type="submit" loading={loading} className="w-full">
+          {loading ? "Abrindo assinatura..." : "Continuar para o pagamento →"}
+        </Button>
         <p className="text-xs text-ink-500 text-center">
           Ao criar sua conta você concorda com nossos{" "}
           <Link href="/termos" target="_blank" className="text-primary hover:underline">Termos de Uso</Link>

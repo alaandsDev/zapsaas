@@ -59,7 +59,7 @@ export default function Hero({
               </a>
             </div>
             <p className="mt-5 text-sm text-ink-500">
-              Plano Starter grátis · Sem cartão · Configure em 5 minutos
+              7 dias de teste grátis · Configure em 5 minutos
             </p>
             <LiveCounter />
           </div>

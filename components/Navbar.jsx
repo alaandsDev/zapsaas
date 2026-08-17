@@ -44,7 +44,7 @@ export default function Navbar() {
             Entrar
           </a>
           <a href="/register" className="btn-primary !py-2.5 !px-5 text-sm">
-            Começar grátis →
+            Testar grátis →
           </a>
           <button
             type="button"
