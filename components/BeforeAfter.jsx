@@ -18,7 +18,7 @@ const AFTER = [
 
 export default function BeforeAfter() {
   return (
-    <section className="py-24 border-t border-white/[0.06]">
+    <section className="py-24">
       <div className="container-x">
         <div className="max-w-2xl mx-auto text-center mb-14">
           <div className="eyebrow justify-center mb-4">

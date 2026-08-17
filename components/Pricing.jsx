@@ -1,6 +1,11 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Megaphone, Radio, MessagesSquare, ListFilter, Image as ImageIcon, LayoutTemplate,
+  LayoutDashboard, Brain, Workflow, TrendingUp, BarChart3, FileSpreadsheet, Plug,
+  Headset, Check, Minus, Sparkles,
+} from "lucide-react";
 import { track } from "./Analytics";
 import { api, getToken } from "../lib/api";
 import Icon from "./ui/Icon";
@@ -28,21 +33,41 @@ const plans = [
   },
 ];
 
-const FEATURES = [
-  { label: "Campanhas por mês", free: "3", pro: "Ilimitadas" },
-  { label: "Canais conectados", free: "1 canal", pro: "2 canais (balanceamento inteligente)" },
-  { label: "Leads / CRM conversacional", free: "Até 50", pro: "Ilimitados" },
-  { label: "Listas e segmentação", free: "1 lista", pro: "Ilimitadas" },
-  { label: "Mídia (foto/vídeo/áudio/PDF)", free: true, pro: true },
-  { label: "Templates prontos por nicho", free: true, pro: true },
-  { label: "Painel operacional completo", free: true, pro: true },
-  { label: "Copiloto de IA", free: "Básico", pro: "Completo" },
-  { label: "Automação com IA (monta o fluxo pra você)", free: false, pro: true },
-  { label: "Receita rastreada por campanha", free: false, pro: true },
-  { label: "Relatórios e métricas em tempo real", free: false, pro: true },
-  { label: "Export de relatórios em Excel", free: false, pro: true },
-  { label: "API oficial WhatsApp (Canal Oficial)", free: false, pro: true },
-  { label: "Suporte prioritário", free: false, pro: true },
+const FEATURE_GROUPS = [
+  {
+    category: "Campanhas & canais",
+    items: [
+      { icon: Megaphone, label: "Campanhas por mês", free: "3", pro: "Ilimitadas" },
+      { icon: Radio, label: "Canais conectados", free: "1 canal", pro: "2 canais (balanceamento inteligente)" },
+      { icon: MessagesSquare, label: "Leads / CRM conversacional", free: "Até 50", pro: "Ilimitados" },
+      { icon: ListFilter, label: "Listas e segmentação", free: "1 lista", pro: "Ilimitadas" },
+    ],
+  },
+  {
+    category: "Conteúdo & atendimento",
+    items: [
+      { icon: ImageIcon, label: "Mídia (foto/vídeo/áudio/PDF)", free: true, pro: true },
+      { icon: LayoutTemplate, label: "Templates prontos por nicho", free: true, pro: true },
+      { icon: LayoutDashboard, label: "Painel operacional completo", free: true, pro: true },
+    ],
+  },
+  {
+    category: "IA & automação",
+    items: [
+      { icon: Brain, label: "Copiloto de IA", free: "Básico", pro: "Completo" },
+      { icon: Workflow, label: "Automação com IA (monta o fluxo pra você)", free: false, pro: true },
+      { icon: TrendingUp, label: "Receita rastreada por campanha", free: false, pro: true },
+    ],
+  },
+  {
+    category: "Relatórios & suporte",
+    items: [
+      { icon: BarChart3, label: "Relatórios e métricas em tempo real", free: false, pro: true },
+      { icon: FileSpreadsheet, label: "Export de relatórios em Excel", free: false, pro: true },
+      { icon: Plug, label: "API oficial WhatsApp (Canal Oficial)", free: false, pro: true },
+      { icon: Headset, label: "Suporte prioritário", free: false, pro: true },
+    ],
+  },
 ];
 
 const DISPAROS_OPTS = [
@@ -210,7 +235,7 @@ export default function Pricing() {
   }
 
   return (
-    <section id="planos" className="py-24 border-t border-white/[0.06]">
+    <section id="planos" className="py-24">
       <div className="container-x">
         <div className="max-w-2xl mx-auto text-center mb-14">
           <div className="eyebrow justify-center mb-4">
@@ -294,30 +319,31 @@ export default function Pricing() {
             <p className="text-ink-400 text-sm mt-2">Tudo que vem em cada um — sem surpresa</p>
           </div>
           <div className="glass overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-white/[0.03] border-b border-white/[0.08]">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] border-separate border-spacing-0">
+              <thead>
                 <tr>
-                  <th className="text-left px-5 py-4 text-xs uppercase tracking-wider text-ink-400 font-semibold">Recurso</th>
-                  <th className="px-5 py-4 text-xs uppercase tracking-wider text-ink-400 font-semibold">Starter</th>
-                  <th className="px-5 py-4 text-center bg-primary/[0.04]">
-                    <div className="text-xs uppercase tracking-wider text-primary font-bold">Pro</div>
+                  <th className="text-left px-5 py-4 text-xs uppercase tracking-wider text-ink-400 font-semibold bg-white/[0.03] border-b border-white/[0.08]">
+                    Recurso
+                  </th>
+                  <th className="px-5 py-4 text-xs uppercase tracking-wider text-ink-400 font-semibold bg-white/[0.03] border-b border-white/[0.08]">
+                    Starter
+                  </th>
+                  <th className="px-5 py-4 text-center bg-primary/[0.07] border-b border-l-2 border-primary/25">
+                    <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wider text-primary font-bold">
+                      <Sparkles className="size-3.5" strokeWidth={2.5} />
+                      Pro
+                    </div>
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {FEATURES.map((f) => (
-                  <tr key={f.label} className="hover:bg-white/[0.02]">
-                    <td className="px-5 py-3.5 text-sm text-ink-200">{f.label}</td>
-                    <td className="px-5 py-3.5 text-center text-sm">
-                      <Cell value={f.free} />
-                    </td>
-                    <td className="px-5 py-3.5 text-center text-sm bg-primary/[0.02]">
-                      <Cell value={f.pro} highlighted />
-                    </td>
-                  </tr>
+              <tbody>
+                {FEATURE_GROUPS.map((group) => (
+                  <FeatureGroup key={group.category} group={group} />
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 
@@ -349,16 +375,53 @@ export default function Pricing() {
   );
 }
 
+function FeatureGroup({ group }) {
+  return (
+    <>
+      <tr>
+        <td colSpan={2} className="px-5 pt-6 pb-2 bg-transparent">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-ink-500">{group.category}</div>
+        </td>
+        <td className="px-5 pt-6 pb-2 bg-primary/[0.03] border-l-2 border-primary/25" />
+      </tr>
+      {group.items.map((f) => (
+        <tr key={f.label} className="group">
+          <td className="px-5 py-3.5 text-sm text-ink-200 border-b border-white/[0.04]">
+            <span className="inline-flex items-center gap-2.5">
+              <f.icon className="size-4 text-ink-500 group-hover:text-primary transition-colors shrink-0" strokeWidth={2} />
+              {f.label}
+            </span>
+          </td>
+          <td className="px-5 py-3.5 text-center text-sm border-b border-white/[0.04]">
+            <Cell value={f.free} />
+          </td>
+          <td className="px-5 py-3.5 text-center text-sm bg-primary/[0.03] border-b border-primary/10 border-l-2 border-primary/25">
+            <Cell value={f.pro} highlighted />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 function Cell({ value, highlighted }) {
   if (value === true) {
     return (
-      <span className={`inline-flex size-6 rounded-full items-center justify-center ${highlighted ? "bg-primary/20 text-primary" : "bg-white/5 text-primary"}`}>
-        <svg className="size-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3-3a1 1 0 011.4-1.4L9 11.6l6.3-6.3a1 1 0 011.4 0z" clipRule="evenodd"/></svg>
+      <span
+        className={`inline-flex items-center justify-center rounded-full ${
+          highlighted ? "size-7 bg-primary/20 text-primary shadow-glow-sm" : "size-6 bg-white/5 text-primary/70"
+        }`}
+      >
+        <Check className={highlighted ? "size-4" : "size-3.5"} strokeWidth={3} />
       </span>
     );
   }
   if (value === false) {
-    return <span className="text-ink-500 text-base">—</span>;
+    return (
+      <span className="inline-flex items-center justify-center size-6 rounded-full bg-white/[0.03] text-ink-600">
+        <Minus className="size-3.5" strokeWidth={2.5} />
+      </span>
+    );
   }
   return <span className={`font-medium ${highlighted ? "text-primary" : "text-ink-200"}`}>{value}</span>;
 }

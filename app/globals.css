@@ -68,12 +68,15 @@
   .page-x { @apply max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-8; }
   .container-x { @apply max-w-[1600px] mx-auto px-6 lg:px-12; }
 
-  /* Seção clara — quebra o navy contínuo da página, full-bleed */
+  /* Seção clara — quebra o navy contínuo da página, full-bleed.
+     Sem bg-color sólida: o próprio degradê carrega a cor "paper" e esmaece
+     nas pontas pro navy do body aparecer por trás — transição sem corte seco. */
   .section-light {
-    @apply relative bg-paper text-graphite-100;
+    @apply relative text-graphite-100;
     background-image:
       radial-gradient(ellipse 60% 50% at 15% 0%, rgba(37,211,102,0.07), transparent 60%),
-      radial-gradient(ellipse 50% 40% at 100% 100%, rgba(59,130,246,0.05), transparent 60%);
+      radial-gradient(ellipse 50% 40% at 100% 100%, rgba(59,130,246,0.05), transparent 60%),
+      linear-gradient(to bottom, transparent 0, #F7F5F0 140px, #F7F5F0 calc(100% - 140px), transparent 100%);
   }
 
   /* Cards */

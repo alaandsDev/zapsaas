@@ -3,7 +3,7 @@ import Reveal from "./ui/Reveal";
 
 export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
   return (
-    <section id="como-funciona" className="py-24 border-t border-white/[0.06]">
+    <section id="como-funciona" className="py-24">
       <div className="container-x">
         <Reveal className="max-w-2xl mb-14">
           <div className="eyebrow mb-4">Como funciona</div>

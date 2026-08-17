@@ -10,7 +10,7 @@ const STATS = [
 
 export default function StatsHighlight() {
   return (
-    <section className="py-24 border-t border-white/[0.06] relative overflow-hidden">
+    <section className="py-24 relative overflow-hidden">
       <div className="absolute -top-32 left-1/2 -translate-x-1/2 size-[500px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="container-x relative text-center">
         <Reveal className="eyebrow justify-center mb-6">
