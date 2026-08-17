@@ -42,8 +42,8 @@ export default function FloatingCTA() {
           <Icon name="instantaneo" className="size-5" strokeWidth={2.25} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm">Comece grátis em 5 minutos</div>
-          <div className="text-xs text-ink-400 mt-0.5">Sem cartão · Cancele quando quiser</div>
+          <div className="font-semibold text-sm">Teste 7 dias grátis</div>
+          <div className="text-xs text-ink-400 mt-0.5">Só cobra depois do 7º dia · Cancele quando quiser</div>
         </div>
         <Link
           href="/register"

@@ -42,7 +42,7 @@ export default function Login() {
         <>
           Ainda não tem conta?{" "}
           <Link href="/register" className="text-primary hover:underline font-medium">
-            Testar grátis
+            Testar 7 dias
           </Link>
         </>
       }

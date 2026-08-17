@@ -40,7 +40,7 @@ export default function Footer() {
               <li><Link href="/#planos" className="hover:text-ink-100 transition-colors">Planos</Link></li>
               <li><Link href="/#faq" className="hover:text-ink-100 transition-colors">Perguntas</Link></li>
               <li><Link href="/blog" className="hover:text-ink-100 transition-colors">Blog</Link></li>
-              <li><Link href="/register" className="hover:text-ink-100 transition-colors">Testar grátis</Link></li>
+              <li><Link href="/register" className="hover:text-ink-100 transition-colors">Testar 7 dias</Link></li>
               <li><Link href="/login" className="hover:text-ink-100 transition-colors">Entrar</Link></li>
               <li><Link href="/changelog" className="hover:text-ink-100 transition-colors">Novidades</Link></li>
             </ul>
