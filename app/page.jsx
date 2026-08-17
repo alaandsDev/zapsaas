@@ -58,16 +58,16 @@ export default function Home() {
       <JsonLd data={FAQ_JSONLD} />
       <Navbar />
       <Hero
-        eyebrow="Conversational Revenue OS · AI-first"
+        eyebrow="Automação de vendas no WhatsApp · Com IA"
         title="O sistema operacional da sua"
         highlight="operação de receita no WhatsApp"
-        subtitle="Wayvo unifica CRM conversacional, automação inteligente e revenue ops — com um copiloto de IA que lê sua operação e recomenda a próxima ação, em tempo real."
+        subtitle="Wayvo unifica CRM conversacional, automação inteligente e controle de receita — com um copiloto de IA que lê sua operação e recomenda a próxima ação, em tempo real."
         primaryCTA={{ label: "Começar agora", href: "/register" }}
         secondaryCTA={{ label: "Ver a plataforma", href: "#como-funciona" }}
         metrics={[
-          { value: "AI-first", label: "copiloto operacional embutido" },
+          { value: "Com IA", label: "copiloto operacional embutido" },
           { value: "Tempo real", label: "conversas, leads e receita" },
-          { value: "Revenue Ops", label: "atribuição e ROI por campanha" },
+          { value: "Receita rastreada", label: "quanto cada campanha vendeu" },
           { value: "5 min", label: "para colocar em operação" },
         ]}
       />
@@ -77,8 +77,8 @@ export default function Home() {
         items={[
           { icon: "ai-copilot", title: "Copiloto de IA operacional", desc: "A IA lê sua operação, prioriza leads quentes e recomenda a próxima ação — em todas as telas." },
           { icon: "crm", title: "CRM conversacional", desc: "Cada conversa com contexto comercial: score do lead, histórico, automações e receita atribuída." },
-          { icon: "automation", title: "Automação que opera por você", desc: "Workflows visuais que qualificam, respondem e recuperam leads sem você tocar no celular." },
-          { icon: "revenue", title: "Revenue Ops de verdade", desc: "Atribuição de receita por campanha e fluxo. Saiba exatamente o que gera caixa." },
+          { icon: "automation", title: "Automação que opera por você", desc: "Fluxos automáticos que qualificam, respondem e recuperam leads sem você tocar no celular." },
+          { icon: "revenue", title: "Você sabe o que gera venda", desc: "Cada campanha e fluxo mostra quanto trouxe de receita. Decisão com base em caixa, não em achismo." },
         ]}
       />
       <HowItWorks

@@ -6,7 +6,7 @@ import BackgroundPaths from "./BackgroundPaths";
 import Icon from "./ui/Icon";
 
 export default function Hero({
-  eyebrow = "Conversational Revenue OS · AI-first",
+  eyebrow = "Automação de vendas no WhatsApp · Com IA",
   title,
   highlight,
   subtitle,

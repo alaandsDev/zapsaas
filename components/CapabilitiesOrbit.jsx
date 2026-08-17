@@ -5,7 +5,7 @@ import Reveal from "./ui/Reveal";
 const CAPABILITIES = [
   { icon: Send, label: "Disparo em massa", angle: -90 },
   { icon: MessagesSquare, label: "CRM de leads", angle: -30 },
-  { icon: TrendingUp, label: "Revenue Ops", angle: 30 },
+  { icon: TrendingUp, label: "Receita rastreada", angle: 30 },
   { icon: Bot, label: "Automação 24/7", angle: 90 },
   { icon: Zap, label: "Resposta instantânea", angle: 150 },
   { icon: Brain, label: "Copiloto de IA", angle: 210 },

@@ -28,7 +28,7 @@ const SHOWCASES = [
     badgeIcon: GitBranch,
     badgeLabel: "Automação com IA",
     title: "Descreva o fluxo. A IA monta pra você.",
-    desc: "Peça em uma frase e o Workflow Builder monta a automação inteira — qualificação, follow-up e recuperação de venda parada no automático, sem arrastar bloco nenhum se você não quiser.",
+    desc: "Peça em uma frase e o Wayvo monta a automação inteira — qualificação, follow-up e recuperação de venda parada no automático, sem arrastar bloco nenhum se você não quiser.",
     checklist: [
       "Editor visual de automações",
       "IA monta o fluxo a partir de um pedido",
@@ -36,7 +36,7 @@ const SHOWCASES = [
       "Recuperação de vendas paradas",
     ],
     mockupSide: "left",
-    contact: { name: "Wayvo AI", role: "Workflow Builder", initials: "AI" },
+    contact: { name: "Wayvo AI", role: "Automação", initials: "AI" },
     messages: [
       { side: "in", text: "Cria um fluxo pra reativar quem não compra há 30 dias" },
       { side: "out", text: "Fluxo criado ✅ \"Reativação 30 dias\" — 3 etapas, já ativo." },
