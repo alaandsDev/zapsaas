@@ -273,37 +273,43 @@ function TypingIndicator() {
   );
 }
 
+const PARTNERS = [
+  { name: "BellaPele", file: "bellapele.png" },
+  { name: "SaborMix", file: "sabormix.png" },
+  { name: "VisãoClara", file: "visaoclara.png" },
+  { name: "LarIdeal", file: "larideal.png" },
+  { name: "BemViver", file: "bemviver.png" },
+  { name: "MundoPet", file: "mundopet.png" },
+  { name: "MoveFit", file: "movefit.png" },
+  { name: "AutoPrime", file: "autoprime.png" },
+];
+
 function SocialProofLogos() {
+  // Duas cópias lado a lado: a animação anda -50% (a largura de 1 cópia) e reinicia sem "salto" visível.
+  const track = [...PARTNERS, ...PARTNERS];
   return (
     <div className="mt-16 lg:mt-20">
       <p className="text-center text-xs uppercase tracking-[0.2em] text-ink-500 mb-6">
         Usado por 200+ negócios pelo Brasil
       </p>
-      <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-        {[
-          { name: "BellaPele", file: "bellapele.png" },
-          { name: "SaborMix", file: "sabormix.png" },
-          { name: "VisãoClara", file: "visaoclara.png" },
-          { name: "LarIdeal", file: "larideal.png" },
-          { name: "BemViver", file: "bemviver.png" },
-          { name: "MundoPet", file: "mundopet.png" },
-          { name: "MoveFit", file: "movefit.png" },
-          { name: "AutoPrime", file: "autoprime.png" },
-        ].map((p) => (
-          <div
-            key={p.file}
-            className="group bg-white rounded-2xl size-20 sm:size-24 p-1.5 flex items-center justify-center shadow-sm hover:shadow-xl hover:shadow-primary/20 hover:scale-110 hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer"
-          >
-            <Image
-              src={`/partners/${p.file}`}
-              alt={p.name}
-              width={96}
-              height={96}
-              loading="lazy"
-              className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110"
-            />
-          </div>
-        ))}
+      <div className="relative [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+        <div className="flex w-max items-center gap-3 sm:gap-4 animate-marquee">
+          {track.map((p, i) => (
+            <div
+              key={`${p.file}-${i}`}
+              className="group shrink-0 bg-white rounded-2xl size-20 sm:size-24 p-1.5 flex items-center justify-center shadow-sm hover:shadow-xl hover:shadow-primary/20 hover:scale-110 hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer"
+            >
+              <Image
+                src={`/partners/${p.file}`}
+                alt={p.name}
+                width={96}
+                height={96}
+                loading="lazy"
+                className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110"
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
