@@ -177,19 +177,25 @@ function ProductMockup() {
   const showTyping = visible.at(-1)?.type === "typing";
 
   return (
-    <div className="relative mx-auto w-[300px] sm:w-[320px] lg:mx-0 lg:ml-auto">
-      {/* Glow ambiente atrás do aparelho */}
-      <div className="absolute -inset-6 bg-gradient-to-br from-primary/25 via-accent-blue/15 to-secondary/20 blur-3xl rounded-[3rem] pointer-events-none" />
-
+    <div className="relative lg:min-h-[560px] flex items-center justify-center lg:block">
       {/* Moldura do aparelho */}
-      <div
-        id="hero-chat-mockup"
-        className="relative rotate-1 hover:rotate-0 transition-transform duration-500"
-      >
-        <div className="relative rounded-[2.75rem] bg-graphite-100 p-[6px] shadow-elevated">
-          <div className="relative rounded-[2.35rem] overflow-hidden bg-[#0B141A]">
+      <div className="relative mx-auto w-[280px] sm:w-[300px] lg:mx-0 lg:ml-auto">
+        {/* Glow ambiente atrás do aparelho */}
+        <div className="absolute -inset-6 bg-gradient-to-br from-primary/25 via-accent-blue/15 to-secondary/20 blur-3xl rounded-[3rem] pointer-events-none" />
+
+        <div
+          id="hero-chat-mockup"
+          className="relative rotate-1 hover:rotate-0 transition-transform duration-500"
+        >
+        <div className="relative rounded-[2.75rem] bg-gradient-to-b from-[#40454E] to-[#191B1F] p-[3px] shadow-elevated ring-1 ring-white/[0.08]">
+          {/* Botões laterais — vendem o "objeto físico" */}
+          <div className="absolute -left-[3px] top-24 w-[3px] h-8 rounded-l bg-[#25272C]" />
+          <div className="absolute -left-[3px] top-36 w-[3px] h-12 rounded-l bg-[#25272C]" />
+          <div className="absolute -right-[3px] top-28 w-[3px] h-16 rounded-r bg-[#25272C]" />
+          <div className="rounded-[2.6rem] bg-black p-[7px]">
+          <div className="relative rounded-[2.2rem] overflow-hidden bg-[#0B141A]">
             {/* Notch */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-graphite-100 rounded-b-2xl z-30" />
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-b-2xl z-30" />
 
             {/* Status bar */}
             <div className="relative z-20 flex items-center justify-between px-6 pt-2.5 pb-1 text-white">
@@ -265,35 +271,37 @@ function ProductMockup() {
               <div className="w-28 h-1 rounded-full bg-white/70" />
             </div>
           </div>
+          </div>
         </div>
-      </div>
+        </div>
 
-      {/* Card flutuante de stats */}
-      <div className="hidden lg:block absolute -left-10 bottom-16 card p-4 shadow-xl bg-bg/95 backdrop-blur-sm z-30">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
-            <Icon name="revenue" className="size-5" />
-          </div>
-          <div>
-            <div className="text-xs text-ink-400">Receita atribuída hoje</div>
-            <div className="text-xl font-bold text-primary">+R$ 12.847</div>
+        {/* Card flutuante de stats — ancorado na borda esquerda do aparelho, com folga garantida (sem sobrepor a tela) */}
+        <div className="hidden lg:block absolute right-full mr-4 bottom-10 card p-4 shadow-xl bg-bg/95 backdrop-blur-sm z-30 w-[200px]">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+              <Icon name="revenue" className="size-5" />
+            </div>
+            <div>
+              <div className="text-xs text-ink-400">Receita atribuída hoje</div>
+              <div className="text-xl font-bold text-primary">+R$ 12.847</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Card flutuante com cliente real */}
-      <div className="hidden lg:block absolute -right-6 top-16 card p-3 shadow-xl bg-bg/95 backdrop-blur-sm max-w-[190px] z-30">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="size-8 rounded-full overflow-hidden ring-2 ring-primary/30 shrink-0">
-            <img src="https://images.pexels.com/photos/3756679/pexels-photo-3756679.jpeg?auto=compress&cs=tinysrgb&w=80&h=80&fit=crop" alt="Cliente" className="w-full h-full object-cover" />
+        {/* Card flutuante com cliente real — mesmo lado do card de receita: à direita sobra pouco espaço até a borda da tela */}
+        <div className="hidden lg:block absolute right-full mr-4 top-6 card p-3 shadow-xl bg-bg/95 backdrop-blur-sm w-[170px] z-30">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="size-8 rounded-full overflow-hidden ring-2 ring-primary/30 shrink-0">
+              <img src="https://images.pexels.com/photos/3756679/pexels-photo-3756679.jpeg?auto=compress&cs=tinysrgb&w=80&h=80&fit=crop" alt="Cliente" className="w-full h-full object-cover" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold leading-tight truncate">Ana Clara</div>
+              <div className="text-[9px] text-ink-400 truncate">Loja de roupas · SP</div>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold leading-tight truncate">Ana Clara</div>
-            <div className="text-[9px] text-ink-400 truncate">Loja de roupas · SP</div>
+          <div className="text-[10px] text-ink-300 bg-primary/5 border border-primary/15 rounded-lg px-2 py-1.5 leading-relaxed">
+            "Faturei R$ 8k em 3 dias só pelo Wayvo"
           </div>
-        </div>
-        <div className="text-[10px] text-ink-300 bg-primary/5 border border-primary/15 rounded-lg px-2 py-1.5 leading-relaxed">
-          "Faturei R$ 8k em 3 dias só pelo Wayvo"
         </div>
       </div>
     </div>
