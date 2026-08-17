@@ -43,12 +43,14 @@ export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
         <Reveal className="relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-card via-card to-bg shadow-elevated">
           <div className="relative grid lg:grid-cols-[0.85fr_1.15fr]">
 
-            {/* Coluna esquerda: texto + foto */}
-            <div className="relative flex flex-col justify-center p-8 sm:p-12 min-h-[260px] lg:min-h-[560px] overflow-hidden">
+            {/* Coluna esquerda: texto + foto — sem padding na coluna em si (só no
+                texto), pra imagem poder encostar de verdade na base do card em
+                vez de parar no padding e sobrar um vão vazio embaixo dela. */}
+            <div className="relative min-h-[360px] lg:min-h-[520px] overflow-hidden">
               <svg className="absolute bottom-6 left-2 size-36 sm:size-44 text-primary/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M13 2 3 14h7l-1 8 11-14h-7z" />
               </svg>
-              <div className="relative z-10">
+              <div className="relative z-10 p-8 sm:p-12">
                 <div className="eyebrow mb-4">Como funciona</div>
                 <h2 className="text-4xl sm:text-5xl font-bold leading-tight">
                   Funciona em<br /><span className="text-primary">3 passos</span>
@@ -64,10 +66,14 @@ export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
               />
             </div>
 
-            {/* Coluna direita: passos numerados, conectados pela trilha */}
+            {/* Coluna direita: passos numerados, conectados pela trilha.
+                items-stretch (padrão do grid) já iguala a altura das duas
+                colunas — aqui só centralizo o conteúdo verticalmente também,
+                pra não ficar grudado no topo com vão vazio embaixo enquanto
+                a foto ocupa a coluna esquerda até a base. */}
             <div
               ref={containerRef}
-              className="relative p-8 sm:p-12 lg:py-16 border-t lg:border-t-0 lg:border-l border-white/[0.08]"
+              className="relative flex flex-col justify-center p-8 sm:p-12 lg:py-16 border-t lg:border-t-0 lg:border-l border-white/[0.08]"
             >
               <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" aria-hidden="true">
                 {path && (
