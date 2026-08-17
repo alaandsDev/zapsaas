@@ -2,22 +2,37 @@
 import { Send, MessagesSquare, Bot, Brain, TrendingUp, Zap, ChevronRight } from "lucide-react";
 import Reveal from "./ui/Reveal";
 
-const CAPABILITIES = [
-  { icon: Send, label: "Disparo em massa", angle: -90 },
-  { icon: MessagesSquare, label: "CRM de leads", angle: -30 },
-  { icon: TrendingUp, label: "Receita rastreada", angle: 30 },
-  { icon: Bot, label: "Automação 24/7", angle: 90 },
-  { icon: Zap, label: "Resposta instantânea", angle: 150 },
-  { icon: Brain, label: "Copiloto de IA", angle: 210 },
+// Sistema solar: o WhatsApp é o "sol" no centro, e cada capacidade do Wayvo
+// orbita em um dos dois anéis — cada anel gira num sentido e numa velocidade,
+// como planetas de verdade a distâncias diferentes do centro.
+const RINGS = [
+  {
+    radius: 30,
+    duration: 46,
+    direction: "cw",
+    items: [
+      { icon: Brain, label: "Copiloto de IA", angle: -90 },
+      { icon: MessagesSquare, label: "CRM de leads", angle: 30 },
+      { icon: Bot, label: "Automação 24/7", angle: 150 },
+    ],
+  },
+  {
+    radius: 45,
+    duration: 72,
+    direction: "ccw",
+    items: [
+      { icon: Send, label: "Disparo em massa", angle: -30 },
+      { icon: TrendingUp, label: "Receita rastreada", angle: 90 },
+      { icon: Zap, label: "Resposta instantânea", angle: 210 },
+    ],
+  },
 ];
 
-const RADIUS = 42; // % do raio do container
-
-function pointFor(angleDeg) {
+function pointFor(angleDeg, radius) {
   const rad = (angleDeg * Math.PI) / 180;
   return {
-    x: 50 + RADIUS * Math.cos(rad),
-    y: 50 + RADIUS * Math.sin(rad),
+    x: 50 + radius * Math.cos(rad),
+    y: 50 + radius * Math.sin(rad),
   };
 }
 
@@ -38,23 +53,24 @@ export default function CapabilitiesOrbit() {
         </Reveal>
 
         <Reveal delay={120} className="relative mx-auto mt-16 aspect-square w-full max-w-[560px]">
-          {/* Anéis + linhas conectando o centro a cada badge */}
+          {/* Órbitas — as trajetórias fixas, como no sistema solar */}
           <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
-            <circle cx="50" cy="50" r="20" fill="none" stroke="#128C4A" strokeOpacity="0.12" strokeWidth="0.3" />
-            <circle cx="50" cy="50" r="32" fill="none" stroke="#128C4A" strokeOpacity="0.1" strokeWidth="0.3" strokeDasharray="1.2 1.6" />
-            <circle cx="50" cy="50" r="44" fill="none" stroke="#128C4A" strokeOpacity="0.08" strokeWidth="0.3" strokeDasharray="0.6 2" />
-            {CAPABILITIES.map((c, i) => {
-              const p = pointFor(c.angle);
-              return (
-                <g key={i}>
-                  <line x1="50" y1="50" x2={p.x} y2={p.y} stroke="#128C4A" strokeOpacity="0.18" strokeWidth="0.35" strokeDasharray="0.8 1.4" />
-                  <circle cx={p.x} cy={p.y} r="0.9" fill="#25D366" fillOpacity="0.5" />
-                </g>
-              );
-            })}
+            {RINGS.map((ring, i) => (
+              <circle
+                key={i}
+                cx="50"
+                cy="50"
+                r={ring.radius}
+                fill="none"
+                stroke="#128C4A"
+                strokeOpacity="0.18"
+                strokeWidth="0.4"
+                strokeDasharray="1 1.8"
+              />
+            ))}
           </svg>
 
-          {/* Centro — ícone do WhatsApp */}
+          {/* Centro — o "sol": ícone do WhatsApp */}
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <div className="relative flex items-center justify-center size-16 sm:size-20 rounded-full bg-white shadow-paper-card">
               <div className="absolute inset-0 rounded-full ring-4 ring-primary/15 animate-glow-pulse" />
@@ -64,23 +80,33 @@ export default function CapabilitiesOrbit() {
             </div>
           </div>
 
-          {/* Badges das capacidades */}
-          {CAPABILITIES.map((c, i) => {
-            const p = pointFor(c.angle);
-            const Icon = c.icon;
+          {/* Planetas — cada anel gira como um todo; cada badge contragira na mesma
+              duração pra cancelar a rotação do anel e continuar sempre legível. */}
+          {RINGS.map((ring, ri) => {
+            const outerClass = ring.direction === "cw" ? "animate-orbit-cw" : "animate-orbit-ccw";
+            const counterClass = ring.direction === "cw" ? "animate-orbit-ccw" : "animate-orbit-cw";
             return (
-              <div
-                key={i}
-                className="absolute z-10 -translate-x-1/2 -translate-y-1/2 animate-float"
-                style={{ left: `${p.x}%`, top: `${p.y}%`, animationDelay: `${i * 0.4}s`, animationDuration: `${4 + (i % 3)}s` }}
-              >
-                <div className="group flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-full bg-white shadow-paper-card hover:shadow-paper-card-hover hover:-translate-y-0.5 transition-all duration-300 cursor-default whitespace-nowrap">
-                  <span className="flex items-center justify-center size-7 rounded-full bg-primary/10 text-primary-dark shrink-0">
-                    <Icon className="size-3.5" strokeWidth={2.25} />
-                  </span>
-                  <span className="text-[12px] sm:text-[13px] font-semibold text-graphite-100">{c.label}</span>
-                  <ChevronRight className="size-3.5 text-graphite-100/30 group-hover:text-primary-dark group-hover:translate-x-0.5 transition-all" strokeWidth={2.5} />
-                </div>
+              <div key={ri} className={`absolute inset-0 ${outerClass}`} style={{ animationDuration: `${ring.duration}s` }}>
+                {ring.items.map((c, i) => {
+                  const p = pointFor(c.angle, ring.radius);
+                  const Icon = c.icon;
+                  return (
+                    <div key={i} className="absolute z-10" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+                      <div
+                        className={`${counterClass} -translate-x-1/2 -translate-y-1/2`}
+                        style={{ animationDuration: `${ring.duration}s` }}
+                      >
+                        <div className="group flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-full bg-white shadow-paper-card hover:shadow-paper-card-hover transition-shadow duration-300 cursor-default whitespace-nowrap">
+                          <span className="flex items-center justify-center size-7 rounded-full bg-primary/10 text-primary-dark shrink-0">
+                            <Icon className="size-3.5" strokeWidth={2.25} />
+                          </span>
+                          <span className="text-[12px] sm:text-[13px] font-semibold text-graphite-100">{c.label}</span>
+                          <ChevronRight className="size-3.5 text-graphite-100/30 group-hover:text-primary-dark group-hover:translate-x-0.5 transition-all" strokeWidth={2.5} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
