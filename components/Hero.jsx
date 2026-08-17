@@ -15,6 +15,16 @@ export default function Hero({
 }) {
   return (
     <section className="relative overflow-hidden">
+      {/* Foto real de fundo — dá textura/vida ao hero, não só gradiente e texto */}
+      <div className="absolute inset-0 pointer-events-none">
+        <img
+          src="https://images.pexels.com/photos/34092083/pexels-photo-34092083/free-photo-of-smiling-man-in-souvenir-shop-using-smartphone.jpeg?auto=compress&cs=tinysrgb&w=1600"
+          alt=""
+          className="w-full h-full object-cover opacity-[0.16] mix-blend-luminosity"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-bg/60 via-bg/85 to-bg" />
+        <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/70 to-bg/95" />
+      </div>
       <BackgroundPaths />
       <div className="absolute inset-0 grid-bg pointer-events-none" />
       <div className="absolute -top-40 -right-40 size-[600px] rounded-full bg-primary/15 blur-3xl pointer-events-none" />
@@ -76,7 +86,7 @@ function LiveCounter() {
   return (
     <div className="mt-8 flex items-center gap-3 text-sm">
       <div className="flex -space-x-2">
-        {["#00FFB2", "#3B82F6", "#8B5CF6", "#FBBF24"].map((c, i) => (
+        {["#25D366", "#3B82F6", "#8B5CF6", "#FBBF24"].map((c, i) => (
           <div
             key={i}
             className="size-7 rounded-full border-2 border-bg flex items-center justify-center text-[10px] font-bold text-bg"

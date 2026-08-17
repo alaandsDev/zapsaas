@@ -61,8 +61,8 @@ export default function BackgroundPaths() {
           "radial-gradient(ellipse 80% 70% at 50% 35%, black 30%, transparent 80%)",
       }}
     >
-      <FloatingPaths position={1} color="#00FF88" />
-      <FloatingPaths position={-1} color="#00D1FF" />
+      <FloatingPaths position={1} color="#25D366" />
+      <FloatingPaths position={-1} color="#3B82F6" />
     </div>
   );
 }

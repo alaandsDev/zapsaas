@@ -100,18 +100,18 @@ function ConsultarPrecoModal({ open, onClose }) {
         exit={{ opacity: 0, scale: 0.95 }}
         className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B1120] shadow-2xl overflow-hidden"
       >
-        <div className="h-1 w-full bg-gradient-to-r from-[#00FFAE] to-[#3B82F6]" />
+        <div className="h-1 w-full bg-gradient-to-r from-primary to-[#3B82F6]" />
         <div className="p-6">
           {sent ? (
             <div className="text-center py-6 space-y-3">
-              <div className="flex justify-center text-[#00FFAE]">
+              <div className="flex justify-center text-primary">
                 <Icon name="sucesso" className="size-11" strokeWidth={1.5} />
               </div>
               <h3 className="text-lg font-bold text-white">Recebemos sua solicitação!</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
                 Nossa equipe vai entrar em contato com você em breve no WhatsApp informado com a melhor proposta personalizada.
               </p>
-              <button onClick={onClose} className="mt-4 px-6 py-2 rounded-xl bg-[#00FFAE]/15 border border-[#00FFAE]/30 text-[#00FFAE] text-sm font-semibold hover:bg-[#00FFAE]/25 transition-colors">
+              <button onClick={onClose} className="mt-4 px-6 py-2 rounded-xl bg-primary/15 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/25 transition-colors">
                 Fechar
               </button>
             </div>
@@ -134,13 +134,13 @@ function ConsultarPrecoModal({ open, onClose }) {
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">{f.label} *</label>
                     <input value={form[f.key]} onChange={e => set(f.key, e.target.value)}
                       placeholder={f.placeholder} type={f.type || "text"}
-                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-[#00FFAE]/50 transition-colors placeholder:text-gray-600" />
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-primary/50 transition-colors placeholder:text-gray-600" />
                   </div>
                 ))}
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Disparos mensais *</label>
                   <select value={form.disparos} onChange={e => set("disparos", e.target.value)}
-                    className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-[#00FFAE]/50 transition-colors appearance-none cursor-pointer">
+                    className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-white outline-none focus:border-primary/50 transition-colors appearance-none cursor-pointer">
                     <option value="">Selecione...</option>
                     {DISPAROS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -150,7 +150,7 @@ function ConsultarPrecoModal({ open, onClose }) {
                   <div className="flex gap-3">
                     {["sim", "nao"].map(v => (
                       <button key={v} type="button" onClick={() => set("usaApi", v)}
-                        className={`flex-1 py-2 rounded-xl border text-[13px] font-semibold transition-colors ${form.usaApi === v ? "border-[#00FFAE]/50 bg-[#00FFAE]/15 text-[#00FFAE]" : "border-white/10 bg-white/[0.04] text-gray-400 hover:border-white/20"}`}>
+                        className={`flex-1 py-2 rounded-xl border text-[13px] font-semibold transition-colors ${form.usaApi === v ? "border-primary/50 bg-primary/15 text-primary" : "border-white/10 bg-white/[0.04] text-gray-400 hover:border-white/20"}`}>
                         {v === "sim" ? "✓ Sim" : "✕ Não"}
                       </button>
                     ))}
@@ -161,19 +161,19 @@ function ConsultarPrecoModal({ open, onClose }) {
                     type="checkbox"
                     checked={aceite}
                     onChange={e => setAceite(e.target.checked)}
-                    className="mt-0.5 size-4 shrink-0 accent-[#00FFAE] cursor-pointer"
+                    className="mt-0.5 size-4 shrink-0 accent-primary cursor-pointer"
                   />
                   <span className="text-[11px] text-gray-400 leading-relaxed">
                     Autorizo a Wayvo a usar meus dados para entrar em contato com esta proposta,
                     conforme a{" "}
-                    <a href="/privacidade" target="_blank" className="text-[#00FFAE] hover:underline">
+                    <a href="/privacidade" target="_blank" className="text-primary hover:underline">
                       Política de Privacidade
                     </a>.
                   </span>
                 </label>
                 {err && <p className="text-[12px] text-red-400 font-medium">{err}</p>}
                 <button onClick={submit} disabled={sending}
-                  className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-[#00FFAE] to-[#3B82F6] text-black font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60">
+                  className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-primary to-[#3B82F6] text-black font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-60">
                   {sending ? "Enviando..." : "Solicitar proposta →"}
                 </button>
               </div>

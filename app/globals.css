@@ -8,14 +8,14 @@
   body {
     @apply bg-bg text-ink-100 font-sans antialiased;
     background-image:
-      radial-gradient(ellipse 90% 60% at 50% -5%,  rgba(0,255,136,0.08), transparent 55%),
+      radial-gradient(ellipse 90% 60% at 50% -5%,  rgba(37,211,102,0.09), transparent 55%),
       radial-gradient(ellipse 60% 40% at 85% 15%,  rgba(124,58,237,0.07), transparent 55%),
       radial-gradient(ellipse 50% 35% at 10% 60%,  rgba(59,130,246,0.05), transparent 60%),
-      radial-gradient(ellipse 40% 30% at 90% 80%,  rgba(0,255,136,0.04), transparent 60%);
+      radial-gradient(ellipse 40% 30% at 90% 80%,  rgba(0,168,132,0.05), transparent 60%);
     background-attachment: fixed;
   }
 
-  ::selection { background: rgba(0,255,136,0.2); color: #fff; }
+  ::selection { background: rgba(37,211,102,0.25); color: #fff; }
 
   /* Scrollbar premium */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -66,6 +66,14 @@
   .page-x { @apply max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-8; }
   .container-x { @apply max-w-[1600px] mx-auto px-6 lg:px-12; }
 
+  /* Seção clara — quebra o navy contínuo da página, full-bleed */
+  .section-light {
+    @apply relative bg-paper text-graphite-100;
+    background-image:
+      radial-gradient(ellipse 60% 50% at 15% 0%, rgba(37,211,102,0.07), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 100% 100%, rgba(59,130,246,0.05), transparent 60%);
+  }
+
   /* Cards */
   .card {
     @apply rounded-2xl border border-ink-700/60 bg-bg2/80 backdrop-blur-sm shadow-card;
@@ -78,24 +86,40 @@
     @apply rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl;
   }
 
-  /* Buttons */
+  /* Cards claros — usados nas seções "paper" que quebram o navy contínuo */
+  .card-light {
+    @apply rounded-2xl border border-paper-border bg-white shadow-paper-card;
+  }
+  .card-light-hover {
+    @apply card-light transition-all duration-200 hover:-translate-y-0.5 hover:shadow-paper-card-hover;
+  }
+  .glass-light {
+    @apply rounded-2xl border border-paper-border bg-white/70 backdrop-blur-xl;
+  }
+
+  /* Buttons — pílula, acabamento mais premium */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-sm
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-semibold text-sm
            bg-primary text-bg hover:bg-primary-hover active:scale-[.98]
            transition-all duration-150 shadow-glow-sm hover:shadow-glow;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-sm
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-semibold text-sm
            bg-secondary text-white hover:bg-secondary-hover active:scale-[.98]
            transition-all duration-150 shadow-glow-purple;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-medium text-sm
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-medium text-sm
            text-ink-200 border border-ink-700 hover:border-ink-500 hover:bg-white/[0.04]
            transition-all duration-150;
   }
+  .btn-ghost-light {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-medium text-sm
+           text-graphite-100 border border-paper-border hover:border-graphite-100/30 hover:bg-black/[0.03]
+           transition-all duration-150;
+  }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-sm
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-semibold text-sm
            bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20
            transition-all duration-150;
   }
@@ -153,6 +177,32 @@
   /* Eyebrow */
   .eyebrow {
     @apply inline-flex items-center gap-2 text-[11px] font-semibold tracking-widest uppercase text-primary;
+  }
+  .eyebrow-light {
+    @apply inline-flex items-center gap-2 text-[11px] font-semibold tracking-widest uppercase text-primary-dark;
+  }
+
+  /* Texto em degradê (título/estatísticas de destaque) */
+  .gradient-text {
+    background: linear-gradient(135deg, #25D366 0%, #3B82F6 55%, #8B5CF6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .gradient-text-light {
+    background: linear-gradient(135deg, #128C4A 0%, #1D4ED8 60%, #6D28D9 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Grade decorativa de fundo (hero e CTA) */
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
   }
 
   /* Skeleton */
