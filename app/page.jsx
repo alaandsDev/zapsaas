@@ -19,8 +19,10 @@ export const metadata = {
 import Hero from "../components/Hero";
 import Benefits from "../components/Benefits";
 import HowItWorks from "../components/HowItWorks";
+import CapabilitiesOrbit from "../components/CapabilitiesOrbit";
 import BeforeAfter from "../components/BeforeAfter";
 import Features from "../components/Features";
+import StatsHighlight from "../components/StatsHighlight";
 import SocialProof from "../components/SocialProof";
 import Pricing from "../components/Pricing";
 import FAQ from "../components/FAQ";
@@ -98,22 +100,11 @@ export default function Home() {
           },
         ]}
       />
+      <CapabilitiesOrbit />
       <BeforeAfter />
-      <Features
-        title="Uma plataforma operacional completa — não um conjunto de ferramentas soltas"
-        items={[
-          { icon: "ai-sparkle", title: "Wayvo AI Copilot", desc: "Insights priorizados, score de leads, melhor horário e alertas de saúde — gerados dos seus dados reais." },
-          { icon: "workflow-builder", title: "Workflow Builder", desc: "Editor visual de automações com IA que monta o fluxo. Qualificação, follow-up e recuperação no automático." },
-          { icon: "analytics", title: "Revenue analytics", desc: "Receita atribuída, ROI por campanha e funil real. Decisões com base em caixa, não em achismo." },
-          { icon: "stability", title: "Engine de estabilidade", desc: "Balanceamento inteligente e distribuição operacional entre canais para entrega consistente." },
-        ]}
-      />
+      <Features />
+      <StatsHighlight />
       <SocialProof
-        stats={[
-          { value: "+37", label: "vendas em 7 dias na média dos clientes" },
-          { value: "3x", label: "mais faturamento no primeiro mês" },
-          { value: "98%", label: "de taxa de entrega das mensagens" },
-        ]}
         testimonials={[
           { name: "Marcelo S.", role: "Dono de ótica · Curitiba", result: "+R$ 11k em 5 dias", quote: "Coloquei o Wayvo numa terça. Na sexta já tinha 11 vendas que vieram só do WhatsApp. Pago a mensalidade no primeiro cliente.", color: "#00FFB2", avatar: "https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=80&h=80&fit=crop" },
           { name: "Camila R.", role: "Clínica de estética · Belo Horizonte", result: "Agenda 100% lotada", quote: "Minha agenda estava sempre com buracos. Hoje passo o dia atendendo. O sistema enche a agenda sozinho.", color: "#3B82F6", avatar: "https://images.pexels.com/photos/733872/pexels-photo-733872.jpeg?auto=compress&cs=tinysrgb&w=80&h=80&fit=crop" },

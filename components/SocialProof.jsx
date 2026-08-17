@@ -1,27 +1,10 @@
 import Reveal from "./ui/Reveal";
 import Icon from "./ui/Icon";
 
-export default function SocialProof({ stats, testimonials }) {
+export default function SocialProof({ testimonials }) {
   return (
     <section className="section-light py-24">
       <div className="container-x relative">
-        {/* Stats premium */}
-        <div className="grid lg:grid-cols-3 gap-4 mb-16">
-          {stats.map((s, i) => (
-            <Reveal
-              key={i}
-              delay={Math.min(i * 90, 180)}
-              className="card-light p-8 text-center relative overflow-hidden"
-            >
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 size-32 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
-              <div className="relative">
-                <div className="text-5xl font-bold gradient-text-light">{s.value}</div>
-                <div className="text-graphite-100/60 mt-3">{s.label}</div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
         {/* Header */}
         <div className="max-w-2xl mx-auto text-center mb-12">
           <div className="eyebrow-light justify-center mb-4">
