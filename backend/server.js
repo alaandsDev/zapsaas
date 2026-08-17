@@ -2949,6 +2949,75 @@ async function applyTagsToLead(userId, phone, tags) {
 const entryFlowCooldown = new Map(); // `${userId}:${phone}` -> ts
 const ENTRY_FLOW_COOLDOWN_MS = 30 * 1000;
 
+// ── Agente de IA (Pro): responde sozinho no WhatsApp ──────────────
+// Fire-and-forget, totalmente protegido. Só age se o plano tiver aiAgent
+// E o usuário tiver ativado o agente com pelo menos instruções ou FAQs.
+const aiAgentCooldown = new Map(); // `${userId}:${phone}` -> ts
+const AI_AGENT_COOLDOWN_MS = 8 * 1000; // evita responder em rajada se a msg chegar picotada
+
+async function maybeRunAiAgent(userId, evt, slot, isNewConversation) {
+  try {
+    if (evt.fromMe || !evt.text?.trim()) return; // só reage a texto recebido
+    // A primeira mensagem de uma conversa nova fica pro fluxo de entrada
+    // (se existir) — o Agente de IA assume a partir da segunda mensagem,
+    // pra não mandar duas respostas automáticas coladas uma na outra.
+    if (isNewConversation) return;
+
+    const plan = await getEffectivePlan(userId);
+    if (!PLANS[plan]?.aiAgent) return;
+
+    const { data: agent } = await supabase.from('ai_agents')
+      .select('enabled, instructions, faqs')
+      .eq('user_id', userId).maybeSingle();
+    if (!agent?.enabled) return;
+
+    const phone = String(evt.phone || '').replace(/\D/g, '');
+    if (!phone) return;
+
+    const key = `${userId}:${phone}`;
+    const now = Date.now();
+    if (now - (aiAgentCooldown.get(key) || 0) < AI_AGENT_COOLDOWN_MS) return;
+    aiAgentCooldown.set(key, now);
+
+    // Contexto: últimas mensagens da conversa, pra resposta fazer sentido
+    // no fio da conversa e não só na última mensagem isolada.
+    const { data: chat } = await supabase.from('chats')
+      .select('id, name').eq('user_id', userId).eq('session_slot', slot).eq('phone', evt.phone).maybeSingle();
+    let historyText = evt.text;
+    if (chat?.id) {
+      const { data: msgs } = await supabase.from('chat_messages')
+        .select('direction, text').eq('chat_id', chat.id).not('text', 'is', null)
+        .order('timestamp', { ascending: false }).limit(10);
+      const history = (msgs || []).reverse();
+      if (history.length) {
+        historyText = history.map((m) => `${m.direction === 'in' ? 'Cliente' : 'Você'}: ${m.text}`).join('\n');
+      }
+    }
+
+    const faqsBlock = (agent.faqs || []).length
+      ? `\n\nPerguntas frequentes que você já sabe responder (use como referência, não precisa copiar ao pé da letra):\n${
+          agent.faqs.map((f) => `P: ${f.question}\nR: ${f.answer}`).join('\n\n')
+        }`
+      : '';
+
+    const system = [
+      'Você é o agente de atendimento automático de um negócio brasileiro, respondendo diretamente pelo WhatsApp dele em nome do negócio.',
+      agent.instructions?.trim() || 'Seja educado, direto e prestativo.',
+      faqsBlock,
+      '\n\nResponda APENAS com o texto da mensagem a ser enviada ao cliente — sem aspas, sem explicações, sem prefixos como "Você:" ou "Agente:".',
+    ].join('\n');
+
+    const { callAI } = require('./ai');
+    const reply = await callAI(system, historyText, { maxTokens: 400 });
+    if (!reply?.trim()) return;
+
+    await wpp.sendMessage(evt.sessionId, evt.phone, reply.trim());
+    console.log(`[ai-agent] user=${userId} phone=${phone} respondeu automaticamente`);
+  } catch (e) {
+    console.warn('[ai-agent] falhou:', e.message);
+  }
+}
+
 function maybeRunEntryWorkflow(userId, evt, isNewConversation, slot) {
   try {
     const phone = String(evt.phone || '').replace(/\D/g, '');
@@ -3293,7 +3362,10 @@ wpp.on('message', async (evt) => {
       // Verifica se este phone está aguardando resposta de um bloco Escolha
       const choiceHandled = await maybeResumeChoiceFlow(userId, evt);
       // Gatilho automático do fluxo de entrada (só roda se não havia choice pendente)
-      if (!choiceHandled) maybeRunEntryWorkflow(userId, evt, isNewConversation, slot);
+      if (!choiceHandled) {
+        maybeRunEntryWorkflow(userId, evt, isNewConversation, slot);
+        maybeRunAiAgent(userId, evt, slot, isNewConversation);
+      }
     }
   } catch (e) {
     console.error('[chat persist] ERRO:', e.message, e?.code || '', e?.details || '');
@@ -3374,6 +3446,58 @@ app.post('/api/ai-suggest', requireAuth, rateLimit(60 * 1000, 20), async (req, r
     res.json({ suggestion: suggestion || '' });
   } catch (e) {
     console.warn('[ai-suggest]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Agente de IA (Pro) — configuração de treino ───────────────────
+async function requireAiAgentPlan(req, res, next) {
+  try {
+    const plan = await getEffectivePlan(uid(req));
+    if (!PLANS[plan]?.aiAgent) {
+      return res.status(403).json({ error: 'O Agente de IA é exclusivo do plano Pro.', code: 'PLAN_UPGRADE_REQUIRED' });
+    }
+    next();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+app.get('/api/ai-agent', requireAuth, requireAiAgentPlan, async (req, res) => {
+  try {
+    const { data } = await supabase.from('ai_agents')
+      .select('enabled, instructions, faqs')
+      .eq('user_id', uid(req)).maybeSingle();
+    res.json(data || { enabled: false, instructions: '', faqs: [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/ai-agent', requireAuth, requireAiAgentPlan, async (req, res) => {
+  try {
+    const { enabled, instructions, faqs } = req.body;
+    const cleanFaqs = Array.isArray(faqs)
+      ? faqs
+          .map((f) => ({ question: String(f?.question || '').trim(), answer: String(f?.answer || '').trim() }))
+          .filter((f) => f.question && f.answer)
+          .slice(0, 50)
+      : [];
+
+    const { data, error } = await supabase.from('ai_agents')
+      .upsert({
+        user_id: uid(req),
+        enabled: !!enabled,
+        instructions: String(instructions || '').slice(0, 4000),
+        faqs: cleanFaqs,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      .select('enabled, instructions, faqs')
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
