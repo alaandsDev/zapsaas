@@ -46,7 +46,7 @@ export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
             {/* Coluna esquerda: texto + foto — sem padding na coluna em si (só no
                 texto), pra imagem poder encostar de verdade na base do card em
                 vez de parar no padding e sobrar um vão vazio embaixo dela. */}
-            <div className="relative min-h-[360px] lg:min-h-[520px] overflow-hidden">
+            <div className="relative min-h-[420px] sm:min-h-[640px] lg:min-h-[800px] overflow-hidden">
               <svg className="absolute bottom-6 left-2 size-36 sm:size-44 text-primary/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M13 2 3 14h7l-1 8 11-14h-7z" />
               </svg>
@@ -62,7 +62,7 @@ export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
               <img
                 src="/team/agente-wayvo.png"
                 alt=""
-                className="hidden sm:block absolute bottom-0 right-2 lg:right-6 w-[220px] lg:w-[280px] h-auto object-contain object-bottom pointer-events-none select-none"
+                className="hidden sm:block absolute bottom-0 right-2 lg:right-8 w-[280px] lg:w-[400px] h-auto object-contain object-bottom pointer-events-none select-none"
               />
             </div>
 
