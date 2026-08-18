@@ -82,24 +82,24 @@ export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
                     fill="none"
                     stroke="#25D366"
                     strokeOpacity="0.35"
-                    strokeWidth="2"
+                    strokeWidth="3"
                     strokeLinejoin="round"
                     strokeLinecap="round"
                   />
                 )}
               </svg>
-              <div className="relative space-y-10">
+              <div className="relative space-y-14">
                 {steps.map((s, i) => (
-                  <div key={i} className="flex items-start gap-4" style={{ marginLeft: `${i * 48}px` }}>
+                  <div key={i} className="flex items-start gap-5" style={{ marginLeft: `${i * 64}px` }}>
                     <div
                       ref={(el) => (badgeRefs.current[i] = el)}
-                      className="relative z-10 size-11 shrink-0 rounded-xl bg-primary text-bg font-bold flex items-center justify-center shadow-glow"
+                      className="relative z-10 size-14 shrink-0 rounded-2xl bg-primary text-bg font-bold text-xl flex items-center justify-center shadow-glow"
                     >
                       {i + 1}
                     </div>
-                    <div className="pt-1.5">
-                      <h3 className="text-lg font-bold text-primary">{s.title}</h3>
-                      <p className="text-ink-300 mt-1 text-sm leading-relaxed max-w-sm">{s.desc}</p>
+                    <div className="pt-2">
+                      <h3 className="text-2xl font-bold text-primary">{s.title}</h3>
+                      <p className="text-ink-300 mt-1.5 text-lg leading-relaxed max-w-md">{s.desc}</p>
                     </div>
                   </div>
                 ))}
