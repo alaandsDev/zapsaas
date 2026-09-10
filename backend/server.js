@@ -1757,6 +1757,15 @@ async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
   let sent = 0, failed = 0;
 
   for (let i = 0; i < contacts.length; i++) {
+    // Verifica se foi pausado ou cancelado durante o envio
+    const { data: current } = await supabase.from('dispatches').select('status').eq('id', dispatchId).single();
+    if (current?.status === 'paused' || current?.status === 'cancelled') {
+      console.log(`[cloud] ${dispatchId} interrompido por status=${current.status}`);
+      return;
+    }
+    // Pula contatos já enviados (retomada após restart)
+    if (updatedItems[i]?.status === 'sent') continue;
+
     const contact = contacts[i];
     try {
       if (useTemplate && dispatch.template_name) {
