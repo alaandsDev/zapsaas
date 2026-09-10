@@ -722,9 +722,12 @@ export default function CanalOficialPage() {
     setTestMsg(null); setTesting(true);
     try {
       const variables = testVars.split(",").map((v) => v.trim()).filter(Boolean);
+      // Cada template só existe no idioma em que foi aprovado (ex: hello_world é en_US,
+      // não pt_BR) — manda o idioma real do template escolhido, não o default do backend.
+      const language = templates?.find((t) => t.name === testTemplate)?.language;
       const r = await api("/api/wpp-cloud/test", {
         method: "POST",
-        body: { to: testTo.trim(), template: testTemplate, variables },
+        body: { to: testTo.trim(), template: testTemplate, language, variables },
       });
       setTestMsg({ ok: true, text: `Enviado · ID ${r.messages?.[0]?.id || "—"}` });
     } catch (e) {
