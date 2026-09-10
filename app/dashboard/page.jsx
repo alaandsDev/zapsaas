@@ -129,7 +129,7 @@ function OnboardingChecklist({ connectedSlots, stats, dispatches }) {
         exit={{ opacity: 0, y: -10 }}
         transition={{ delay: 0.05 }}
         className="relative rounded-2xl border border-white/[0.08] overflow-hidden"
-        style={{ background: "linear-gradient(135deg,rgba(0,255,136,0.04) 0%,rgba(5,8,22,0.6) 60%,rgba(0,209,255,0.04) 100%)" }}
+        style={{ background: "linear-gradient(135deg, #0F172A 0%, #0B1120 60%, #0F172A 100%)" }}
       >
         {/* dismiss */}
         <button onClick={dismiss}
@@ -378,7 +378,7 @@ export default function DashboardHome() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden rounded-3xl border border-white/[0.06] p-6 lg:p-8"
-          style={{ background: "linear-gradient(135deg, rgba(0,255,174,0.06) 0%, rgba(5,8,22,0.6) 45%, rgba(0,209,255,0.05) 100%)" }}
+          style={{ background: "linear-gradient(135deg, #0F172A 0%, #0B1120 55%, #0F172A 100%)" }}
         >
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -top-24 -right-16 w-96 h-96 rounded-full blur-3xl opacity-30"
@@ -460,7 +460,7 @@ export default function DashboardHome() {
           <button
             onClick={openCopilot}
             className="group rounded-2xl border border-secondary/25 p-5 text-left transition-colors hover:border-secondary/45"
-            style={{ background: "linear-gradient(120deg, rgba(124,58,237,0.10), #0B1120 60%)" }}
+            style={{ background: "linear-gradient(120deg, #170F2E 0%, #0B1120 55%)" }}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
