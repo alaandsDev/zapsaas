@@ -8,6 +8,20 @@ import {
 } from "lucide-react";
 import { api } from "../../../lib/api";
 import Topbar from "../../../components/dashboard/Topbar";
+import {
+  DashButton, DashIconButton, DashBadge, DashModal, DashEmptyState, DashTh,
+} from "../../../components/dashboard/DashUI";
+import { DASH_ACCENT, dashHeaderIconStyle } from "../../../components/dashboard/dashTheme";
+
+/* Paleta oficial do tema light — nenhuma cor fora daqui. */
+const GREEN   = DASH_ACCENT.green;    // #0E8A47 — CTA / sucesso
+const EMERALD = DASH_ACCENT.emerald;  // #12A150 — acento desta tela
+const AMBER   = DASH_ACCENT.amber;    // #C2740A — atenção / pendente
+const RED     = DASH_ACCENT.red;      // #C2434A — erro / rejeitado
+const BLUE    = DASH_ACCENT.blue;     // #2F80ED — informativo
+const VIOLET  = DASH_ACCENT.violet;   // #6D3BEA — informativo
+const SLATE   = DASH_ACCENT.slate;    // #5A6474 — neutro
+const FAINT   = "#98A1B0";            // desconhecido
 
 const WEBHOOK_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api/wpp-cloud/webhook`
@@ -24,23 +38,23 @@ const STEPS = [
 
 /* ── constantes de mapeamento ── */
 const TPL_STATUS = {
-  APPROVED: { label: "Aprovado",  color: "#00FF88" },
-  PENDING:  { label: "Em análise",color: "#FBBF24" },
-  REJECTED: { label: "Rejeitado", color: "#EF4444" },
-  PAUSED:   { label: "Pausado",   color: "#94A3B8" },
-  DISABLED: { label: "Desativado",color: "#94A3B8" },
+  APPROVED: { label: "Aprovado",   color: GREEN },
+  PENDING:  { label: "Em análise", color: AMBER },
+  REJECTED: { label: "Rejeitado",  color: RED },
+  PAUSED:   { label: "Pausado",    color: SLATE },
+  DISABLED: { label: "Desativado", color: SLATE },
 };
 const QUALITY = {
-  GREEN:   { label: "Alta",  color: "#00FF88", dot: "🟢" },
-  YELLOW:  { label: "Média", color: "#FBBF24", dot: "🟡" },
-  RED:     { label: "Baixa", color: "#EF4444", dot: "🔴" },
-  UNKNOWN: { label: "—",     color: "#64748B", dot: "⚫" },
+  GREEN:   { label: "Alta",  color: GREEN },
+  YELLOW:  { label: "Média", color: AMBER },
+  RED:     { label: "Baixa", color: RED },
+  UNKNOWN: { label: "—",     color: FAINT },
 };
 const VERIFICATION = {
-  verified:     { label: "Verificada",     color: "#00FF88", dot: "🟢" },
-  not_verified: { label: "Não verificada", color: "#EF4444", dot: "🔴" },
-  in_review:    { label: "Em análise",     color: "#FBBF24", dot: "🟡" },
-  rejected:     { label: "Rejeitada",      color: "#EF4444", dot: "🔴" },
+  verified:     { label: "Verificada",     color: GREEN },
+  not_verified: { label: "Não verificada", color: RED },
+  in_review:    { label: "Em análise",     color: AMBER },
+  rejected:     { label: "Rejeitada",      color: RED },
 };
 const TIER_LABEL = {
   TIER_1K:       "1.000 / dia",
@@ -61,12 +75,12 @@ const COUNTRIES  = [
 ];
 
 const LOG_LABELS = {
-  sync:             { label: "Sincronização", icon: RefreshCw, color: "#22D3EE" },
-  template_created: { label: "Template criado", icon: LayoutTemplate, color: "#7C3AED" },
-  template_rejected:{ label: "Template rejeitado", icon: X, color: "#EF4444" },
-  webhook_validated:{ label: "Webhook validado", icon: Webhook, color: "#00FF88" },
-  token_updated:    { label: "Token atualizado", icon: KeyRound, color: "#FBBF24" },
-  test_sent:        { label: "Teste enviado", icon: Plug, color: "#00D1FF" },
+  sync:             { label: "Sincronização", icon: RefreshCw, color: BLUE },
+  template_created: { label: "Template criado", icon: LayoutTemplate, color: VIOLET },
+  template_rejected:{ label: "Template rejeitado", icon: X, color: RED },
+  webhook_validated:{ label: "Webhook validado", icon: Webhook, color: GREEN },
+  token_updated:    { label: "Token atualizado", icon: KeyRound, color: AMBER },
+  test_sent:        { label: "Teste enviado", icon: Plug, color: EMERALD },
 };
 
 const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -85,25 +99,26 @@ function fmtTime(iso) {
 }
 
 /* ── componentes UI reutilizáveis ── */
+function Dot({ color, className = "" }) {
+  return <span className={`size-1.5 rounded-full shrink-0 ${className}`} style={{ background: color }} />;
+}
+
 function StatusCard({ icon: Icon, label, value, tint, sub, tooltip }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -3 }}
+      whileHover={{ y: -2 }}
       title={tooltip}
-      className="glass p-4 relative overflow-hidden group cursor-default"
+      className="dash-card !p-4 cursor-default"
     >
-      <div className="absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-        style={{ boxShadow: `inset 0 0 0 1px ${tint}33, 0 0 26px -12px ${tint}55` }} />
-      <div className="relative flex items-start justify-between">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-[11px] text-ink-400">{label}</div>
-          <div className="text-base font-bold mt-1.5 truncate" style={{ color: tint }}>{value}</div>
-          {sub && <div className="text-[10px] text-ink-500 mt-0.5 truncate">{sub}</div>}
+          <div className="text-[11px] text-dash-faint">{label}</div>
+          <div className="text-[15px] font-bold mt-1.5 truncate" style={{ color: tint }}>{value}</div>
+          {sub && <div className="text-[10px] text-dash-faint2 mt-0.5 truncate">{sub}</div>}
         </div>
-        <span className="size-8 rounded-lg flex items-center justify-center border shrink-0"
-          style={{ background: `${tint}14`, borderColor: `${tint}30` }}>
-          <Icon className="size-4" style={{ color: tint }} />
+        <span className="shrink-0" style={dashHeaderIconStyle(tint)}>
+          <Icon width={16} height={16} />
         </span>
       </div>
     </motion.div>
@@ -112,18 +127,19 @@ function StatusCard({ icon: Icon, label, value, tint, sub, tooltip }) {
 
 const Field = ({ label, hint, children }) => (
   <div>
-    <label className="block text-[11px] text-ink-400 uppercase tracking-wider mb-1.5 font-semibold">{label}</label>
+    <label className="block text-[11px] text-dash-faint2 uppercase tracking-wider mb-1.5 font-semibold">{label}</label>
     {children}
-    {hint && <p className="text-[11px] text-ink-500 mt-1">{hint}</p>}
+    {hint && <p className="text-[11px] text-dash-faint mt-1">{hint}</p>}
   </div>
 );
 const Input = ({ type = "text", className = "", ...p }) => (
-  <input type={type}
-    className={`w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 outline-none focus:border-primary/60 text-sm transition-colors placeholder:text-ink-600 ${className}`}
-    {...p} />
+  <input type={type} className={`dash-input ${className}`} {...p} />
+);
+const Select = ({ className = "", ...p }) => (
+  <select className={`dash-input appearance-none cursor-pointer ${className}`} {...p} />
 );
 function Skel({ className = "" }) {
-  return <div className={`animate-pulse rounded-xl bg-white/[0.05] ${className}`} />;
+  return <div className={`dash-skeleton ${className}`} />;
 }
 
 /* ── Health Score Card ── */
@@ -183,23 +199,22 @@ function HealthScore({ config, account, quality, templates, verify }) {
   }, [checks]);
 
   const scoreLevel =
-    score >= 70 ? { label: "Saudável",  color: "#00FF88", bg: "rgba(0,255,136,0.08)" } :
-    score >= 40 ? { label: "Atenção",   color: "#FBBF24", bg: "rgba(251,191,36,0.08)" } :
-                  { label: "Crítico",   color: "#EF4444", bg: "rgba(239,68,68,0.08)" };
+    score >= 70 ? { label: "Saudável", color: GREEN } :
+    score >= 40 ? { label: "Atenção",  color: AMBER } :
+                  { label: "Crítico",  color: RED };
 
   return (
     <motion.section
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      className="glass p-5 relative overflow-hidden"
-      style={{ borderColor: `${scoreLevel.color}30` }}
+      className="dash-card !p-5"
+      style={{ borderColor: `${scoreLevel.color}33`, background: `${scoreLevel.color}08` }}
     >
-      <div className="absolute inset-0 pointer-events-none" style={{ background: scoreLevel.bg }} />
-      <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
         {/* Score gauge */}
         <div className="shrink-0 flex flex-col items-center gap-1">
           <div className="relative size-20">
             <svg viewBox="0 0 80 80" className="size-20 -rotate-90">
-              <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+              <circle cx="40" cy="40" r="32" fill="none" stroke="#E9ECF1" strokeWidth="6" />
               <circle cx="40" cy="40" r="32" fill="none" stroke={scoreLevel.color} strokeWidth="6"
                 strokeLinecap="round"
                 strokeDasharray={`${Math.round(score * 2.01)} 201`}
@@ -208,7 +223,7 @@ function HealthScore({ config, account, quality, templates, verify }) {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-lg font-black leading-none" style={{ color: scoreLevel.color }}>{Math.round(score)}</span>
-              <span className="text-[9px] text-ink-500">/ 100</span>
+              <span className="text-[9px] text-dash-faint2">/ 100</span>
             </div>
           </div>
           <span className="text-[11px] font-semibold" style={{ color: scoreLevel.color }}>{scoreLevel.label}</span>
@@ -217,24 +232,22 @@ function HealthScore({ config, account, quality, templates, verify }) {
         {/* Checklist */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-sm">Saúde da Conta</h2>
-            <span className="text-[10px] text-ink-500">Score {Math.round(score)}/100</span>
+            <h2 className="m-0 font-semibold text-sm text-dash-ink">Saúde da Conta</h2>
+            <span className="font-mono text-[10px] text-dash-faint2">Score {Math.round(score)}/100</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {checks.map((c) => (
-              <div key={c.key} className="flex items-center gap-2 text-[12px]" title={c.detail}>
-                <span className={`size-4 rounded-full flex items-center justify-center text-[9px] shrink-0 font-bold ${
-                  c.ok   ? "bg-primary/15 text-primary" :
-                  c.warn ? "bg-yellow-400/15 text-yellow-400" :
-                           "bg-red-500/15 text-red-400"
-                }`}>
-                  {c.ok ? "✓" : c.warn ? "~" : "✕"}
-                </span>
-                <span className={c.ok ? "text-ink-200" : c.warn ? "text-yellow-400" : "text-ink-400"}>
-                  {c.label}
-                </span>
-              </div>
-            ))}
+            {checks.map((c) => {
+              const color = c.ok ? GREEN : c.warn ? AMBER : RED;
+              return (
+                <div key={c.key} className="flex items-center gap-2 text-[12px]" title={c.detail}>
+                  <span className="size-4 rounded-full flex items-center justify-center text-[9px] shrink-0 font-bold"
+                    style={{ background: `${color}1f`, color }}>
+                    {c.ok ? "✓" : c.warn ? "~" : "✕"}
+                  </span>
+                  <span style={{ color: c.ok ? "#26303E" : color }}>{c.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -243,56 +256,41 @@ function HealthScore({ config, account, quality, templates, verify }) {
 }
 
 /* ── Verification blocker modal ── */
-function VerificationModal({ verificationStatus, onContinue, onClose }) {
+function VerificationModal({ open, verificationStatus, onContinue, onClose }) {
   return (
-    <>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose} className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm" />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="fixed inset-0 z-[71] flex items-center justify-center p-4 pointer-events-none"
-      >
-        <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-yellow-500/30 overflow-hidden"
-          style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)", boxShadow: "0 30px 80px -20px rgba(0,0,0,0.85)" }}>
-          <div className="h-1 w-full bg-gradient-to-r from-yellow-500 to-orange-500" />
-          <div className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="size-12 rounded-xl bg-yellow-500/15 border border-yellow-500/30 flex items-center justify-center shrink-0">
-                <AlertTriangle className="size-6 text-yellow-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-ink-100">Conta Meta ainda não verificada</h3>
-                <p className="text-sm text-ink-400 mt-1 leading-relaxed">
-                  Para criar templates oficiais a Meta exige que sua conta empresarial esteja verificada.
-                  {verificationStatus === "in_review" && " Sua conta está em análise."}
-                  {verificationStatus === "not_verified" && " Complete a verificação no Business Manager."}
-                </p>
-              </div>
-            </div>
+    <DashModal
+      open={open}
+      onClose={onClose}
+      title="Conta Meta ainda não verificada"
+      subtitle="Para criar templates oficiais a Meta exige que sua conta empresarial esteja verificada."
+      footer={
+        <>
+          <a href="https://business.facebook.com/settings/security" target="_blank" rel="noreferrer"
+            className="dash-btn-secondary">Como verificar →</a>
+          <DashButton variant="primary" onClick={onContinue}>Continuar mesmo assim</DashButton>
+        </>
+      }
+    >
+      <div className="flex items-start gap-3">
+        <span className="shrink-0" style={{ ...dashHeaderIconStyle(AMBER), width: 40, height: 40, borderRadius: 13 }}>
+          <AlertTriangle width={19} height={19} />
+        </span>
+        <p className="text-[13px] text-dash-muted leading-relaxed m-0">
+          {verificationStatus === "in_review" && "Sua conta está em análise. "}
+          {verificationStatus === "not_verified" && "Complete a verificação no Business Manager. "}
+          Enquanto isso, a Meta pode recusar novos templates.
+        </p>
+      </div>
 
-            <div className="mt-5 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-ink-400 leading-relaxed">
-              <p className="font-semibold text-ink-200 mb-1.5">Como verificar sua conta:</p>
-              <ol className="space-y-1 list-decimal list-inside">
-                <li>Acesse <a href="https://business.facebook.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">business.facebook.com</a></li>
-                <li>Vá em Configurações → Central de Segurança</li>
-                <li>Clique em "Iniciar verificação" e siga os passos</li>
-              </ol>
-            </div>
-
-            <div className="flex gap-3 mt-5">
-              <a href="https://business.facebook.com/settings/security" target="_blank" rel="noreferrer"
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-yellow-500/40 text-yellow-400 text-sm font-semibold hover:bg-yellow-500/10 transition-colors">
-                Como verificar →
-              </a>
-              <button onClick={onContinue}
-                className="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-ink-200 text-sm font-semibold hover:bg-white/[0.1] transition-colors">
-                Continuar mesmo assim
-              </button>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </>
+      <div className="p-4 rounded-[14px] bg-dash-subtle border border-dash-border text-xs text-dash-muted leading-relaxed">
+        <p className="font-semibold text-dash-ink mb-1.5">Como verificar sua conta:</p>
+        <ol className="space-y-1 list-decimal list-inside m-0">
+          <li>Acesse <a href="https://business.facebook.com" target="_blank" rel="noreferrer" className="font-semibold hover:underline" style={{ color: GREEN }}>business.facebook.com</a></li>
+          <li>Vá em Configurações → Central de Segurança</li>
+          <li>Clique em "Iniciar verificação" e siga os passos</li>
+        </ol>
+      </div>
+    </DashModal>
   );
 }
 
@@ -353,55 +351,48 @@ function YCloudTestCard() {
   }
 
   return (
-    <section className="rounded-2xl border border-secondary/30 bg-secondary/[0.04] p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Zap className="size-4 text-secondary" />
-        <h3 className="text-sm font-semibold text-ink-100">Teste YCloud (BSP)</h3>
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary/15 text-secondary border border-secondary/25">beta</span>
+    <section className="dash-card !p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <span style={dashHeaderIconStyle(VIOLET)}><Zap width={16} height={16} /></span>
+        <h3 className="m-0 text-sm font-semibold text-dash-ink">Teste YCloud (BSP)</h3>
+        <DashBadge color={VIOLET} dot={false}>beta</DashBadge>
       </div>
-      <div className="grid sm:grid-cols-3 gap-2 mb-2">
-        <input value={from} onChange={e => setFrom(e.target.value)} placeholder="Número YCloud (from), ex: 5513..."
-          className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-secondary/40" />
-        <input value={to} onChange={e => setTo(e.target.value)} placeholder="Enviar para (seu número)"
-          className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-secondary/40" />
-        <input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Mensagem"
-          className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-secondary/40" />
+      <div className="grid sm:grid-cols-3 gap-2 mb-3">
+        <Input value={from} onChange={e => setFrom(e.target.value)} placeholder="Número YCloud (from), ex: 5513..." />
+        <Input value={to} onChange={e => setTo(e.target.value)} placeholder="Enviar para (seu número)" />
+        <Input value={msg} onChange={e => setMsg(e.target.value)} placeholder="Mensagem" />
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <button onClick={sendTemplate} disabled={sending}
-          className="px-4 py-2 rounded-lg text-xs font-semibold text-bg disabled:opacity-60"
-          style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}>
-          {sending ? "Enviando..." : "Enviar template (hello_world) ✅"}
-        </button>
-        <button onClick={sendText} disabled={sending}
-          className="px-4 py-2 rounded-lg text-xs font-medium text-ink-200 border border-white/[0.12] hover:bg-white/[0.04] disabled:opacity-60">
-          Enviar texto livre
-        </button>
-        <button onClick={loadTemplates} disabled={sending}
-          className="px-4 py-2 rounded-lg text-xs font-medium text-ink-200 border border-white/[0.12] hover:bg-white/[0.04] disabled:opacity-60">
-          Listar templates
-        </button>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <DashButton onClick={sendTemplate} disabled={sending}>
+          {sending ? "Enviando..." : "Enviar template (hello_world)"}
+        </DashButton>
+        <DashButton variant="secondary" onClick={sendText} disabled={sending}>Enviar texto livre</DashButton>
+        <DashButton variant="secondary" onClick={loadTemplates} disabled={sending}>Listar templates</DashButton>
         {result && (
-          <span className={`text-xs ${result.ok ? "text-primary" : "text-red-400"}`}>{result.text}</span>
+          <span className="text-xs font-medium" style={{ color: result.ok ? GREEN : RED }}>{result.text}</span>
         )}
       </div>
 
       {templates && templates.length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-[10px] text-ink-500">Templates da conta — clique para enviar ao destino:</p>
-          {templates.map((t, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
-              <span className="font-medium text-ink-100">{t.name}</span>
-              <span className="text-ink-500">· {t.language}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: t.status === "APPROVED" ? "#00FF8820" : "#FBBF2420", color: t.status === "APPROVED" ? "#00FF88" : "#FBBF24" }}>{t.status}</span>
-              <button onClick={() => sendNamed(t)} disabled={sending || t.status !== "APPROVED"}
-                className="ml-auto text-primary hover:underline disabled:opacity-40 disabled:no-underline">enviar →</button>
-            </div>
-          ))}
+        <div className="mt-4 space-y-1.5">
+          <p className="text-[10px] text-dash-faint2 uppercase tracking-wider font-semibold">Templates da conta — clique para enviar ao destino</p>
+          {templates.map((t, i) => {
+            const st = TPL_STATUS[t.status] || { label: t.status || "—", color: SLATE };
+            return (
+              <div key={i} className="flex items-center gap-2 text-xs bg-dash-subtle border border-dash-border rounded-[12px] px-3 py-2">
+                <span className="font-medium text-dash-ink">{t.name}</span>
+                <span className="text-dash-faint">· {t.language}</span>
+                <DashBadge color={st.color} dot={false}>{t.status}</DashBadge>
+                <button onClick={() => sendNamed(t)} disabled={sending || t.status !== "APPROVED"}
+                  className="ml-auto font-semibold hover:underline disabled:opacity-40 disabled:no-underline"
+                  style={{ color: GREEN }}>enviar →</button>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <p className="text-[10px] text-ink-600 mt-2">Use um template aprovado para testar a entrega real. Texto livre só chega depois que o cliente responde (janela de 24h).</p>
+      <p className="text-[11px] text-dash-faint mt-3">Use um template aprovado para testar a entrega real. Texto livre só chega depois que o cliente responde (janela de 24h).</p>
     </section>
   );
 }
@@ -470,23 +461,24 @@ function YCloudEmbeddedSignup({ onConnected }) {
   }
 
   return (
-    <section className="rounded-2xl border border-secondary/30 bg-secondary/[0.04] p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <Zap className="size-4 text-secondary" />
-        <h3 className="text-sm font-semibold text-ink-100">Conectar número oficial (1 clique)</h3>
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary/15 text-secondary border border-secondary/25">novo</span>
+    <section className="dash-card !p-5">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span style={dashHeaderIconStyle(EMERALD)}><Zap width={16} height={16} /></span>
+        <h3 className="m-0 text-sm font-semibold text-dash-ink">Conectar número oficial (1 clique)</h3>
+        <DashBadge color={EMERALD} dot={false}>novo</DashBadge>
       </div>
-      <p className="text-[11px] text-ink-500 mb-3">Conecte sua conta WhatsApp Business pela Meta sem copiar tokens. O número fica pronto pra usar no Wayvo.</p>
+      <p className="text-[12.5px] text-dash-faint mb-4">Conecte sua conta WhatsApp Business pela Meta sem copiar tokens. O número fica pronto pra usar no Wayvo.</p>
       {!FB_APP_ID ? (
-        <p className="text-xs text-amber-400">⚠ Embedded Signup ainda não configurado no servidor (faltam as variáveis NEXT_PUBLIC_FB_APP_ID / FB_CONFIG_ID / YCLOUD_SOLUTION_ID).</p>
+        <div className="rounded-[13px] px-4 py-3 text-xs leading-relaxed"
+          style={{ background: `${AMBER}0f`, border: `1px solid ${AMBER}33`, color: AMBER }}>
+          Embedded Signup ainda não configurado no servidor (faltam as variáveis NEXT_PUBLIC_FB_APP_ID / FB_CONFIG_ID / YCLOUD_SOLUTION_ID).
+        </div>
       ) : (
-        <div className="flex items-center gap-3">
-          <button onClick={connect} disabled={loading}
-            className="px-4 py-2 rounded-lg text-xs font-semibold text-bg disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}>
+        <div className="flex flex-wrap items-center gap-3">
+          <DashButton onClick={connect} loading={loading}>
             {loading ? "Conectando..." : "Conectar com a Meta →"}
-          </button>
-          {status && <span className={`text-xs ${status.ok ? "text-primary" : "text-red-400"}`}>{status.text}</span>}
+          </DashButton>
+          {status && <span className="text-xs font-medium" style={{ color: status.ok ? GREEN : RED }}>{status.text}</span>}
         </div>
       )}
     </section>
@@ -523,37 +515,35 @@ function YCloudNumbersCard() {
   }
 
   return (
-    <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <Building2 className="size-4 text-ink-400" />
-        <h3 className="text-sm font-semibold text-ink-100">Números YCloud (oficial)</h3>
-        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-ink-400">{list.length}/{limit} usado(s)</span>
+    <section className="dash-card !p-5">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span style={dashHeaderIconStyle(SLATE)}><Building2 width={16} height={16} /></span>
+        <h3 className="m-0 text-sm font-semibold text-dash-ink">Números YCloud (oficial)</h3>
+        <span className="ml-auto font-mono text-[11px] text-dash-faint bg-dash-subtle border border-dash-border rounded-full px-2.5 py-0.5">
+          {list.length}/{limit} usado(s)
+        </span>
       </div>
-      <p className="text-[11px] text-ink-500 mb-3">Cadastre o número da empresa para receber mensagens dele aqui no Wayvo. Use só dígitos com DDI (ex: 15559850060). Seu plano permite {limit} número(s) oficial(is).</p>
+      <p className="text-[12.5px] text-dash-faint mb-4">Cadastre o número da empresa para receber mensagens dele aqui no Wayvo. Use só dígitos com DDI (ex: 15559850060). Seu plano permite {limit} número(s) oficial(is).</p>
 
       <div className="flex flex-wrap gap-2 mb-3">
-        <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Número (ex: 15559850060)"
-          className="flex-1 min-w-[180px] bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-primary/40" />
-        <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Apelido (opcional)"
-          className="flex-1 min-w-[140px] bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-ink-100 outline-none focus:border-primary/40" />
-        <button onClick={add} className="px-4 py-2 rounded-lg text-xs font-semibold text-bg" style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
-          Cadastrar
-        </button>
+        <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Número (ex: 15559850060)" className="!w-auto flex-1 min-w-[180px]" />
+        <Input value={label} onChange={e => setLabel(e.target.value)} placeholder="Apelido (opcional)" className="!w-auto flex-1 min-w-[140px]" />
+        <DashButton onClick={add}>Cadastrar</DashButton>
       </div>
-      {err && <p className="text-xs text-red-400 mb-2">{err}</p>}
+      {err && <p className="text-xs mb-2" style={{ color: RED }}>{err}</p>}
 
       {list.length > 0 ? (
         <div className="space-y-1.5">
           {list.map(n => (
-            <div key={n.id} className="flex items-center gap-2 text-xs bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
-              <span className="font-medium text-ink-100">+{n.phone}</span>
-              {n.label && <span className="text-ink-500">· {n.label}</span>}
-              <button onClick={() => remove(n.id)} className="ml-auto text-ink-500 hover:text-red-400">remover</button>
+            <div key={n.id} className="flex items-center gap-2 text-xs bg-dash-subtle border border-dash-border rounded-[12px] px-3 py-2">
+              <span className="font-medium text-dash-ink">+{n.phone}</span>
+              {n.label && <span className="text-dash-faint">· {n.label}</span>}
+              <button onClick={() => remove(n.id)} className="ml-auto text-dash-faint hover:text-dash-red transition-colors">remover</button>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-ink-600">Nenhum número cadastrado ainda.</p>
+        <p className="text-xs text-dash-faint2">Nenhum número cadastrado ainda.</p>
       )}
     </section>
   );
@@ -584,6 +574,7 @@ export default function CanalOficialPage() {
   const [syncing, setSyncing]       = useState(false);
 
   /* UI */
+  const [connMode, setConnMode]   = useState("meta");   // 'meta' | 'ycloud' — integrações independentes
   const [tplQ, setTplQ]           = useState("");
   const [tplCat, setTplCat]       = useState("");
   const [tplStatus, setTplStatus] = useState("");
@@ -764,7 +755,7 @@ export default function CanalOficialPage() {
   /* ── computed ── */
   const connected = !!config;
   const verStatus = account?.verification_status;
-  const verInfo   = VERIFICATION[verStatus] || { label: "—", color: "#64748B", dot: "⚫" };
+  const verInfo   = VERIFICATION[verStatus] || { label: "—", color: FAINT };
   const qualInfo  = QUALITY[quality?.quality_rating || "UNKNOWN"];
   const tplApproved  = templates ? templates.filter(t => t.status === "APPROVED").length  : null;
   const tplPending   = templates ? templates.filter(t => t.status === "PENDING").length   : null;
@@ -774,42 +765,42 @@ export default function CanalOficialPage() {
     {
       icon: Plug, label: "API Oficial",
       value: connected ? "Conectada" : "Não configurada",
-      tint: connected ? "#00FF88" : "#FBBF24",
+      tint: connected ? GREEN : AMBER,
       sub: config?.verified_name || (connected ? "Sistema User ativo" : "configure abaixo"),
       tooltip: "Status da conexão com a API Cloud da Meta",
     },
     {
       icon: KeyRound, label: "Token de acesso",
       value: config?.has_token ? "Configurado" : "Ausente",
-      tint: config?.has_token ? "#00FF88" : "#EF4444",
+      tint: config?.has_token ? GREEN : RED,
       sub: config?.has_token ? "System User permanente" : "obrigatório",
       tooltip: "Access Token do System User — nunca expira se configurado como permanente",
     },
     {
       icon: Webhook, label: "Webhook",
       value: config?.webhook_verify_token ? "Configurado" : "Pendente",
-      tint: config?.webhook_verify_token ? "#22D3EE" : "#FBBF24",
+      tint: config?.webhook_verify_token ? BLUE : AMBER,
       sub: "verify token por tenant",
       tooltip: "Cada conta tem seu próprio verify token — seguro e isolado",
     },
     {
       icon: LayoutTemplate, label: "Templates",
       value: templates == null ? "—" : `${templates.length} total`,
-      tint: "#7C3AED",
+      tint: VIOLET,
       sub: templates != null ? `${tplApproved} aprovados · ${tplPending} pendentes · ${tplRejected} rejeitados` : "sincronize para ver",
       tooltip: "Templates oficiais sincronizados da WABA",
     },
     {
       icon: Building2, label: "Conta Meta",
-      value: account?._error ? "Sem permissão" : account ? `${verInfo.dot} ${verInfo.label}` : (config?.business_account_id ? "Carregando…" : "—"),
-      tint: account?._error ? "#EF4444" : verInfo.color,
+      value: account?._error ? "Sem permissão" : account ? verInfo.label : (config?.business_account_id ? "Carregando…" : "—"),
+      tint: account?._error ? RED : verInfo.color,
       sub: account?._error ? "Token sem whatsapp_business_management" : (account?.name || "empresa vinculada"),
       tooltip: account?._error ? account._error : "Status de verificação empresarial da Meta",
     },
     {
       icon: Gauge, label: "Qualidade",
-      value: quality?._error ? "Sem permissão" : quality ? `${qualInfo.dot} ${qualInfo.label}` : "—",
-      tint: quality?._error ? "#EF4444" : qualInfo.color,
+      value: quality?._error ? "Sem permissão" : quality ? qualInfo.label : "—",
+      tint: quality?._error ? RED : qualInfo.color,
       sub: quality?._error ? "Token sem whatsapp_business_messaging" : (quality?.messaging_limit_tier ? (TIER_LABEL[quality.messaging_limit_tier] || quality.messaging_limit_tier) : "limite de conversas/dia"),
       tooltip: quality?._error ? quality._error : "Qualidade afeta limites de envio e entrega. Verde = sem restrições.",
     },
@@ -835,10 +826,10 @@ export default function CanalOficialPage() {
   if (loading) return (
     <>
       <Topbar title="Canal Oficial" subtitle="Central operacional da API oficial do WhatsApp (Meta)" />
-      <div className="p-6 lg:p-8 space-y-4">
-        <Skel className="h-28" />
+      <div className="page-x space-y-4">
+        <Skel className="h-28 !rounded-[20px]" />
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => <Skel key={i} className="h-24" />)}
+          {Array.from({ length: 6 }).map((_, i) => <Skel key={i} className="h-24 !rounded-[20px]" />)}
         </div>
       </div>
     </>
@@ -846,15 +837,16 @@ export default function CanalOficialPage() {
 
   /* ── sync button para topbar ── */
   const syncBtn = connected ? (
-    <button
-      onClick={syncAll}
-      disabled={syncing}
-      className="inline-flex items-center gap-2 text-sm px-3.5 py-2 rounded-xl border border-white/10 text-ink-200 hover:bg-white/[0.05] disabled:opacity-50 transition-colors"
-    >
-      {syncing ? <Loader2 className="size-4 animate-spin text-primary" /> : <RefreshCw className="size-4" />}
+    <DashButton variant="secondary" onClick={syncAll} disabled={syncing}>
+      {syncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
       {syncing ? "Sincronizando…" : "Sincronizar Meta"}
-    </button>
+    </DashButton>
   ) : null;
+
+  const MODES = [
+    { k: "meta",   label: "API Direta (Meta)", icon: ShieldCheck },
+    { k: "ycloud", label: "YCloud (BSP)",      icon: Zap },
+  ];
 
   return (
     <>
@@ -863,16 +855,37 @@ export default function CanalOficialPage() {
         subtitle={lastSync ? `Última sync: ${fmtTime(lastSync)}` : "Central operacional da API oficial do WhatsApp (Meta)"}
         actions={syncBtn}
       />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
+      <div className="page-x space-y-6">
 
-        {/* ── TESTE YCLOUD ── */}
-        <YCloudTestCard />
+        {/* ── SELETOR DE INTEGRAÇÃO ── */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-1 p-1 rounded-[14px] bg-dash-subtle border border-dash-border">
+            {MODES.map(({ k, label, icon: Icon }) => {
+              const active = connMode === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => setConnMode(k)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-[11px] text-[13px] transition-all duration-150 ${
+                    active
+                      ? "bg-dash-card text-dash-ink font-semibold shadow-[0_1px_2px_rgba(10,16,32,.08)]"
+                      : "text-dash-muted font-medium hover:text-dash-ink"
+                  }`}
+                >
+                  <Icon className="size-3.5" style={active ? { color: EMERALD } : undefined} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[12px] text-dash-faint">
+            Dois caminhos técnicos independentes para o WhatsApp oficial — escolha um.
+          </p>
+        </div>
 
-        {/* ── EMBEDDED SIGNUP ── */}
-        <YCloudEmbeddedSignup />
-
-        {/* ── NÚMEROS YCLOUD ── */}
-        <YCloudNumbersCard />
+        {/* ══════════════ ABA: API DIRETA (META) ══════════════ */}
+        {connMode === "meta" && (
+        <div className="space-y-6">
 
         {/* ── HEALTH SCORE ── */}
         <HealthScore config={config} account={account} quality={quality} templates={templates} verify={verify} />
@@ -886,7 +899,7 @@ export default function CanalOficialPage() {
           <div className="space-y-6 min-w-0">
 
             {/* ── TABS: Templates | Logs ── */}
-            <div className="flex items-center gap-1 border-b border-white/[0.06]">
+            <div className="flex items-center gap-1 border-b border-dash-border2">
               {[
                 { k: "templates", label: "Templates", icon: LayoutTemplate },
                 { k: "logs",      label: "Logs",      icon: FileText },
@@ -894,14 +907,15 @@ export default function CanalOficialPage() {
                 <button
                   key={k}
                   onClick={() => { setMainTab(k); if (k === "logs") loadLogs(); }}
-                  className={`relative flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium transition-colors ${
-                    mainTab === k ? "text-primary" : "text-ink-400 hover:text-ink-200"
+                  className={`relative flex items-center gap-1.5 px-4 py-2.5 text-[13px] transition-colors ${
+                    mainTab === k ? "text-dash-ink font-semibold" : "text-dash-faint font-medium hover:text-dash-ink2"
                   }`}
                 >
                   <Icon className="size-3.5" />
                   {label}
                   {mainTab === k && (
-                    <motion.span layoutId="canal-tab" className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-primary" />
+                    <motion.span layoutId="canal-tab" className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full"
+                      style={{ background: EMERALD }} />
                   )}
                 </button>
               ))}
@@ -911,100 +925,89 @@ export default function CanalOficialPage() {
             <AnimatePresence mode="wait">
               {mainTab === "templates" && (
                 <motion.section key="tpl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="glass p-5">
+                  className="dash-card">
                   <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
                     <div>
-                      <h2 className="font-semibold">Templates oficiais</h2>
-                      <p className="text-xs text-ink-500 mt-0.5">Sincronizados da sua conta WhatsApp Business (Meta)</p>
+                      <h2 className="m-0 text-base font-semibold text-dash-ink">Templates oficiais</h2>
+                      <p className="text-xs text-dash-faint mt-0.5">Sincronizados da sua conta WhatsApp Business (Meta)</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {templates != null && (
-                        <div className="flex items-center gap-2 text-[11px] text-ink-400">
-                          <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-primary" />{tplApproved} aprovados</span>
-                          <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-yellow-400" />{tplPending} pendentes</span>
-                          <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-red-400" />{tplRejected} rejeitados</span>
+                        <div className="flex items-center gap-3 text-[11px] text-dash-muted">
+                          <span className="flex items-center gap-1.5"><Dot color={GREEN} />{tplApproved} aprovados</span>
+                          <span className="flex items-center gap-1.5"><Dot color={AMBER} />{tplPending} pendentes</span>
+                          <span className="flex items-center gap-1.5"><Dot color={RED} />{tplRejected} rejeitados</span>
                         </div>
                       )}
-                      <button onClick={loadTemplates} title="Sincronizar templates"
-                        className="size-9 rounded-lg border border-white/10 flex items-center justify-center text-ink-400 hover:text-primary hover:bg-white/[0.04] transition-colors">
-                        <RefreshCw className="size-4" />
-                      </button>
-                      <button onClick={handleNewTemplate}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold text-bg"
-                        style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
+                      <DashIconButton onClick={loadTemplates} title="Sincronizar templates">
+                        <RefreshCw width={15} height={15} />
+                      </DashIconButton>
+                      <DashButton onClick={handleNewTemplate}>
                         <Plus className="size-4" /> Novo Template
-                      </button>
+                      </DashButton>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                  <div className="flex items-center gap-2 flex-wrap mb-4">
                     <div className="relative flex-1 min-w-[180px]">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-500" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-dash-placeholder pointer-events-none" />
                       <input value={tplQ} onChange={(e) => setTplQ(e.target.value)} placeholder="Buscar template…"
-                        className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] pl-9 pr-3 py-2 text-sm outline-none focus:border-primary/50 placeholder:text-ink-600" />
+                        className="dash-input !pl-9" />
                     </div>
-                    <select value={tplCat} onChange={(e) => setTplCat(e.target.value)}
-                      className="bg-bg/60 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none">
+                    <Select value={tplCat} onChange={(e) => setTplCat(e.target.value)} className="!w-auto">
                       <option value="">Categoria</option>
                       {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
-                    </select>
-                    <select value={tplStatus} onChange={(e) => setTplStatus(e.target.value)}
-                      className="bg-bg/60 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none">
+                    </Select>
+                    <Select value={tplStatus} onChange={(e) => setTplStatus(e.target.value)} className="!w-auto">
                       <option value="">Status</option>
                       {Object.entries(TPL_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                    </select>
+                    </Select>
                   </div>
 
                   {templates == null ? (
                     <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skel key={i} className="h-12" />)}</div>
                   ) : !config?.has_token ? (
-                    <div className="py-12 text-center">
-                      <LayoutTemplate className="size-10 mx-auto mb-3 text-ink-700" />
-                      <p className="text-sm text-ink-500">Configure as credenciais Meta para sincronizar seus templates.</p>
-                    </div>
+                    <DashEmptyState
+                      icon={LayoutTemplate} accent={EMERALD}
+                      title="Sem credenciais Meta"
+                      desc="Configure as credenciais Meta para sincronizar seus templates."
+                    />
                   ) : filteredTpls.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <LayoutTemplate className="size-10 mx-auto mb-3 text-ink-700" />
-                      <p className="text-sm text-ink-500">Nenhum template encontrado.</p>
-                      {!tplQ && !tplCat && !tplStatus && (
-                        <button onClick={handleNewTemplate}
-                          className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-primary border border-primary/30 rounded-xl px-4 py-2 hover:bg-primary/10 transition-colors">
-                          <Plus className="size-3.5" /> Criar primeiro template
-                        </button>
-                      )}
-                    </div>
+                    <DashEmptyState
+                      icon={LayoutTemplate} accent={EMERALD}
+                      title="Nenhum template encontrado"
+                      desc="Crie um template oficial e envie para aprovação da Meta."
+                      cta={!tplQ && !tplCat && !tplStatus ? { label: "Criar primeiro template", icon: Plus, onClick: handleNewTemplate } : undefined}
+                    />
                   ) : (
                     <div className="overflow-x-auto -mx-1">
-                      <table className="w-full text-sm">
-                        <thead className="text-[11px] uppercase tracking-wider text-ink-500">
+                      <table className="w-full text-sm min-w-[620px]">
+                        <thead>
                           <tr className="text-left">
-                            <th className="px-3 py-2 font-medium">Nome</th>
-                            <th className="px-3 py-2 font-medium">Categoria</th>
-                            <th className="px-3 py-2 font-medium">Status</th>
-                            <th className="px-3 py-2 font-medium">Qualidade</th>
-                            <th className="px-3 py-2 font-medium">Idioma</th>
+                            <th className="dash-th">Nome</th>
+                            <th className="dash-th">Categoria</th>
+                            <th className="dash-th">Status</th>
+                            <th className="dash-th">Qualidade</th>
+                            <th className="dash-th">Idioma</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/[0.04]">
+                        <tbody className="divide-y divide-dash-border2">
                           {filteredTpls.map((t) => {
-                            const st = TPL_STATUS[t.status] || { label: t.status || "—", color: "#94A3B8" };
+                            const st = TPL_STATUS[t.status] || { label: t.status || "—", color: SLATE };
                             const ql = QUALITY[(t.quality_score?.score || "UNKNOWN").toUpperCase()] || QUALITY.UNKNOWN;
                             return (
-                              <tr key={t.id || t.name} className="hover:bg-white/[0.02]">
-                                <td className="px-3 py-3 font-medium truncate max-w-[220px]">{t.name}</td>
-                                <td className="px-3 py-3 text-ink-300">{CAT_LABEL[t.category] || t.category || "—"}</td>
-                                <td className="px-3 py-3">
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
-                                    style={{ background: `${st.color}1a`, color: st.color, borderColor: `${st.color}40` }}>
-                                    {st.label}
+                              <tr key={t.id || t.name} className="hover:bg-dash-subtle transition-colors">
+                                <td className="px-4 py-3 font-medium text-dash-ink truncate max-w-[220px]">{t.name}</td>
+                                <td className="px-4 py-3 text-dash-muted">{CAT_LABEL[t.category] || t.category || "—"}</td>
+                                <td className="px-4 py-3">
+                                  <DashBadge color={st.color}>{st.label}</DashBadge>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="inline-flex items-center gap-1.5 text-[12px] font-medium" style={{ color: ql.color }}>
+                                    <Dot color={ql.color} />{ql.label}
                                   </span>
                                 </td>
-                                <td className="px-3 py-3">
-                                  <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: ql.color }}>
-                                    <span className="size-2 rounded-full" style={{ background: ql.color }} />{ql.label}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-3 text-ink-400 uppercase text-[12px]">{t.language || "—"}</td>
+                                <td className="px-4 py-3 text-dash-faint uppercase text-[12px]">{t.language || "—"}</td>
                               </tr>
                             );
                           })}
@@ -1018,58 +1021,57 @@ export default function CanalOficialPage() {
               {/* ── TAB: LOGS ── */}
               {mainTab === "logs" && (
                 <motion.section key="logs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="glass p-5">
+                  className="dash-card">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h2 className="font-semibold flex items-center gap-2"><FileText className="size-4 text-primary" /> Logs de eventos</h2>
-                      <p className="text-xs text-ink-500 mt-0.5">Histórico das ações do Canal Oficial</p>
+                      <h2 className="m-0 text-base font-semibold text-dash-ink flex items-center gap-2">
+                        <FileText className="size-4" style={{ color: EMERALD }} /> Logs de eventos
+                      </h2>
+                      <p className="text-xs text-dash-faint mt-0.5">Histórico das ações do Canal Oficial</p>
                     </div>
-                    <button onClick={loadLogs}
-                      className="size-9 rounded-lg border border-white/10 flex items-center justify-center text-ink-400 hover:text-primary hover:bg-white/[0.04] transition-colors">
-                      <RefreshCw className="size-4" />
-                    </button>
+                    <DashIconButton onClick={loadLogs} title="Recarregar logs">
+                      <RefreshCw width={15} height={15} />
+                    </DashIconButton>
                   </div>
 
                   {logs == null ? (
                     <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skel key={i} className="h-12" />)}</div>
                   ) : logs.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <Clock className="size-10 mx-auto mb-3 text-ink-700" />
-                      <p className="text-sm text-ink-500">Nenhum evento registrado ainda.</p>
-                      <p className="text-xs text-ink-600 mt-1">Ações como sincronizações e criação de templates aparecem aqui.</p>
-                    </div>
+                    <DashEmptyState
+                      icon={Clock} accent={SLATE}
+                      title="Nenhum evento registrado"
+                      desc="Ações como sincronizações e criação de templates aparecem aqui."
+                    />
                   ) : (
                     <div className="space-y-1">
                       {logs.map((log) => {
-                        const meta = LOG_LABELS[log.action] || { label: log.action, icon: Activity, color: "#94A3B8" };
+                        const meta = LOG_LABELS[log.action] || { label: log.action, icon: Activity, color: SLATE };
                         const Icon = meta.icon;
+                        const resColor = log.result === "ok" ? GREEN : RED;
                         return (
                           <div key={log.id}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.02] transition-colors">
-                            <span className="size-7 rounded-lg flex items-center justify-center border shrink-0"
-                              style={{ background: `${meta.color}14`, borderColor: `${meta.color}30` }}>
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-[13px] hover:bg-dash-subtle transition-colors">
+                            <span className="size-7 rounded-[9px] flex items-center justify-center border shrink-0"
+                              style={{ background: `${meta.color}14`, borderColor: `${meta.color}33` }}>
                               <Icon className="size-3.5" style={{ color: meta.color }} />
                             </span>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-[13px] font-medium text-ink-100">{meta.label}</span>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                                  log.result === "ok"
-                                    ? "bg-primary/10 text-primary"
-                                    : "bg-red-500/10 text-red-400"
-                                }`}>
+                                <span className="text-[13px] font-medium text-dash-ink">{meta.label}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                                  style={{ background: `${resColor}14`, color: resColor }}>
                                   {log.result === "ok" ? "✓ ok" : "✕ erro"}
                                 </span>
                               </div>
-                              {log.error_msg && <p className="text-[11px] text-red-400 truncate">{log.error_msg}</p>}
+                              {log.error_msg && <p className="text-[11px] truncate" style={{ color: RED }}>{log.error_msg}</p>}
                               {log.details && !log.error_msg && (
-                                <p className="text-[11px] text-ink-500 truncate">
+                                <p className="text-[11px] text-dash-faint truncate">
                                   {log.details.synced ? `Sincronizou: ${log.details.synced.join(", ")}` :
                                    log.details.name   ? `Template: ${log.details.name}` : JSON.stringify(log.details).slice(0, 80)}
                                 </p>
                               )}
                             </div>
-                            <span className="text-[10px] text-ink-600 shrink-0">{fmtTime(log.created_at)}</span>
+                            <span className="text-[10px] text-dash-faint2 shrink-0">{fmtTime(log.created_at)}</span>
                           </div>
                         );
                       })}
@@ -1081,12 +1083,13 @@ export default function CanalOficialPage() {
 
             {/* ── BANNER ── */}
             {!config && (
-              <section className="rounded-2xl border border-[#FBBF24]/30 bg-[#FBBF24]/05 px-5 py-4 flex gap-3">
-                <span className="text-xl shrink-0">⚠️</span>
+              <section className="rounded-[16px] px-5 py-4 flex gap-3"
+                style={{ background: `${AMBER}0f`, border: `1px solid ${AMBER}33` }}>
+                <AlertTriangle className="size-5 shrink-0 mt-0.5" style={{ color: AMBER }} />
                 <div>
-                  <p className="text-sm font-semibold text-[#FBBF24]">Configure aqui primeiro, depois vá ao Meta</p>
-                  <p className="text-xs text-ink-400 leading-relaxed mt-0.5">
-                    Preencha o formulário abaixo e clique em <strong className="text-ink-200">Salvar e validar</strong>.
+                  <p className="text-sm font-semibold m-0" style={{ color: AMBER }}>Configure aqui primeiro, depois vá ao Meta</p>
+                  <p className="text-xs text-dash-muted leading-relaxed mt-1 m-0">
+                    Preencha o formulário abaixo e clique em <strong className="text-dash-ink">Salvar e validar</strong>.
                     Só depois acesse o painel do Meta → WhatsApp → Configuração → Webhooks e cole a URL e o Verify Token.
                   </p>
                 </div>
@@ -1094,44 +1097,41 @@ export default function CanalOficialPage() {
             )}
 
             {/* ── CREDENCIAIS ── */}
-            <section className="glass p-5">
-              <div className="flex items-center justify-between mb-4">
+            <section className="dash-card">
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
                 <div>
-                  <h2 className="font-semibold flex items-center gap-2"><KeyRound className="size-4 text-primary" /> Credenciais Meta</h2>
-                  <p className="text-xs text-ink-500 mt-0.5">Validadas com a Meta antes de salvar</p>
+                  <h2 className="m-0 text-base font-semibold text-dash-ink flex items-center gap-2">
+                    <KeyRound className="size-4" style={{ color: EMERALD }} /> Credenciais Meta
+                  </h2>
+                  <p className="text-xs text-dash-faint mt-0.5">Validadas com a Meta antes de salvar</p>
                 </div>
                 {config && (
                   <div className="flex items-center gap-2">
                     {config?.has_token && (
-                      <button onClick={testConnection} disabled={testingConn}
-                        className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-white/10 text-ink-200 hover:bg-white/[0.05] disabled:opacity-50">
+                      <DashButton variant="secondary" onClick={testConnection} disabled={testingConn}>
                         {testingConn ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />} Testar conexão
-                      </button>
+                      </DashButton>
                     )}
                     {confirmDisconnect ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-red-400">Remover configuração?</span>
-                        <button onClick={disconnect}
-                          className="text-xs px-2.5 py-1.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-colors font-semibold">
-                          Sim
-                        </button>
-                        <button onClick={() => setConfirmDisconnect(false)}
-                          className="text-xs px-2.5 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-ink-300 hover:bg-white/[0.1] transition-colors">
-                          Não
-                        </button>
+                        <span className="text-xs" style={{ color: RED }}>Remover configuração?</span>
+                        <DashButton variant="danger" onClick={disconnect} className="!px-3 !py-2 !text-xs">Sim</DashButton>
+                        <DashButton variant="secondary" onClick={() => setConfirmDisconnect(false)} className="!px-3 !py-2 !text-xs">Não</DashButton>
                       </div>
                     ) : (
-                      <button onClick={() => setConfirmDisconnect(true)}
-                        className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
+                      <DashButton variant="danger" onClick={() => setConfirmDisconnect(true)}>
                         <X className="size-4" /> Remover
-                      </button>
+                      </DashButton>
                     )}
                   </div>
                 )}
               </div>
 
               {verify && (
-                <div className={`mb-4 text-sm rounded-xl px-4 py-3 border ${verify.ok ? "bg-primary/10 border-primary/25 text-primary" : "bg-red-500/10 border-red-500/25 text-red-300"}`}>
+                <div className="mb-4 text-sm rounded-[13px] px-4 py-3 font-medium"
+                  style={verify.ok
+                    ? { background: `${GREEN}0f`, border: `1px solid ${GREEN}33`, color: GREEN }
+                    : { background: `${RED}0f`, border: `1px solid ${RED}33`, color: RED }}>
                   {verify.ok
                     ? `Conexão OK · ${verify.verified_name || "número"} · ${verify.display_phone || ""}`
                     : `Falha: ${verify.error}`}
@@ -1155,11 +1155,10 @@ export default function CanalOficialPage() {
                   <Field label="Webhook Verify Token *" hint="Defina qualquer string — use este mesmo valor no painel do Meta">
                     <div className="flex gap-2">
                       <Input value={verifyToken} onChange={(e) => setVerifyToken(e.target.value)} placeholder="meu_token_secreto_123" required className="flex-1" />
-                      <button type="button" onClick={copyVerifyToken} disabled={!verifyToken.trim()}
-                        className="px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-ink-300 text-xs shrink-0 inline-flex items-center gap-1.5 disabled:opacity-40">
-                        {copiedToken ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+                      <DashButton type="button" variant="secondary" onClick={copyVerifyToken} disabled={!verifyToken.trim()} className="!px-3 shrink-0">
+                        {copiedToken ? <Check className="size-3.5" style={{ color: GREEN }} /> : <Copy className="size-3.5" />}
                         {copiedToken ? "Copiado" : "Copiar"}
-                      </button>
+                      </DashButton>
                     </div>
                   </Field>
                   <Field label="App Secret (opcional)" hint="Valida HMAC do webhook">
@@ -1169,32 +1168,31 @@ export default function CanalOficialPage() {
                 </div>
                 <Field label="URL do Webhook">
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-primary break-all">{WEBHOOK_URL}</code>
-                    <button type="button" onClick={copyWebhook}
-                      className="px-3 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-ink-300 text-xs shrink-0 inline-flex items-center gap-1.5">
-                      {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />} {copied ? "Copiado" : "Copiar"}
-                    </button>
+                    <code className="flex-1 text-xs bg-dash-subtle border border-dash-input rounded-[13px] px-4 py-2.5 break-all font-mono"
+                      style={{ color: EMERALD }}>{WEBHOOK_URL}</code>
+                    <DashButton type="button" variant="secondary" onClick={copyWebhook} className="!px-3 shrink-0">
+                      {copied ? <Check className="size-3.5" style={{ color: GREEN }} /> : <Copy className="size-3.5" />} {copied ? "Copiado" : "Copiar"}
+                    </DashButton>
                   </div>
                 </Field>
                 {config?.webhook_verify_token && (
-                  <div className="rounded-xl border border-[#22D3EE]/25 bg-[#22D3EE]/05 px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="rounded-[13px] px-4 py-3 flex items-center justify-between gap-3 flex-wrap"
+                    style={{ background: `${BLUE}0f`, border: `1px solid ${BLUE}33` }}>
                     <div>
-                      <p className="text-[10px] text-ink-500 uppercase tracking-wider mb-0.5">Token salvo no banco (use este no Meta)</p>
-                      <code className="text-[13px] font-bold text-[#22D3EE]">{config.webhook_verify_token}</code>
+                      <p className="text-[10px] text-dash-faint2 uppercase tracking-wider mb-0.5 font-semibold">Token salvo no banco (use este no Meta)</p>
+                      <code className="text-[13px] font-bold font-mono" style={{ color: BLUE }}>{config.webhook_verify_token}</code>
                     </div>
-                    <button type="button" onClick={() => { navigator.clipboard?.writeText(config.webhook_verify_token); setCopiedToken(true); setTimeout(() => setCopiedToken(false), 1500); }}
-                      className="px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-ink-300 text-xs shrink-0 inline-flex items-center gap-1.5">
-                      {copiedToken ? <Check className="size-3.5 text-[#22D3EE]" /> : <Copy className="size-3.5" />} {copiedToken ? "Copiado" : "Copiar"}
-                    </button>
+                    <DashButton type="button" variant="secondary" className="!px-3 !py-1.5 !text-xs shrink-0"
+                      onClick={() => { navigator.clipboard?.writeText(config.webhook_verify_token); setCopiedToken(true); setTimeout(() => setCopiedToken(false), 1500); }}>
+                      {copiedToken ? <Check className="size-3.5" style={{ color: BLUE }} /> : <Copy className="size-3.5" />} {copiedToken ? "Copiado" : "Copiar"}
+                    </DashButton>
                   </div>
                 )}
-                {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-                {ok  && <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-xl px-4 py-3">{ok}</div>}
-                <button type="submit" disabled={saving}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-bg font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
-                  {saving && <Loader2 className="size-4 animate-spin" />}
+                {err && <div className="text-sm rounded-[13px] px-4 py-3" style={{ color: RED, background: `${RED}0f`, border: `1px solid ${RED}29` }}>{err}</div>}
+                {ok  && <div className="text-sm rounded-[13px] px-4 py-3" style={{ color: GREEN, background: `${GREEN}0f`, border: `1px solid ${GREEN}29` }}>{ok}</div>}
+                <DashButton type="submit" loading={saving}>
                   {saving ? "Validando com a Meta…" : "Salvar e validar"}
-                </button>
+                </DashButton>
               </form>
             </section>
           </div>
@@ -1204,75 +1202,72 @@ export default function CanalOficialPage() {
 
             {/* CONTA META — detalhes */}
             {(account || config?.business_account_id) && (
-              <section className="glass p-5">
-                <h2 className="font-semibold flex items-center gap-2 mb-4">
-                  <Building2 className="size-4 text-primary" /> Conta Meta
+              <section className="dash-card">
+                <h2 className="m-0 text-base font-semibold text-dash-ink flex items-center gap-2 mb-4">
+                  <Building2 className="size-4" style={{ color: EMERALD }} /> Conta Meta
                 </h2>
                 <div className="space-y-3">
                   {account ? (
                     <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-ink-500">Empresa</span>
-                        <span className="text-xs font-semibold text-ink-100">{account.name || "—"}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-dash-faint">Empresa</span>
+                        <span className="text-xs font-semibold text-dash-ink">{account.name || "—"}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-ink-500">Verificação</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-dash-faint">Verificação</span>
                         <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: verInfo.color }}>
-                          <span className="size-1.5 rounded-full" style={{ background: verInfo.color }} />
+                          <Dot color={verInfo.color} />
                           {verInfo.label}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-ink-500">WABA ID</span>
-                        <code className="text-[11px] text-ink-300">{account.id || config?.business_account_id}</code>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-dash-faint">WABA ID</span>
+                        <code className="text-[11px] text-dash-muted font-mono">{account.id || config?.business_account_id}</code>
                       </div>
                     </>
                   ) : (
                     <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skel key={i} className="h-5" />)}</div>
                   )}
                   {quality && (
-                    <>
-                      <div className="border-t border-white/[0.06] pt-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs text-ink-500">Qualidade</span>
-                          <span className="text-xs font-semibold" style={{ color: qualInfo.color }}>
-                            {qualInfo.dot} {qualInfo.label}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-ink-500">Limite diário</span>
-                          <span className="text-xs font-semibold text-ink-100">
-                            {quality.messaging_limit_tier ? (TIER_LABEL[quality.messaging_limit_tier] || quality.messaging_limit_tier) : "—"}
-                          </span>
-                        </div>
+                    <div className="border-t border-dash-border2 pt-3">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <span className="text-xs text-dash-faint">Qualidade</span>
+                        <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: qualInfo.color }}>
+                          <Dot color={qualInfo.color} /> {qualInfo.label}
+                        </span>
                       </div>
-                    </>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-dash-faint">Limite diário</span>
+                        <span className="text-xs font-semibold text-dash-ink">
+                          {quality.messaging_limit_tier ? (TIER_LABEL[quality.messaging_limit_tier] || quality.messaging_limit_tier) : "—"}
+                        </span>
+                      </div>
+                    </div>
                   )}
-                  <button onClick={() => { loadAccount(); loadQuality(); }}
-                    className="w-full flex items-center justify-center gap-1.5 text-xs text-ink-400 hover:text-ink-200 py-2 border border-white/[0.06] rounded-xl hover:border-white/[0.12] transition-colors mt-1">
+                  <DashButton variant="secondary" onClick={() => { loadAccount(); loadQuality(); }} className="w-full !text-xs mt-1">
                     <RefreshCw className="size-3.5" /> Atualizar status
-                  </button>
+                  </DashButton>
                 </div>
               </section>
             )}
 
             {/* ESTIMATIVA DE CUSTOS — oculta do cliente final por enquanto (trocar para true p/ reexibir) */}
             {false && (
-            <section className="glass p-5">
-              <h2 className="font-semibold flex items-center gap-2"><Wallet className="size-4 text-primary" /> Estimativa de custos</h2>
-              <p className="text-xs text-ink-500 mt-0.5 mb-4">Projeção por volume diário de conversas</p>
+            <section className="dash-card">
+              <h2 className="m-0 text-base font-semibold text-dash-ink flex items-center gap-2">
+                <Wallet className="size-4" style={{ color: EMERALD }} /> Estimativa de custos
+              </h2>
+              <p className="text-xs text-dash-faint mt-0.5 mb-4">Projeção por volume diário de conversas</p>
               <div className="space-y-3">
                 <Field label="País">
-                  <select value={estCountry} onChange={(e) => setEstCountry(e.target.value)}
-                    className="w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none">
+                  <Select value={estCountry} onChange={(e) => setEstCountry(e.target.value)}>
                     {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-                  </select>
+                  </Select>
                 </Field>
                 <Field label="Categoria">
-                  <select value={estCat} onChange={(e) => setEstCat(e.target.value)}
-                    className="w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none">
+                  <Select value={estCat} onChange={(e) => setEstCat(e.target.value)}>
                     {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
-                  </select>
+                  </Select>
                 </Field>
                 <Field label="Volume diário (conversas)">
                   <Input type="number" min={0} value={estVolumeDay} onChange={(e) => setEstVolumeDay(e.target.value)} />
@@ -1285,15 +1280,15 @@ export default function CanalOficialPage() {
                   ["Custo/mês",   brl(est.month)],
                   ["Custo/ano",   brl(est.year)],
                 ].map(([k, v]) => (
-                  <div key={k} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                    <div className="text-[10px] text-ink-500 uppercase tracking-wide">{k}</div>
-                    <div className="text-base font-bold text-primary mt-0.5">{v}</div>
+                  <div key={k} className="rounded-[13px] border border-dash-border bg-dash-subtle p-3">
+                    <div className="text-[10px] text-dash-faint2 uppercase tracking-wide font-semibold">{k}</div>
+                    <div className="text-base font-bold mt-0.5" style={{ color: GREEN }}>{v}</div>
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-ink-600 mt-3 leading-relaxed">
-                ⚠ Estimativa baseada na tabela Meta vigente para {COUNTRIES.find(c => c.code === estCountry)?.label} (Marketing R$0,34 · Utility R$0,04). Preços podem variar — confirme em{" "}
-                <a href="https://business.facebook.com/billing/payment-settings" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+              <p className="text-[10px] text-dash-faint2 mt-3 leading-relaxed">
+                Estimativa baseada na tabela Meta vigente para {COUNTRIES.find(c => c.code === estCountry)?.label} (Marketing R$0,34 · Utility R$0,04). Preços podem variar — confirme em{" "}
+                <a href="https://business.facebook.com/billing/payment-settings" target="_blank" rel="noreferrer" className="font-semibold hover:underline" style={{ color: GREEN }}>
                   business.facebook.com
                 </a>.
               </p>
@@ -1301,22 +1296,24 @@ export default function CanalOficialPage() {
             )}
 
             {/* DIAGNÓSTICO */}
-            <section className="glass p-5">
-              <h2 className="font-semibold flex items-center gap-2"><Activity className="size-4 text-primary" /> Diagnóstico</h2>
+            <section className="dash-card">
+              <h2 className="m-0 text-base font-semibold text-dash-ink flex items-center gap-2">
+                <Activity className="size-4" style={{ color: EMERALD }} /> Diagnóstico
+              </h2>
               <div className="mt-4 space-y-2.5 text-sm">
                 {[
-                  ["API Meta",        verify ? (verify.ok ? "Operacional" : "Falha") : (config ? "Configurada" : "Não configurada"), verify ? (verify.ok ? "#00FF88" : "#EF4444") : "#94A3B8"],
-                  ["Conta WABA",      account ? verInfo.label : (config?.business_account_id ? "Sincronize" : "WABA ID pendente"), account ? verInfo.color : "#94A3B8"],
-                  ["Qualidade",       quality ? qualInfo.label : "—", quality ? qualInfo.color : "#94A3B8"],
-                  ["Limite diário",   quality?.messaging_limit_tier ? (TIER_LABEL[quality.messaging_limit_tier] || quality.messaging_limit_tier) : "—", "#94A3B8"],
-                  ["Templates",       templates != null ? `${tplApproved} aprovados` : "—", templates != null && tplApproved > 0 ? "#00FF88" : "#94A3B8"],
-                  ["Webhook",         config?.webhook_verify_token ? "Configurado" : "Pendente", config?.webhook_verify_token ? "#22D3EE" : "#FBBF24"],
-                  ["Última sync",     lastSync ? fmtTime(lastSync) : "Nunca", "#64748B"],
+                  ["API Meta",        verify ? (verify.ok ? "Operacional" : "Falha") : (config ? "Configurada" : "Não configurada"), verify ? (verify.ok ? GREEN : RED) : FAINT],
+                  ["Conta WABA",      account ? verInfo.label : (config?.business_account_id ? "Sincronize" : "WABA ID pendente"), account ? verInfo.color : FAINT],
+                  ["Qualidade",       quality ? qualInfo.label : "—", quality ? qualInfo.color : FAINT],
+                  ["Limite diário",   quality?.messaging_limit_tier ? (TIER_LABEL[quality.messaging_limit_tier] || quality.messaging_limit_tier) : "—", FAINT],
+                  ["Templates",       templates != null ? `${tplApproved} aprovados` : "—", templates != null && tplApproved > 0 ? GREEN : FAINT],
+                  ["Webhook",         config?.webhook_verify_token ? "Configurado" : "Pendente", config?.webhook_verify_token ? BLUE : AMBER],
+                  ["Última sync",     lastSync ? fmtTime(lastSync) : "Nunca", SLATE],
                 ].map(([k, v, c]) => (
                   <div key={k} className="flex items-center justify-between gap-3">
-                    <span className="text-ink-500 text-xs">{k}</span>
+                    <span className="text-dash-faint text-xs">{k}</span>
                     <span className="text-xs font-medium flex items-center gap-1.5" style={{ color: c }}>
-                      <span className="size-1.5 rounded-full" style={{ background: c }} />{v}
+                      <Dot color={c} />{v}
                     </span>
                   </div>
                 ))}
@@ -1325,62 +1322,65 @@ export default function CanalOficialPage() {
 
             {/* ENVIAR TESTE */}
             {config?.has_token && (
-              <section className="glass p-5">
-                <h2 className="font-semibold flex items-center gap-2"><Plug className="size-4 text-primary" /> Enviar teste</h2>
-                <p className="text-xs text-ink-500 mt-0.5 mb-4">Dispara um template aprovado para validar a operação</p>
+              <section className="dash-card">
+                <h2 className="m-0 text-base font-semibold text-dash-ink flex items-center gap-2">
+                  <Plug className="size-4" style={{ color: EMERALD }} /> Enviar teste
+                </h2>
+                <p className="text-xs text-dash-faint mt-0.5 mb-4">Dispara um template aprovado para validar a operação</p>
                 <div className="space-y-3">
                   <Field label="Número destino (com DDI)">
                     <Input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="5511987654321" />
                   </Field>
                   <Field label="Template aprovado">
-                    <select value={testTemplate} onChange={(e) => setTestTemplate(e.target.value)}
-                      className="w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none">
+                    <Select value={testTemplate} onChange={(e) => setTestTemplate(e.target.value)}>
                       <option value="">Selecione…</option>
                       {(templates || []).filter((t) => t.status === "APPROVED").map((t) => (
                         <option key={t.id || t.name} value={t.name}>{t.name} ({t.language})</option>
                       ))}
-                    </select>
+                    </Select>
                   </Field>
                   <Field label="Variáveis (vírgula)" hint="Ex: João, 20%">
                     <Input value={testVars} onChange={(e) => setTestVars(e.target.value)} placeholder="opcional" />
                   </Field>
                   {testMsg && (
-                    <div className={`text-sm rounded-xl px-4 py-2.5 border ${testMsg.ok ? "bg-primary/10 border-primary/25 text-primary" : "bg-red-500/10 border-red-500/25 text-red-300"}`}>
+                    <div className="text-sm rounded-[13px] px-4 py-2.5 font-medium"
+                      style={testMsg.ok
+                        ? { background: `${GREEN}0f`, border: `1px solid ${GREEN}33`, color: GREEN }
+                        : { background: `${RED}0f`, border: `1px solid ${RED}33`, color: RED }}>
                       {testMsg.text}
                     </div>
                   )}
-                  <button onClick={sendTest} disabled={testing || !testTo || !testTemplate}
-                    className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-bg font-semibold hover:opacity-90 disabled:opacity-50">
-                    {testing && <Loader2 className="size-4 animate-spin" />}
+                  <DashButton onClick={sendTest} loading={testing} disabled={testing || !testTo || !testTemplate} className="w-full">
                     {testing ? "Enviando…" : "Enviar teste"}
-                  </button>
+                  </DashButton>
                 </div>
               </section>
             )}
 
             {/* GUIA */}
-            <section className="glass overflow-hidden">
+            <section className="dash-card-flush">
               <button onClick={() => setOpenGuide((v) => !v)}
-                className="w-full flex items-center justify-between px-5 py-4 text-left">
-                <span className="text-sm font-semibold">Guia de configuração</span>
-                <ChevronDown className={`size-4 text-ink-500 transition-transform ${openGuide ? "rotate-180" : ""}`} />
+                className="w-full flex items-center justify-between px-6 py-4 text-left">
+                <span className="text-sm font-semibold text-dash-ink">Guia de configuração</span>
+                <ChevronDown className={`size-4 text-dash-faint transition-transform ${openGuide ? "rotate-180" : ""}`} />
               </button>
               <AnimatePresence>
                 {openGuide && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden">
-                    <div className="px-5 pb-5 space-y-2 border-t border-white/[0.06] pt-4">
+                    <div className="px-6 pb-6 space-y-3 border-t border-dash-border2 pt-4">
                       {STEPS.map((s) => (
                         <div key={s.n} className="flex gap-3">
-                          <span className="size-6 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">{s.n}</span>
+                          <span className="size-6 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0"
+                            style={{ background: `${EMERALD}1a`, color: EMERALD }}>{s.n}</span>
                           <div>
-                            <div className="text-[13px] font-medium text-ink-100">{s.t}</div>
-                            <div className="text-[11px] text-ink-500 leading-relaxed mt-0.5">{s.d}</div>
+                            <div className="text-[13px] font-medium text-dash-ink">{s.t}</div>
+                            <div className="text-[11.5px] text-dash-faint leading-relaxed mt-0.5">{s.d}</div>
                           </div>
                         </div>
                       ))}
                       <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer"
-                        className="inline-block text-[12px] text-primary hover:underline mt-1">Abrir Meta for Developers →</a>
+                        className="inline-block text-[12px] font-semibold hover:underline mt-1" style={{ color: GREEN }}>Abrir Meta for Developers →</a>
                     </div>
                   </motion.div>
                 )}
@@ -1388,30 +1388,52 @@ export default function CanalOficialPage() {
             </section>
           </div>
         </div>
+        </div>
+        )}
+
+        {/* ══════════════ ABA: YCLOUD (BSP) ══════════════ */}
+        {connMode === "ycloud" && (
+        <div className="space-y-6">
+          <div className="rounded-[16px] px-5 py-4 flex gap-3"
+            style={{ background: `${BLUE}0d`, border: `1px solid ${BLUE}2e` }}>
+            <Zap className="size-5 shrink-0 mt-0.5" style={{ color: BLUE }} />
+            <p className="text-[12.5px] text-dash-muted leading-relaxed m-0">
+              <strong className="text-dash-ink">YCloud é um provedor intermediário (BSP)</strong> que simplifica a conexão
+              sem precisar copiar tokens da Meta manualmente. Use isso <strong className="text-dash-ink">OU</strong> a API
+              Direta (Meta) — não as duas ao mesmo tempo, a menos que saiba o que está fazendo.
+            </p>
+          </div>
+
+          {/* ── EMBEDDED SIGNUP ── */}
+          <YCloudEmbeddedSignup />
+
+          {/* ── NÚMEROS YCLOUD ── */}
+          <YCloudNumbersCard />
+
+          {/* ── TESTE YCLOUD ── */}
+          <YCloudTestCard />
+        </div>
+        )}
       </div>
 
       {/* ── MODAIS ── */}
-      <AnimatePresence>
-        {verifyBlocker && (
-          <VerificationModal
-            verificationStatus={account?.verification_status}
-            onClose={() => setVerifyBlocker(false)}
-            onContinue={() => { setVerifyBlocker(false); setModalOpen(true); }}
-          />
-        )}
-        {modalOpen && (
-          <CreateTemplateModal
-            onClose={() => setModalOpen(false)}
-            onCreated={() => { setModalOpen(false); loadTemplates(); loadLogs(); }}
-          />
-        )}
-      </AnimatePresence>
+      <VerificationModal
+        open={verifyBlocker}
+        verificationStatus={account?.verification_status}
+        onClose={() => setVerifyBlocker(false)}
+        onContinue={() => { setVerifyBlocker(false); setModalOpen(true); }}
+      />
+      <CreateTemplateModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={() => { setModalOpen(false); loadTemplates(); loadLogs(); }}
+      />
     </>
   );
 }
 
 /* ════════════════ MODAL: CRIAR TEMPLATE ════════════════ */
-function CreateTemplateModal({ onClose, onCreated }) {
+function CreateTemplateModal({ open, onClose, onCreated }) {
   const [name, setName]         = useState("");
   const [category, setCategory] = useState("MARKETING");
   const [language, setLanguage] = useState("pt_BR");
@@ -1455,88 +1477,82 @@ function CreateTemplateModal({ onClose, onCreated }) {
   const renderVars = (txt) =>
     String(txt || "").split(/(\{\{\d+\}\})/g).map((p, i) =>
       /^\{\{\d+\}\}$/.test(p)
-        ? <span key={i} className="text-emerald-400 font-medium">{p}</span>
+        ? <span key={i} className="font-semibold" style={{ color: EMERALD }}>{p}</span>
         : <span key={i}>{p}</span>
     );
 
   return (
-    <>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose} className="fixed inset-0 z-[60] bg-black/55 backdrop-blur-[2px]" />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
-        className="fixed inset-0 z-[61] flex items-center justify-center p-4 pointer-events-none"
-      >
-        <div className="pointer-events-auto w-full max-w-3xl rounded-2xl border border-white/[0.08] overflow-hidden"
-          style={{ background: "linear-gradient(180deg,#0B1120,#0F172A)", boxShadow: "0 30px 80px -20px rgba(0,0,0,0.85)" }}>
-          <div className="flex items-center justify-between px-5 h-14 border-b border-white/[0.06]">
-            <h3 className="font-semibold flex items-center gap-2"><LayoutTemplate className="size-4 text-primary" /> Criar template oficial</h3>
-            <button onClick={onClose} className="text-ink-500 hover:text-ink-100"><X className="size-5" /></button>
+    <DashModal
+      open={open}
+      onClose={onClose}
+      size="lg"
+      title="Criar template oficial"
+      subtitle="A Meta analisa o template após o envio (geralmente minutos a 24h)."
+      footer={
+        <>
+          <DashButton variant="secondary" onClick={onClose}>Cancelar</DashButton>
+          <DashButton onClick={submit} loading={busy} disabled={busy || done}>
+            {done ? "Enviado ✓" : busy ? "Enviando para a Meta…" : "Enviar para aprovação Meta"}
+          </DashButton>
+        </>
+      }
+    >
+      <div className="grid md:grid-cols-2 gap-5">
+        <div className="space-y-4">
+          <Field label="Nome do template" hint="Só minúsculas, números e _ (ex: boas_vindas)">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="boas_vindas" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Categoria">
+              <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+                {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+              </Select>
+            </Field>
+            <Field label="Idioma">
+              <Select value={language} onChange={(e) => setLanguage(e.target.value)}>
+                {["pt_BR", "en_US", "es_ES"].map((l) => <option key={l} value={l}>{l}</option>)}
+              </Select>
+            </Field>
           </div>
-          <div className="grid md:grid-cols-2 max-h-[75vh] overflow-y-auto">
-            <div className="p-5 space-y-4 border-r border-white/[0.06]">
-              <Field label="Nome do template" hint="Só minúsculas, números e _ (ex: boas_vindas)">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="boas_vindas" />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Categoria">
-                  <select value={category} onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-bg/60 border border-white/10 rounded-xl px-3 py-2.5 text-sm outline-none">
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
-                  </select>
-                </Field>
-                <Field label="Idioma">
-                  <select value={language} onChange={(e) => setLanguage(e.target.value)}
-                    className="w-full bg-bg/60 border border-white/10 rounded-xl px-3 py-2.5 text-sm outline-none">
-                    {["pt_BR", "en_US", "es_ES"].map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </Field>
+          <Field label="Cabeçalho (opcional)">
+            <Input value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial 🎉" />
+          </Field>
+          <Field label="Corpo da mensagem *" hint="Use {{1}}, {{2}} para variáveis">
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4}
+              placeholder="Olá {{1}}! Temos uma condição especial pra você: {{2}} de desconto."
+              className="dash-input resize-none" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Rodapé (opcional)">
+              <Input value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Responda PARAR para sair" />
+            </Field>
+            <Field label="Botão CTA (opcional)">
+              <Input value={btn} onChange={(e) => setBtn(e.target.value)} placeholder="Quero saber mais" />
+            </Field>
+          </div>
+          {err && <div className="text-sm rounded-[13px] px-4 py-3" style={{ color: RED, background: `${RED}0f`, border: `1px solid ${RED}29` }}>{err}</div>}
+        </div>
+
+        {/* Pré-visualização */}
+        <div className="rounded-[16px] border border-dash-border bg-dash-subtle p-5 flex flex-col">
+          <div className="dash-section-label !mb-3">Pré-visualização</div>
+          <div className="flex-1 flex items-start">
+            <div className="max-w-[92%] rounded-[14px] rounded-tl-sm bg-white border border-dash-border px-3.5 py-2.5 shadow-[0_1px_3px_rgba(10,16,32,.07)]">
+              {header && <div className="text-[13px] font-bold mb-1 text-dash-ink">{renderVars(header)}</div>}
+              <div className="text-[13px] leading-snug whitespace-pre-wrap break-words text-dash-ink2">
+                {body ? renderVars(body) : <span className="text-dash-placeholder italic">Corpo da mensagem aparece aqui…</span>}
               </div>
-              <Field label="Cabeçalho (opcional)">
-                <Input value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial 🎉" />
-              </Field>
-              <Field label="Corpo da mensagem *" hint="Use {{1}}, {{2}} para variáveis">
-                <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4}
-                  placeholder="Olá {{1}}! Temos uma condição especial pra você: {{2}} de desconto."
-                  className="w-full bg-bg/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary/60 resize-none" />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Rodapé (opcional)">
-                  <Input value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Responda PARAR para sair" />
-                </Field>
-                <Field label="Botão CTA (opcional)">
-                  <Input value={btn} onChange={(e) => setBtn(e.target.value)} placeholder="Quero saber mais" />
-                </Field>
-              </div>
-              {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-              <button onClick={submit} disabled={busy || done}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-bg font-semibold hover:opacity-90 disabled:opacity-50">
-                {busy && <Loader2 className="size-4 animate-spin" />}
-                {done ? "Enviado ✓" : busy ? "Enviando para a Meta…" : "Enviar para aprovação Meta"}
-              </button>
-              <p className="text-[10px] text-ink-600">Após o envio, a Meta analisa o template (geralmente minutos a 24h).</p>
-            </div>
-            <div className="p-5 bg-[#0b141a] flex flex-col">
-              <div className="text-[11px] uppercase tracking-wider text-ink-500 mb-3">Pré-visualização</div>
-              <div className="flex-1 flex items-start">
-                <div className="max-w-[85%] rounded-xl rounded-tl-sm bg-[#202c33] px-3 py-2.5 shadow-md text-[#e9edef]">
-                  {header && <div className="text-[13px] font-bold mb-1">{renderVars(header)}</div>}
-                  <div className="text-[13px] leading-snug whitespace-pre-wrap break-words">
-                    {body ? renderVars(body) : <span className="text-ink-500 italic">Corpo da mensagem aparece aqui…</span>}
-                  </div>
-                  {footer && <div className="text-[11px] text-ink-500 mt-1.5">{footer}</div>}
-                  <div className="text-[9px] text-ink-500 text-right mt-1">agora</div>
-                  {btn && (
-                    <div className="mt-2 -mx-3 -mb-2.5 border-t border-white/10 pt-2 text-center text-[12px] text-[#53bdeb] font-medium">
-                      {btn}
-                    </div>
-                  )}
+              {footer && <div className="text-[11px] text-dash-faint mt-1.5">{footer}</div>}
+              <div className="text-[9px] text-dash-faint2 text-right mt-1">agora</div>
+              {btn && (
+                <div className="mt-2 -mx-3.5 -mb-2.5 border-t border-dash-border2 pt-2 text-center text-[12px] font-semibold" style={{ color: BLUE }}>
+                  {btn}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
-      </motion.div>
-    </>
+      </div>
+    </DashModal>
   );
 }

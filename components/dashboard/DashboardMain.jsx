@@ -13,6 +13,7 @@ const LIGHT_ROUTES = [
   "/dashboard/sms",
   "/dashboard/agente-ia",
   "/dashboard/canais",
+  "/dashboard/canal-oficial",
   "/dashboard/suporte",
   "/dashboard/configuracoes",
 ];
