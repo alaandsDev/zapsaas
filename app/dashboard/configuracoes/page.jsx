@@ -4,22 +4,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Users, UserPlus, Trash2, Mail, Shield, User, Copy, Check } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
 import { api, getUser } from "../../../lib/api";
+import { DashBadge } from "../../../components/dashboard/DashUI";
+import { DASH_ACCENT } from "../../../components/dashboard/dashTheme";
 
 const ROLE_LABEL = { owner: "Dono", admin: "Administrador", agent: "Agente" };
-const ROLE_COLOR = { owner: "text-[#00FF88] bg-[#00FF88]/10 border-[#00FF88]/25", admin: "text-blue-300 bg-blue-500/10 border-blue-500/25", agent: "text-gray-300 bg-white/5 border-white/10" };
+const ROLE_COLOR = { owner: DASH_ACCENT.green, admin: DASH_ACCENT.blue, agent: DASH_ACCENT.slate };
 
 function RoleBadge({ role }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${ROLE_COLOR[role] || ROLE_COLOR.agent}`}>
+    <DashBadge color={ROLE_COLOR[role] || ROLE_COLOR.agent}>
       {ROLE_LABEL[role] || role}
-    </span>
+    </DashBadge>
   );
 }
 
 function Avatar({ name, size = 8 }) {
   const initials = (name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   return (
-    <div className={`size-${size} rounded-full bg-gradient-to-br from-[#00FF88]/30 to-[#00D1FF]/30 border border-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0`}>
+    <div className={`size-${size} rounded-full bg-dash-subtle border border-dash-border flex items-center justify-center text-xs font-bold text-dash-ink2 shrink-0`}>
       {initials}
     </div>
   );
@@ -107,11 +109,11 @@ export default function ConfiguracoesPage() {
 
         {/* Banner para agentes */}
         {!isOwner && (
-          <div className="rounded-2xl border border-blue-500/20 bg-blue-500/[0.06] px-5 py-4 flex items-center gap-3">
-            <Shield className="size-5 text-blue-400 shrink-0" />
+          <div className="rounded-2xl border border-dash-border bg-dash-subtle px-5 py-4 flex items-center gap-3">
+            <Shield className="size-5 text-dash-muted shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-blue-300">Modo Agente</p>
-              <p className="text-xs text-blue-400/80 mt-0.5">
+              <p className="text-sm font-semibold text-dash-ink">Modo Agente</p>
+              <p className="text-xs text-dash-muted mt-0.5">
                 Você está operando dentro de um workspace. Contate o dono para gerenciar a equipe.
               </p>
             </div>
@@ -119,15 +121,15 @@ export default function ConfiguracoesPage() {
         )}
 
         {/* Minha conta */}
-        <div className="card p-6">
-          <h2 className="font-semibold mb-4 flex items-center gap-2">
-            <User className="size-4 text-ink-400" /> Minha conta
+        <div className="dash-card p-6">
+          <h2 className="font-semibold text-dash-ink mb-4 flex items-center gap-2">
+            <User className="size-4 text-dash-faint" /> Minha conta
           </h2>
           <div className="flex items-center gap-4">
             <Avatar name={currentUser?.name} size={12} />
             <div>
-              <p className="font-semibold text-sm">{currentUser?.name}</p>
-              <p className="text-xs text-ink-400">{currentUser?.email}</p>
+              <p className="font-semibold text-sm text-dash-ink">{currentUser?.name}</p>
+              <p className="text-xs text-dash-muted">{currentUser?.email}</p>
               <div className="mt-1.5">
                 <RoleBadge role={currentUser?.workspace_owner_id ? (currentUser?.workspace_role || "agent") : "owner"} />
               </div>
@@ -139,29 +141,29 @@ export default function ConfiguracoesPage() {
         {isOwner && (
           <>
             {/* Convidar */}
-            <div className="card p-6">
-              <h2 className="font-semibold mb-1 flex items-center gap-2">
-                <UserPlus className="size-4 text-ink-400" /> Convidar membro
+            <div className="dash-card p-6">
+              <h2 className="font-semibold text-dash-ink mb-1 flex items-center gap-2">
+                <UserPlus className="size-4 text-dash-faint" /> Convidar membro
               </h2>
-              <p className="text-xs text-ink-500 mb-5">
+              <p className="text-xs text-dash-faint2 mb-5">
                 O convidado receberá um e-mail com link para criar a conta e acessar seu workspace.
               </p>
               <form onSubmit={sendInvite} className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-500 pointer-events-none" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-dash-faint2 pointer-events-none" />
                   <input
                     type="email"
                     required
                     value={inviteEmail}
                     onChange={e => setInviteEmail(e.target.value)}
                     placeholder="email@empresa.com"
-                    className="w-full bg-white/[0.04] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-ink-600 focus:outline-none focus:border-primary/40 transition-colors"
+                    className="dash-input w-full pl-10"
                   />
                 </div>
                 <select
                   value={inviteRole}
                   onChange={e => setInviteRole(e.target.value)}
-                  className="bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-primary/40"
+                  className="dash-input sm:w-auto"
                 >
                   <option value="agent">Agente</option>
                   <option value="admin">Administrador</option>
@@ -169,8 +171,7 @@ export default function ConfiguracoesPage() {
                 <button
                   type="submit"
                   disabled={inviting}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-bg disabled:opacity-60 shrink-0"
-                  style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}
+                  className="dash-btn-primary shrink-0"
                 >
                   <UserPlus className="size-4" />
                   {inviting ? "Enviando..." : "Convidar"}
@@ -181,7 +182,7 @@ export default function ConfiguracoesPage() {
                 {inviteMsg && (
                   <motion.div
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className={`mt-3 text-sm px-4 py-3 rounded-xl border ${inviteMsg.type === "ok" ? "bg-primary/10 border-primary/25 text-primary" : "bg-red-500/10 border-red-500/20 text-red-400"}`}
+                    className={`mt-3 text-sm px-4 py-3 rounded-xl border ${inviteMsg.type === "ok" ? "bg-dash-green/10 border-dash-green/25 text-dash-green" : "bg-dash-red/10 border-dash-red/25 text-dash-red"}`}
                   >
                     {inviteMsg.text}
                   </motion.div>
@@ -190,38 +191,38 @@ export default function ConfiguracoesPage() {
             </div>
 
             {/* Membros ativos */}
-            <div className="card p-6">
-              <h2 className="font-semibold mb-4 flex items-center gap-2">
-                <Users className="size-4 text-ink-400" /> Membros ativos
-                <span className="ml-auto text-xs text-ink-500 font-normal">{members.length} membro{members.length !== 1 ? "s" : ""}</span>
+            <div className="dash-card p-6">
+              <h2 className="font-semibold text-dash-ink mb-4 flex items-center gap-2">
+                <Users className="size-4 text-dash-faint" /> Membros ativos
+                <span className="ml-auto text-xs text-dash-faint2 font-normal">{members.length} membro{members.length !== 1 ? "s" : ""}</span>
               </h2>
 
               {loading ? (
                 <div className="space-y-3">
-                  {[1, 2].map(i => <div key={i} className="h-14 rounded-xl bg-white/[0.04] animate-pulse" />)}
+                  {[1, 2].map(i => <div key={i} className="dash-skeleton h-14" />)}
                 </div>
               ) : members.length === 0 ? (
-                <div className="text-center py-8 text-ink-500 text-sm">
+                <div className="dash-empty text-sm">
                   Nenhum membro ainda. Convide alguém acima!
                 </div>
               ) : (
-                <div className="divide-y divide-white/[0.06]">
+                <div className="divide-y divide-dash-border2">
                   {members.map(m => (
                     <div key={m.id} className="py-3 flex items-center gap-3">
                       <Avatar name={m.name} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{m.name}</p>
-                        <p className="text-xs text-ink-500 truncate">{m.email}</p>
+                        <p className="text-sm font-medium text-dash-ink truncate">{m.name}</p>
+                        <p className="text-xs text-dash-faint2 truncate">{m.email}</p>
                       </div>
                       <RoleBadge role={m.workspace_role || "agent"} />
                       {confirmRemove === m.id ? (
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-ink-400">Remover?</span>
-                          <button onClick={() => removeMember(m.id)} className="text-xs text-red-400 hover:text-red-300 font-semibold">Sim</button>
-                          <button onClick={() => setConfirmRemove(null)} className="text-xs text-ink-500 hover:text-ink-300">Não</button>
+                          <span className="text-xs text-dash-muted">Remover?</span>
+                          <button onClick={() => removeMember(m.id)} className="text-xs text-dash-red hover:opacity-80 font-semibold">Sim</button>
+                          <button onClick={() => setConfirmRemove(null)} className="text-xs text-dash-faint2 hover:text-dash-muted">Não</button>
                         </div>
                       ) : (
-                        <button onClick={() => setConfirmRemove(m.id)} className="size-8 flex items-center justify-center rounded-lg text-ink-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0">
+                        <button onClick={() => setConfirmRemove(m.id)} className="size-8 flex items-center justify-center rounded-lg text-dash-faint2 hover:text-dash-red hover:bg-dash-red/10 transition-colors shrink-0">
                           <Trash2 className="size-4" />
                         </button>
                       )}
@@ -233,19 +234,19 @@ export default function ConfiguracoesPage() {
 
             {/* Convites pendentes */}
             {invites.filter(i => i.status === "pending").length > 0 && (
-              <div className="card p-6">
-                <h2 className="font-semibold mb-4 text-sm flex items-center gap-2">
-                  <Mail className="size-4 text-ink-400" /> Convites pendentes
+              <div className="dash-card p-6">
+                <h2 className="font-semibold text-dash-ink mb-4 text-sm flex items-center gap-2">
+                  <Mail className="size-4 text-dash-faint" /> Convites pendentes
                 </h2>
-                <div className="divide-y divide-white/[0.06]">
+                <div className="divide-y divide-dash-border2">
                   {invites.filter(i => i.status === "pending").map(inv => (
                     <div key={inv.id} className="py-3 flex items-center gap-3">
-                      <div className="size-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                        <Mail className="size-4 text-ink-500" />
+                      <div className="size-8 rounded-full bg-dash-subtle border border-dash-border flex items-center justify-center shrink-0">
+                        <Mail className="size-4 text-dash-faint2" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{inv.email}</p>
-                        <p className="text-xs text-ink-500">
+                        <p className="text-sm font-medium text-dash-ink truncate">{inv.email}</p>
+                        <p className="text-xs text-dash-faint2">
                           Expira {new Date(inv.expires_at).toLocaleDateString("pt-BR")}
                         </p>
                       </div>
@@ -253,13 +254,13 @@ export default function ConfiguracoesPage() {
                       <button
                         onClick={() => copyInviteLink(inv.token)}
                         title="Copiar link do convite"
-                        className="size-8 flex items-center justify-center rounded-lg text-ink-500 hover:text-primary hover:bg-primary/10 transition-colors shrink-0"
+                        className="size-8 flex items-center justify-center rounded-lg text-dash-faint2 hover:text-dash-green hover:bg-dash-green/10 transition-colors shrink-0"
                       >
-                        {copied === inv.token ? <Check className="size-4 text-primary" /> : <Copy className="size-4" />}
+                        {copied === inv.token ? <Check className="size-4 text-dash-green" /> : <Copy className="size-4" />}
                       </button>
                       <button
                         onClick={() => cancelInvite(inv.id)}
-                        className="size-8 flex items-center justify-center rounded-lg text-ink-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                        className="size-8 flex items-center justify-center rounded-lg text-dash-faint2 hover:text-dash-red hover:bg-dash-red/10 transition-colors shrink-0"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -272,13 +273,13 @@ export default function ConfiguracoesPage() {
         )}
 
         {/* Links legais */}
-        <div className="card p-5 flex items-center gap-4 flex-wrap text-xs text-ink-500">
-          <span className="font-medium text-ink-300">Legal</span>
-          <a href="/termos" target="_blank" className="hover:text-primary transition-colors">Termos de Uso</a>
+        <div className="dash-card p-5 flex items-center gap-4 flex-wrap text-xs text-dash-faint2">
+          <span className="font-medium text-dash-muted">Legal</span>
+          <a href="/termos" target="_blank" className="hover:text-dash-ink transition-colors">Termos de Uso</a>
           <span>·</span>
-          <a href="/privacidade" target="_blank" className="hover:text-primary transition-colors">Política de Privacidade</a>
+          <a href="/privacidade" target="_blank" className="hover:text-dash-ink transition-colors">Política de Privacidade</a>
           <span>·</span>
-          <a href="mailto:privacidade@wayvo.app.br" className="hover:text-primary transition-colors">privacidade@wayvo.app.br</a>
+          <a href="mailto:privacidade@wayvo.app.br" className="hover:text-dash-ink transition-colors">privacidade@wayvo.app.br</a>
         </div>
 
       </div>

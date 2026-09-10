@@ -8,16 +8,19 @@ import {
   DollarSign, ShoppingBag, Receipt, Plus, Pencil, Trash2, X,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
-import Modal from "../../../components/dashboard/Modal";
-import { Field, Input, Select, Textarea, Button } from "../../../components/ui/Field";
 import { api } from "../../../lib/api";
+import {
+  DashButton, DashIconButton, DashBadge, DashPageHeader, DashTh,
+  DashEmptyState, DashSkeletonBar, DashSkeletonStats, DashModal,
+} from "../../../components/dashboard/DashUI";
+import { DASH_ACCENT, dashHeaderIconStyle } from "../../../components/dashboard/dashTheme";
 
-const NEON = "#00FF88";
+const ACCENT = DASH_ACCENT.green;
 const RANGES = [{ d: 7, label: "7 dias" }, { d: 30, label: "30 dias" }, { d: 90, label: "90 dias" }];
 const STATUS = {
-  won: { label: "Ganha", color: "#00FF88" },
-  pending: { label: "Pendente", color: "#F59E0B" },
-  lost: { label: "Perdida", color: "#EF4444" },
+  won: { label: "Ganha", color: DASH_ACCENT.green },
+  pending: { label: "Pendente", color: DASH_ACCENT.amber },
+  lost: { label: "Perdida", color: DASH_ACCENT.red },
 };
 const SOURCE = { manual: "Manual", campaign: "Campanha", flow: "Fluxo", integration: "Integração" };
 
@@ -80,9 +83,9 @@ export default function VendasPage() {
   const loading = summary === null || sales === null;
   const s = summary || {};
   const kpis = [
-    { label: "Receita Gerada", money: s.total || 0, delta: s.deltaPct, icon: DollarSign, color: NEON },
-    { label: "Vendas", value: s.count || 0, icon: ShoppingBag, color: "#00D1FF" },
-    { label: "Ticket Médio", money: s.avgTicket || 0, icon: Receipt, color: "#7C3AED" },
+    { label: "Receita Gerada", money: s.total || 0, delta: s.deltaPct, icon: DollarSign, highlight: true },
+    { label: "Vendas", value: s.count || 0, icon: ShoppingBag },
+    { label: "Ticket Médio", money: s.avgTicket || 0, icon: Receipt },
   ];
 
   return (
@@ -92,122 +95,119 @@ export default function VendasPage() {
         subtitle="Receita e negócios fechados"
         actions={
           <>
-            <div className="flex gap-0.5 bg-white/[0.03] border border-white/10 rounded-xl p-1">
+            <div className="flex gap-0.5 bg-dash-subtle border border-dash-border rounded-xl p-1">
               {RANGES.map((r) => (
                 <button key={r.d} onClick={() => setDays(r.d)}
-                  className={`text-xs px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors ${days === r.d ? "text-bg font-semibold" : "text-ink-400 hover:text-ink-100"}`}
-                  style={days === r.d ? { background: NEON } : undefined}>
+                  className={`text-xs px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors ${days === r.d ? "bg-white text-dash-ink font-semibold shadow-sm" : "text-dash-faint hover:text-dash-ink2"}`}>
                   {r.label}
                 </button>
               ))}
             </div>
-            <Button onClick={() => setModal({})} className="shrink-0">
+            <DashButton onClick={() => setModal({})} className="shrink-0">
               <Plus className="size-4" />
               <span className="hidden sm:inline">Nova venda</span>
-            </Button>
+            </DashButton>
           </>
         }
       />
 
       <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {kpis.map((k, i) => {
-            const Icon = k.icon;
-            return (
-              <motion.div key={k.label}
-                initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                className="rounded-2xl border border-white/[0.06] p-5"
-                style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
-                <div className="flex items-center justify-between">
-                  <div className="text-[11px] text-ink-400">{k.label}</div>
-                  <div className="size-8 rounded-lg flex items-center justify-center border"
-                    style={{ background: `${k.color}16`, borderColor: `${k.color}33` }}>
-                    <Icon className="size-4" style={{ color: k.color }} />
+        {loading ? (
+          <DashSkeletonStats count={3} />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {kpis.map((k, i) => {
+              const Icon = k.icon;
+              return (
+                <motion.div key={k.label}
+                  initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                  className="dash-card">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] text-dash-faint">{k.label}</div>
+                    <span style={dashHeaderIconStyle(ACCENT)}>
+                      <Icon width={16} height={16} />
+                    </span>
                   </div>
-                </div>
-                <div className="text-2xl font-bold mt-3" style={{ color: k.color }}>
-                  {loading ? "—" : k.money != null ? <AnimatedMoney value={k.money} /> : (k.value || 0).toLocaleString("pt-BR")}
-                </div>
-                {k.delta != null && (
-                  <div className={`text-[11px] mt-1.5 ${k.delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {k.delta >= 0 ? "▲" : "▼"} {Math.abs(k.delta)}% vs. período anterior
+                  <div className={`text-2xl font-bold mt-3 ${k.highlight ? "" : "text-dash-ink"}`} style={k.highlight ? { color: ACCENT } : undefined}>
+                    {k.money != null ? <AnimatedMoney value={k.money} /> : (k.value || 0).toLocaleString("pt-BR")}
                   </div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
+                  {k.delta != null && (
+                    <div className={`text-[11px] mt-1.5 font-medium`} style={{ color: k.delta >= 0 ? DASH_ACCENT.green : DASH_ACCENT.red }}>
+                      {k.delta >= 0 ? "▲" : "▼"} {Math.abs(k.delta)}% vs. período anterior
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Receita por dia */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-white/[0.06] p-5"
-          style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
-          <div className="font-semibold text-sm">Receita no período</div>
-          <div className="text-xs text-ink-500 mt-0.5 mb-4">Soma das vendas ganhas por dia</div>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="dash-card">
+          <div className="font-semibold text-sm text-dash-ink">Receita no período</div>
+          <div className="text-xs text-dash-faint mt-0.5 mb-4">Soma das vendas ganhas por dia</div>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={s.byDay || []} margin={{ left: -10, right: 8 }}>
                 <defs>
                   <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={NEON} stopOpacity={0.4} />
-                    <stop offset="100%" stopColor={NEON} stopOpacity={0} />
+                    <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
+                    <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="d" stroke="#64748B" fontSize={11} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDEFF3" vertical={false} />
+                <XAxis dataKey="d" stroke="#8A94A6" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip
                   formatter={(v) => brl(v)}
-                  contentStyle={{ background: "rgba(11,17,32,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12, color: "#F8FAFC" }}
-                  cursor={{ stroke: "rgba(0,255,136,0.3)" }} />
-                <Area type="monotone" dataKey="v" name="Receita" stroke={NEON} strokeWidth={2} fill="url(#rev)" />
+                  contentStyle={{ background: "#FFFFFF", border: "1px solid #E9ECF1", borderRadius: 12, fontSize: 12, color: "#0A1020", boxShadow: "0 8px 24px -8px rgba(10,16,32,0.12)" }}
+                  cursor={{ stroke: `${ACCENT}40` }} />
+                <Area type="monotone" dataKey="v" name="Receita" stroke={ACCENT} strokeWidth={2} fill="url(#rev)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
         {/* Receita por campanha/fluxo (atribuição real) */}
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-white/[0.06] overflow-hidden"
-          style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
-          <div className="px-5 py-4 border-b border-white/[0.06]">
-            <div className="font-semibold text-sm">Receita por campanha / fluxo</div>
-            <div className="text-xs text-ink-500 mt-0.5">Atribuição real das vendas ganhas no período</div>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="dash-card-flush">
+          <div className="px-5 py-4 border-b border-dash-border2">
+            <div className="font-semibold text-sm text-dash-ink">Receita por campanha / fluxo</div>
+            <div className="text-xs text-dash-faint mt-0.5">Atribuição real das vendas ganhas no período</div>
           </div>
           {!roi ? (
-            <div className="p-5 space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-9 bg-white/[0.04] rounded-lg animate-pulse" />)}</div>
+            <div className="p-5 space-y-3">{Array.from({ length: 3 }).map((_, i) => <DashSkeletonBar key={i} h="36px" />)}</div>
           ) : !roi.rows?.length ? (
-            <div className="py-12 text-center text-xs text-ink-500">Sem vendas atribuídas neste período</div>
+            <DashEmptyState icon={DollarSign} accent={ACCENT} title="Sem vendas atribuídas" desc="Nenhuma venda atribuída a campanha ou fluxo neste período." className="rounded-none border-0" />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ minWidth: 600 }}>
-                <thead className="bg-white/[0.02] text-[11px] uppercase tracking-wider text-ink-500">
+                <thead className="bg-dash-subtle">
                   <tr className="text-left">
-                    <th className="px-5 py-2.5 font-medium min-w-[160px]">Origem</th>
-                    <th className="px-3 py-2.5 font-medium min-w-[90px]">Tipo</th>
-                    <th className="px-3 py-2.5 font-medium text-right min-w-[80px]">Envios</th>
-                    <th className="px-3 py-2.5 font-medium text-right min-w-[60px]">Vendas</th>
-                    <th className="px-3 py-2.5 font-medium text-right min-w-[80px]">Conv.</th>
-                    <th className="px-5 py-2.5 font-medium text-right min-w-[100px]">Receita</th>
+                    <th className="min-w-[160px]"><DashTh>Origem</DashTh></th>
+                    <th className="min-w-[90px]"><DashTh>Tipo</DashTh></th>
+                    <th className="min-w-[80px]"><DashTh right>Envios</DashTh></th>
+                    <th className="min-w-[60px]"><DashTh right>Vendas</DashTh></th>
+                    <th className="min-w-[80px]"><DashTh right>Conv.</DashTh></th>
+                    <th className="min-w-[100px]"><DashTh right>Receita</DashTh></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-dash-border2">
                   {roi.rows.map((r) => {
-                    const tint = r.kind === "campaign" ? "#00D1FF" : r.kind === "flow" ? "#7C3AED" : "#64748B";
+                    const tint = r.kind === "campaign" ? DASH_ACCENT.blue : r.kind === "flow" ? DASH_ACCENT.violet : DASH_ACCENT.slate;
                     const tlabel = r.kind === "campaign" ? "Campanha" : r.kind === "flow" ? "Fluxo" : "—";
                     return (
-                      <tr key={`${r.kind}-${r.id}`} className="hover:bg-white/[0.02]">
-                        <td className="px-5 py-3 font-medium max-w-[200px]">
+                      <tr key={`${r.kind}-${r.id}`} className="hover:bg-dash-subtle transition-colors">
+                        <td className="px-5 py-3 font-medium max-w-[200px] text-dash-ink">
                           <div className="truncate">{r.name}</div>
-                          <div className="text-[10px] text-ink-500 tabular-nums mt-0.5">ticket: {brl(r.avgTicket)}</div>
+                          <div className="text-[10px] text-dash-faint tabular-nums mt-0.5">ticket: {brl(r.avgTicket)}</div>
                         </td>
                         <td className="px-3 py-3">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap" style={{ background: `${tint}1a`, color: tint, borderColor: `${tint}40` }}>{tlabel}</span>
+                          <DashBadge color={tint}>{tlabel}</DashBadge>
                         </td>
-                        <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.recipients ? r.recipients.toLocaleString("pt-BR") : "—"}</td>
-                        <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.count}</td>
-                        <td className="px-3 py-3 text-right text-ink-300 tabular-nums">{r.convRate != null ? `${r.convRate}%` : "—"}</td>
-                        <td className="px-5 py-3 text-right font-bold tabular-nums" style={{ color: NEON }}>{brl(r.revenue)}</td>
+                        <td className="px-3 py-3 text-right text-dash-muted tabular-nums">{r.recipients ? r.recipients.toLocaleString("pt-BR") : "—"}</td>
+                        <td className="px-3 py-3 text-right text-dash-muted tabular-nums">{r.count}</td>
+                        <td className="px-3 py-3 text-right text-dash-muted tabular-nums">{r.convRate != null ? `${r.convRate}%` : "—"}</td>
+                        <td className="px-5 py-3 text-right font-bold tabular-nums" style={{ color: ACCENT }}>{brl(r.revenue)}</td>
                       </tr>
                     );
                   })}
@@ -218,51 +218,48 @@ export default function VendasPage() {
         </motion.div>
 
         {/* Lista */}
-        <div className="rounded-2xl border border-white/[0.06] overflow-hidden"
-          style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
-          <div className="px-5 py-4 border-b border-white/[0.06] font-semibold text-sm">Negócios</div>
+        <div className="dash-card-flush">
+          <div className="px-5 py-4 border-b border-dash-border2 font-semibold text-sm text-dash-ink">Negócios</div>
           {loading ? (
             <div className="p-5 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 bg-white/[0.04] rounded-lg animate-pulse" />)}
+              {Array.from({ length: 5 }).map((_, i) => <DashSkeletonBar key={i} h="40px" />)}
             </div>
           ) : !sales.length ? (
-            <div className="py-16 text-center">
-              <DollarSign className="size-9 mx-auto text-ink-700 mb-2" />
-              <p className="text-sm text-ink-400">Nenhuma venda registrada</p>
-              <button onClick={() => setModal({})} className="text-xs text-primary font-semibold mt-2 hover:underline">+ Registrar primeira venda</button>
-            </div>
+            <DashEmptyState
+              icon={DollarSign} accent={ACCENT}
+              title="Nenhuma venda registrada"
+              desc="Registre sua primeira venda para começar a acompanhar a receita."
+              cta={{ label: "Registrar primeira venda", icon: Plus, onClick: () => setModal({}) }}
+              className="rounded-none border-0"
+            />
           ) : (
-            <div className="divide-y divide-white/[0.04]">
+            <div className="divide-y divide-dash-border2">
               {sales.map((v) => {
                 const st = STATUS[v.status] || STATUS.won;
                 return (
                   <motion.div key={v.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group">
-                    <div className="size-9 rounded-xl flex items-center justify-center border shrink-0"
-                      style={{ background: `${st.color}14`, borderColor: `${st.color}30` }}>
-                      <DollarSign className="size-4" style={{ color: st.color }} />
-                    </div>
+                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-dash-subtle transition-colors group">
+                    <span className="shrink-0" style={dashHeaderIconStyle(st.color)}>
+                      <DollarSign width={16} height={16} />
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{v.title || leadName(v.lead_id)}</div>
-                      <div className="text-[11px] text-ink-500 truncate">
+                      <div className="text-sm font-medium truncate text-dash-ink">{v.title || leadName(v.lead_id)}</div>
+                      <div className="text-[11px] text-dash-faint truncate">
                         {SOURCE[v.source] || v.source} · {fmtDate(v.closed_at)}
                         {v.lead_id && <span> · {leadName(v.lead_id)}</span>}
                       </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0"
-                      style={{ background: `${st.color}1a`, color: st.color, borderColor: `${st.color}40` }}>
-                      {st.label}
-                    </span>
+                    <DashBadge color={st.color} className="shrink-0">{st.label}</DashBadge>
                     <div className="text-sm font-bold tabular-nums shrink-0" style={{ color: st.color }}>{brl(v.amount)}</div>
                     <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setModal(v)} className="size-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-primary hover:bg-white/5" title="Editar"><Pencil className="size-3.5" /></button>
+                      <DashIconButton onClick={() => setModal(v)} title="Editar"><Pencil width={14} height={14} /></DashIconButton>
                       {deleteId === v.id ? (
                         <>
-                          <button onClick={() => remove(v.id)} className="px-2 h-7 rounded-lg text-[10px] font-semibold text-red-400 bg-red-500/15 border border-red-500/30 hover:bg-red-500/25 transition-colors">Confirmar</button>
-                          <button onClick={() => setDeleteId(null)} className="size-7 rounded-lg flex items-center justify-center text-ink-500 hover:text-ink-200"><X className="size-3.5" /></button>
+                          <button onClick={() => remove(v.id)} className="px-2 h-[30px] rounded-[10px] text-[10px] font-semibold text-white bg-dash-red hover:opacity-90 transition-opacity">Confirmar</button>
+                          <DashIconButton onClick={() => setDeleteId(null)}><X width={14} height={14} /></DashIconButton>
                         </>
                       ) : (
-                        <button onClick={() => setDeleteId(v.id)} className="size-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-red-400 hover:bg-red-500/10" title="Excluir"><Trash2 className="size-3.5" /></button>
+                        <DashIconButton onClick={() => setDeleteId(v.id)} title="Excluir" className="hover:!text-dash-red hover:!border-dash-red/40"><Trash2 width={14} height={14} /></DashIconButton>
                       )}
                     </div>
                   </motion.div>
@@ -279,6 +276,16 @@ export default function VendasPage() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+function DashField({ label, hint, children }) {
+  return (
+    <label className="block">
+      {label && <span className="block text-sm font-medium text-dash-ink2 mb-1.5">{label}</span>}
+      {children}
+      {hint && <span className="block text-xs text-dash-faint mt-1.5">{hint}</span>}
+    </label>
   );
 }
 
@@ -311,33 +318,43 @@ function SaleModal({ sale, leads, dispatches = [], workflows = [], onClose, onSa
   }
 
   return (
-    <Modal open onClose={onClose} title={sale ? "Editar venda" : "Nova venda"}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Título"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Plano Pro anual" /></Field>
+    <DashModal
+      open
+      onClose={onClose}
+      title={sale ? "Editar venda" : "Nova venda"}
+      footer={
+        <>
+          <DashButton type="button" variant="secondary" onClick={onClose}>Cancelar</DashButton>
+          <DashButton type="submit" form="sale-form" loading={loading}>{sale ? "Salvar" : "Registrar venda"}</DashButton>
+        </>
+      }
+    >
+      <form id="sale-form" onSubmit={submit} className="space-y-4">
+        <DashField label="Título"><input className="dash-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex: Plano Pro anual" /></DashField>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Valor (R$) *"><Input required type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="497.00" /></Field>
-          <Field label="Data"><Input type="date" value={form.closed_at} onChange={(e) => setForm({ ...form, closed_at: e.target.value })} /></Field>
+          <DashField label="Valor (R$) *"><input className="dash-input" required type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="497.00" /></DashField>
+          <DashField label="Data"><input className="dash-input" type="date" value={form.closed_at} onChange={(e) => setForm({ ...form, closed_at: e.target.value })} /></DashField>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Status">
-            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+          <DashField label="Status">
+            <select className="dash-input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
               <option value="won">Ganha</option><option value="pending">Pendente</option><option value="lost">Perdida</option>
-            </Select>
-          </Field>
-          <Field label="Origem">
-            <Select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
+            </select>
+          </DashField>
+          <DashField label="Origem">
+            <select className="dash-input" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
               <option value="manual">Manual</option><option value="campaign">Campanha</option><option value="flow">Fluxo</option><option value="integration">Integração</option>
-            </Select>
-          </Field>
+            </select>
+          </DashField>
         </div>
-        <Field label="Lead vinculado (opcional)">
-          <Select value={form.lead_id} onChange={(e) => setForm({ ...form, lead_id: e.target.value })}>
+        <DashField label="Lead vinculado (opcional)">
+          <select className="dash-input" value={form.lead_id} onChange={(e) => setForm({ ...form, lead_id: e.target.value })}>
             <option value="">— Nenhum —</option>
             {leads.map((l) => <option key={l.id} value={l.id}>{l.name || l.phone}</option>)}
-          </Select>
-        </Field>
-        <Field label="Atribuir a campanha/fluxo (opcional)" hint="Origem da venda — gera o ROI por campanha. Em branco = atribuição automática se houver lead.">
-          <Select value={form.attribution} onChange={(e) => setForm({ ...form, attribution: e.target.value })}>
+          </select>
+        </DashField>
+        <DashField label="Atribuir a campanha/fluxo (opcional)" hint="Origem da venda — gera o ROI por campanha. Em branco = atribuição automática se houver lead.">
+          <select className="dash-input" value={form.attribution} onChange={(e) => setForm({ ...form, attribution: e.target.value })}>
             <option value="">— Automático / nenhum —</option>
             {dispatches.length > 0 && (
               <optgroup label="Campanhas">
@@ -349,15 +366,11 @@ function SaleModal({ sale, leads, dispatches = [], workflows = [], onClose, onSa
                 {workflows.map((w) => <option key={w.id} value={`f:${w.id}`}>{w.name || "Fluxo"}</option>)}
               </optgroup>
             )}
-          </Select>
-        </Field>
-        <Field label="Observação"><Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="min-h-[70px]" /></Field>
-        {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={loading}>{sale ? "Salvar" : "Registrar venda"}</Button>
-        </div>
+          </select>
+        </DashField>
+        <DashField label="Observação"><textarea className="dash-input min-h-[70px]" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></DashField>
+        {err && <div className="text-sm text-dash-red bg-dash-red/10 border border-dash-red/20 rounded-xl px-4 py-3">{err}</div>}
       </form>
-    </Modal>
+    </DashModal>
   );
 }

@@ -5,12 +5,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, ChevronLeft, ChevronRight, Send, Users, Calendar,
   ClipboardCheck, MessageSquare, Paperclip, ShieldCheck,
-  Zap, Plus, Trash2, Search, X, BookmarkPlus,
+  Zap, Trash2, Search, X, BookmarkPlus, AlertTriangle, RefreshCw,
+  Image as ImageIcon, Video, Music, FileText, Smartphone, Cloud,
+  Repeat2, Megaphone, Info, Pause, Play, XCircle, FileDown,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
-import Modal from "../../../components/dashboard/Modal";
-import { Field, Input, Textarea, Select, Button } from "../../../components/ui/Field";
+import { DashButton, DashIconButton, DashBadge, DashEmptyState, DashModal } from "../../../components/dashboard/DashUI";
+import { DASH_ACCENT } from "../../../components/dashboard/dashTheme";
 import { api, API_URL, getToken } from "../../../lib/api";
+
+const ACCENT = DASH_ACCENT.amber;
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -20,13 +24,13 @@ function fmtDate(iso) {
 }
 
 const STATUS = {
-  pending: { label: "Pendente", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" },
-  scheduled: { label: "⏰ Agendado", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" },
-  sending: { label: "Enviando...", cls: "bg-accent-blue/15 text-accent-blue border-accent-blue/30" },
-  completed: { label: "Concluído", cls: "bg-primary/15 text-primary border-primary/30" },
-  failed: { label: "Falhou", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
-  paused: { label: "⏸ Pausado", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" },
-  cancelled: { label: "✕ Cancelado", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
+  pending: { label: "Pendente", color: DASH_ACCENT.slate },
+  scheduled: { label: "Agendado", color: DASH_ACCENT.amber },
+  sending: { label: "Enviando...", color: DASH_ACCENT.amber },
+  completed: { label: "Concluído", color: DASH_ACCENT.emerald },
+  failed: { label: "Falhou", color: DASH_ACCENT.red },
+  paused: { label: "Pausado", color: DASH_ACCENT.slate },
+  cancelled: { label: "Cancelado", color: DASH_ACCENT.red },
 };
 
 const STEPS = [
@@ -35,6 +39,16 @@ const STEPS = [
   { n: 3, label: "Agendamento", Icon: Calendar },
   { n: 4, label: "Revisão", Icon: ClipboardCheck },
 ];
+
+function LightField({ label, hint, children }) {
+  return (
+    <label className="block">
+      {label && <span className="block text-sm font-medium text-dash-ink mb-1.5">{label}</span>}
+      {children}
+      {hint && <span className="block text-xs text-dash-faint mt-1.5">{hint}</span>}
+    </label>
+  );
+}
 
 export default function CampanhasPage() {
   const [wpp, setWpp] = useState(null);
@@ -62,6 +76,7 @@ export default function CampanhasPage() {
   const [sending, setSending] = useState(false);
   const [step, setStep] = useState(1);
   const textareaRefs = useRef({});
+  const topRef = useRef(null);
 
   const [sessions, setSessions] = useState([]);
 
@@ -300,6 +315,13 @@ export default function CampanhasPage() {
   function next() { if (canContinue && step < 4) setStep(step + 1); }
   function back() { if (step > 1) setStep(step - 1); }
 
+  function mediaIcon(type) {
+    if (type === "image") return ImageIcon;
+    if (type === "video") return Video;
+    if (type === "audio") return Music;
+    return FileText;
+  }
+
   const Stepper = (
     <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
       {STEPS.map((s, i) => {
@@ -311,19 +333,19 @@ export default function CampanhasPage() {
             <button
               onClick={() => s.n < step && setStep(s.n)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm transition-all ${
-                active ? "border-primary/40 bg-primary/10 text-primary"
-                : done ? "border-primary/20 text-primary/80 hover:bg-primary/[0.06]"
-                : "border-white/[0.06] text-ink-500"
+                active ? "border-dash-green/40 bg-dash-green/10 text-dash-green"
+                : done ? "border-dash-green/20 text-dash-green/80 hover:bg-dash-green/5"
+                : "border-dash-border text-dash-faint"
               }`}
             >
               <span className={`size-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                done ? "bg-primary text-bg" : active ? "bg-primary/20 text-primary" : "bg-white/[0.05] text-ink-500"
+                done ? "bg-dash-green text-white" : active ? "bg-dash-green/20 text-dash-green" : "bg-dash-border2 text-dash-faint"
               }`}>
                 {done ? <Check className="size-3" /> : s.n}
               </span>
               <span className="hidden sm:flex items-center gap-1.5"><SIcon className="size-3.5" />{s.label}</span>
             </button>
-            {i < STEPS.length - 1 && <div className={`w-6 h-px ${done ? "bg-primary/40" : "bg-white/[0.08]"}`} />}
+            {i < STEPS.length - 1 && <div className={`w-6 h-px ${done ? "bg-dash-green/40" : "bg-dash-border"}`} />}
           </div>
         );
       })}
@@ -333,22 +355,24 @@ export default function CampanhasPage() {
   return (
     <>
       <Topbar title="Disparos" subtitle="Crie e acompanhe suas campanhas" />
-      <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
+      <div ref={topRef} className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
 
         <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-start">
-          <div className="rounded-2xl border border-white/[0.06] p-5 lg:p-6"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}>
+          <div className="dash-card">
             {Stepper}
 
             {!isPro && (
-              <div className="text-xs px-3 py-2 rounded-lg bg-white/[0.03] border border-white/10 text-ink-300 mb-4">
-                📊 Disparos este mês: <strong className={used >= limit ? "text-red-400" : "text-ink-100"}>{used}/{limit}</strong>
-                {used >= limit && <Link href="/dashboard/workspace" className="ml-3 text-primary font-semibold">Upgrade →</Link>}
+              <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl bg-dash-subtle border border-dash-border text-dash-ink2 mb-4">
+                <Info className="size-3.5 text-dash-faint shrink-0" />
+                Disparos este mês: <strong className={used >= limit ? "text-dash-red" : "text-dash-ink"}>{used}/{limit}</strong>
+                {used >= limit && <Link href="/dashboard/workspace" className="ml-3 text-dash-green font-semibold">Upgrade →</Link>}
               </div>
             )}
             {!wppConnected && (
-              <div className="text-sm px-4 py-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 mb-4">
-                ⚠️ Nenhuma conexão ativa — <Link href="/dashboard/canais" className="underline">conecte em Conexões</Link>
+              <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl mb-4"
+                style={{ background: `${DASH_ACCENT.amber}14`, border: `1px solid ${DASH_ACCENT.amber}33`, color: DASH_ACCENT.amber }}>
+                <AlertTriangle className="size-4 shrink-0" />
+                Nenhuma conexão ativa — <Link href="/dashboard/canais" className="underline font-semibold">conecte em Conexões</Link>
               </div>
             )}
 
@@ -366,25 +390,27 @@ export default function CampanhasPage() {
                   <>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-ink-100">
-                          Mensagens <span className="text-xs text-ink-500 font-normal">(cada número recebe 1 em sequência)</span>
+                        <label className="text-sm font-medium text-dash-ink">
+                          Mensagens <span className="text-xs text-dash-faint font-normal">(cada número recebe 1 em sequência)</span>
                         </label>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setShowTemplates(v => !v)}
                             className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all
-                              ${showTemplates ? "bg-secondary/15 border-secondary/30 text-secondary" : "bg-white/[0.04] border-white/10 text-ink-300 hover:text-ink-100 hover:border-white/20"}`}
+                              ${showTemplates ? "border-dash-violet/30" : "bg-dash-subtle border-dash-border text-dash-muted hover:text-dash-ink hover:border-dash-faint"}`}
+                            style={showTemplates ? { background: `${DASH_ACCENT.violet}14`, color: DASH_ACCENT.violet } : undefined}
                           >
                             <Zap className="size-3.5" />
                             Mensagens Rápidas
                             {templates.length > 0 && (
-                              <span className="size-4 rounded-full bg-secondary/20 text-secondary text-[9px] font-bold flex items-center justify-center">
+                              <span className="size-4 rounded-full text-[9px] font-bold flex items-center justify-center"
+                                style={{ background: `${DASH_ACCENT.violet}22`, color: DASH_ACCENT.violet }}>
                                 {templates.length}
                               </span>
                             )}
                           </button>
-                          <button type="button" onClick={addMessage} className="text-xs text-primary hover:underline">+ Adicionar</button>
+                          <button type="button" onClick={addMessage} className="text-xs text-dash-green hover:underline font-medium">+ Adicionar</button>
                         </div>
                       </div>
 
@@ -398,28 +424,28 @@ export default function CampanhasPage() {
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden mb-3"
                           >
-                            <div className="rounded-xl border border-secondary/20 bg-secondary/[0.04] p-4">
+                            <div className="rounded-xl p-4" style={{ border: `1px solid ${DASH_ACCENT.violet}33`, background: `${DASH_ACCENT.violet}0a` }}>
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
-                                  <Zap className="size-4 text-secondary" />
-                                  <span className="text-sm font-semibold text-ink-100">Mensagens Rápidas</span>
+                                  <Zap className="size-4" style={{ color: DASH_ACCENT.violet }} />
+                                  <span className="text-sm font-semibold text-dash-ink">Mensagens Rápidas</span>
                                 </div>
-                                <button onClick={() => setShowTemplates(false)} className="text-ink-500 hover:text-ink-200">
+                                <button onClick={() => setShowTemplates(false)} className="text-dash-faint hover:text-dash-ink">
                                   <X className="size-4" />
                                 </button>
                               </div>
 
                               {/* Salvar mensagem atual como template */}
                               {messages.some(m => m.text.trim()) && (
-                                <div className="mb-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.08]">
-                                  <p className="text-xs text-ink-400 mb-2">Salvar mensagem atual como template:</p>
+                                <div className="mb-3 p-3 rounded-lg bg-white border border-dash-border">
+                                  <p className="text-xs text-dash-faint mb-2">Salvar mensagem atual como template:</p>
                                   <div className="flex gap-2">
                                     <input
                                       type="text"
                                       value={templateName}
                                       onChange={e => setTemplateName(e.target.value)}
                                       placeholder="Nome do template (opcional)"
-                                      className="flex-1 rounded-lg bg-bg/80 border border-white/10 px-2.5 py-1.5 text-xs text-ink-100 placeholder:text-ink-500 outline-none focus:border-secondary/40"
+                                      className="dash-input flex-1 !py-1.5 text-xs"
                                     />
                                     <button
                                       type="button"
@@ -430,7 +456,8 @@ export default function CampanhasPage() {
                                           setTemplateName("");
                                         }
                                       }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/15 border border-secondary/25 text-secondary text-xs hover:bg-secondary/25 transition-colors whitespace-nowrap"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
+                                      style={{ background: `${DASH_ACCENT.violet}14`, border: `1px solid ${DASH_ACCENT.violet}33`, color: DASH_ACCENT.violet }}
                                     >
                                       <BookmarkPlus className="size-3.5" />
                                       Salvar
@@ -442,20 +469,20 @@ export default function CampanhasPage() {
                               {/* Busca */}
                               {templates.length > 2 && (
                                 <div className="relative mb-3">
-                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-ink-500" />
+                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-dash-faint" />
                                   <input
                                     type="text"
                                     value={templateSearch}
                                     onChange={e => setTemplateSearch(e.target.value)}
                                     placeholder="Buscar template..."
-                                    className="w-full rounded-lg bg-bg/60 border border-white/10 pl-8 pr-3 py-1.5 text-xs text-ink-100 placeholder:text-ink-500 outline-none focus:border-secondary/40"
+                                    className="dash-input w-full !pl-8 !py-1.5 text-xs"
                                   />
                                 </div>
                               )}
 
                               {/* Lista de templates */}
                               {filteredTemplates.length === 0 ? (
-                                <div className="text-center py-6 text-xs text-ink-500">
+                                <div className="text-center py-6 text-xs text-dash-faint">
                                   {templates.length === 0
                                     ? "Nenhum template salvo ainda. Escreva uma mensagem e salve acima!"
                                     : "Nenhum template encontrado"}
@@ -463,10 +490,11 @@ export default function CampanhasPage() {
                               ) : (
                                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                                   {filteredTemplates.map(tpl => (
-                                    <div key={tpl.id} className="group flex items-start gap-2 p-3 rounded-lg border border-white/[0.06] bg-bg/40 hover:border-secondary/20 hover:bg-secondary/[0.04] transition-all">
+                                    <div key={tpl.id} className="group flex items-start gap-2 p-3 rounded-lg border border-dash-border bg-white hover:bg-dash-subtle transition-all"
+                                      style={{ borderColor: undefined }}>
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-semibold text-ink-200 mb-0.5 truncate">{tpl.name}</p>
-                                        <p className="text-xs text-ink-400 line-clamp-2 whitespace-pre-wrap">{tpl.text}</p>
+                                        <p className="text-xs font-semibold text-dash-ink2 mb-0.5 truncate">{tpl.name}</p>
+                                        <p className="text-xs text-dash-faint line-clamp-2 whitespace-pre-wrap">{tpl.text}</p>
                                       </div>
                                       <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {messages.length > 1 ? (
@@ -477,7 +505,8 @@ export default function CampanhasPage() {
                                                 type="button"
                                                 onClick={() => applyTemplate(tpl.text, m.id)}
                                                 title={`Usar na mensagem ${i + 1}`}
-                                                className="size-6 rounded bg-secondary/15 border border-secondary/25 text-secondary text-[10px] font-bold flex items-center justify-center hover:bg-secondary/30"
+                                                className="size-6 rounded text-[10px] font-bold flex items-center justify-center"
+                                                style={{ background: `${DASH_ACCENT.violet}14`, border: `1px solid ${DASH_ACCENT.violet}33`, color: DASH_ACCENT.violet }}
                                               >
                                                 {i + 1}
                                               </button>
@@ -487,7 +516,8 @@ export default function CampanhasPage() {
                                           <button
                                             type="button"
                                             onClick={() => applyTemplate(tpl.text, messages[0]?.id)}
-                                            className="px-2.5 py-1 rounded bg-secondary/15 border border-secondary/25 text-secondary text-[10px] font-semibold hover:bg-secondary/30 transition-colors whitespace-nowrap"
+                                            className="px-2.5 py-1 rounded text-[10px] font-semibold transition-colors whitespace-nowrap"
+                                            style={{ background: `${DASH_ACCENT.violet}14`, border: `1px solid ${DASH_ACCENT.violet}33`, color: DASH_ACCENT.violet }}
                                           >
                                             Usar
                                           </button>
@@ -495,7 +525,7 @@ export default function CampanhasPage() {
                                         <button
                                           type="button"
                                           onClick={() => deleteTemplate(tpl.id)}
-                                          className="size-6 rounded bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                                          className="size-6 rounded bg-dash-red/10 border border-dash-red/25 text-dash-red flex items-center justify-center hover:bg-dash-red/20 transition-colors"
                                         >
                                           <Trash2 className="size-3" />
                                         </button>
@@ -511,17 +541,19 @@ export default function CampanhasPage() {
 
                       <div className="space-y-3">
                         {messages.map((m, i) => (
-                          <div key={m.id} className="rounded-xl border border-white/10 bg-bg/40 p-4">
+                          <div key={m.id} className="rounded-xl border border-dash-border bg-dash-subtle p-4">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
-                                <span className="size-5 rounded-full bg-primary text-bg text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
-                                <span className="text-xs font-semibold text-ink-300 uppercase tracking-wide">Mensagem {i + 1}</span>
+                                <span className="size-5 rounded-full bg-dash-green text-white text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                                <span className="text-xs font-semibold text-dash-muted uppercase tracking-wide">Mensagem {i + 1}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <button type="button" onClick={() => insertVar(m.id, "{nome}")} className="text-xs px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20">+ {"{nome}"}</button>
-                                <button type="button" onClick={() => insertVar(m.id, "{numero}")} className="text-xs px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20">+ {"{numero}"}</button>
+                                <button type="button" onClick={() => insertVar(m.id, "{nome}")} className="text-xs px-2 py-1 rounded bg-dash-green/10 border border-dash-green/25 text-dash-green hover:bg-dash-green/20">+ {"{nome}"}</button>
+                                <button type="button" onClick={() => insertVar(m.id, "{numero}")} className="text-xs px-2 py-1 rounded bg-dash-green/10 border border-dash-green/25 text-dash-green hover:bg-dash-green/20">+ {"{numero}"}</button>
                                 {messages.length > 1 && (
-                                  <button type="button" onClick={() => removeMessage(m.id)} className="text-xs px-2 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-300 hover:bg-red-500/20">✕</button>
+                                  <button type="button" onClick={() => removeMessage(m.id)} className="text-xs px-2 py-1 rounded bg-dash-red/10 border border-dash-red/25 text-dash-red hover:bg-dash-red/20">
+                                    <X className="size-3" />
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -531,44 +563,45 @@ export default function CampanhasPage() {
                               onChange={(e) => updateMessage(m.id, e.target.value)}
                               placeholder={`Digite a mensagem ${i + 1} aqui...`}
                               rows={4}
-                              className="w-full rounded-lg bg-bg/60 border border-white/10 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 outline-none focus:border-primary/60 resize-y"
+                              className="dash-input w-full resize-y"
                             />
                           </div>
                         ))}
                       </div>
-                      <div className="text-xs text-ink-500 mt-2">💡 Nº1 vai pro contato 1, Nº2 pro contato 2... evita padrão e reduz risco de banimento</div>
+                      <div className="flex items-start gap-1.5 text-xs text-dash-faint mt-2">
+                        <Info className="size-3.5 shrink-0 mt-0.5" />
+                        Nº1 vai pro contato 1, Nº2 pro contato 2... evita padrão e reduz risco de banimento
+                      </div>
                     </div>
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-sm font-medium text-ink-100 flex items-center gap-1.5">
-                          <Paperclip className="size-4" /> Anexo <span className="text-xs text-ink-500 font-normal">(opcional)</span>
+                        <label className="text-sm font-medium text-dash-ink flex items-center gap-1.5">
+                          <Paperclip className="size-4" /> Anexo <span className="text-xs text-dash-faint font-normal">(opcional)</span>
                         </label>
-                        {media && <button type="button" onClick={removeMedia} className="text-xs text-red-400 hover:text-red-300">✕ Remover</button>}
+                        {media && <button type="button" onClick={removeMedia} className="text-xs text-dash-red hover:opacity-80 font-medium">Remover</button>}
                       </div>
                       {!media ? (
                         <label className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed transition-all cursor-pointer p-6
-                          ${uploadingMedia ? "border-primary/40 bg-primary/5" : "border-white/10 hover:border-white/25 hover:bg-white/[0.02]"}`}>
+                          ${uploadingMedia ? "border-dash-green/40 bg-dash-green/5" : "border-dash-border hover:border-dash-faint hover:bg-dash-subtle"}`}>
                           <input type="file" className="hidden"
                             accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.csv,.txt"
                             onChange={(e) => e.target.files?.[0] && uploadMedia(e.target.files[0])}
                             disabled={uploadingMedia} />
                           {uploadingMedia ? (
-                            <><span className="size-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            <span className="text-xs text-ink-400">Enviando...</span></>
+                            <><span className="size-5 border-2 border-dash-green border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs text-dash-muted">Enviando...</span></>
                           ) : (
-                            <><Paperclip className="size-6 text-ink-500" />
-                            <span className="text-xs text-ink-400 text-center">Clique ou arraste o arquivo aqui · Máx. 64 MB</span></>
+                            <><Paperclip className="size-6 text-dash-faint" />
+                            <span className="text-xs text-dash-muted text-center">Clique ou arraste o arquivo aqui · Máx. 64 MB</span></>
                           )}
                         </label>
                       ) : (
-                        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/25 bg-primary/5">
-                          <span className="text-2xl flex-shrink-0">
-                            {media.type === "image" ? "🖼️" : media.type === "video" ? "🎥" : media.type === "audio" ? "🎵" : "📄"}
-                          </span>
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-dash-green/25 bg-dash-green/5">
+                          {(() => { const MIcon = mediaIcon(media.type); return <MIcon className="size-6 text-dash-green flex-shrink-0" />; })()}
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-ink-100 truncate">{media.originalname || media.filename}</div>
-                            <div className="text-xs text-ink-400 mt-0.5">{media.type} · {media.size ? (media.size / 1024 / 1024).toFixed(2) + " MB" : ""}</div>
+                            <div className="text-sm font-medium text-dash-ink truncate">{media.originalname || media.filename}</div>
+                            <div className="text-xs text-dash-faint mt-0.5">{media.type} · {media.size ? (media.size / 1024 / 1024).toFixed(2) + " MB" : ""}</div>
                           </div>
                           {media.type === "image" && media.url && (
                             <img src={media.url} alt="" className="size-12 rounded-lg object-cover flex-shrink-0" />
@@ -582,36 +615,36 @@ export default function CampanhasPage() {
                 {/* ── STEP 2: DESTINATÁRIOS ── */}
                 {step === 2 && (
                   <>
-                    <Field label="Lista de Contatos">
-                      <Select value={listSel} onChange={(e) => setListSel(e.target.value)}>
+                    <LightField label="Lista de Contatos">
+                      <select value={listSel} onChange={(e) => setListSel(e.target.value)} className="dash-input">
                         <option value="">— Selecione uma lista —</option>
-                        <option value="leads">👥 Leads do sistema ({leads.length})</option>
+                        <option value="leads">Leads do sistema ({leads.length})</option>
                         {lists.map(l => (
-                          <option key={l.id} value={`list:${l.id}`}>📋 {l.name} ({l.total || l.contacts_count || 0} contatos)</option>
+                          <option key={l.id} value={`list:${l.id}`}>{l.name} ({l.total || l.contacts_count || 0} contatos)</option>
                         ))}
-                      </Select>
-                    </Field>
+                      </select>
+                    </LightField>
                     {contacts.length > 0 ? (
-                      <div className="rounded-xl border border-white/10 p-3">
+                      <div className="rounded-xl border border-dash-border p-3">
                         <div className="flex items-center gap-3 text-xs mb-2">
-                          <button onClick={selectAll} className="text-primary font-medium">Selecionar todos</button>
-                          <span className="text-ink-500">|</span>
-                          <button onClick={deselectAll} className="text-ink-300">Desmarcar todos</button>
-                          <span className="ml-auto text-ink-500">{selected.size} selecionados</span>
+                          <button onClick={selectAll} className="text-dash-green font-medium">Selecionar todos</button>
+                          <span className="text-dash-border">|</span>
+                          <button onClick={deselectAll} className="text-dash-muted">Desmarcar todos</button>
+                          <span className="ml-auto text-dash-faint">{selected.size} selecionados</span>
                         </div>
                         <div className="max-h-64 overflow-y-auto space-y-1">
                           {contacts.map((c) => (
-                            <label key={c.phone} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.04] cursor-pointer text-sm">
-                              <input type="checkbox" checked={selected.has(c.phone)} onChange={() => toggle(c.phone)} className="accent-primary" />
-                              <span className="flex-1 truncate">{c.name || "—"}</span>
-                              <span className="text-xs text-ink-500 font-mono">{c.phone}</span>
+                            <label key={c.phone} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-dash-subtle cursor-pointer text-sm">
+                              <input type="checkbox" checked={selected.has(c.phone)} onChange={() => toggle(c.phone)} className="accent-[#0E8A47]" />
+                              <span className="flex-1 truncate text-dash-ink2">{c.name || "—"}</span>
+                              <span className="text-xs text-dash-faint font-mono">{c.phone}</span>
                             </label>
                           ))}
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-ink-500 border border-dashed border-white/10 rounded-xl py-8 text-center">
-                        Selecione uma lista para escolher os destinatários
+                      <div className="dash-empty py-8">
+                        <p className="text-sm text-dash-faint m-0">Selecione uma lista para escolher os destinatários</p>
                       </div>
                     )}
                   </>
@@ -620,24 +653,24 @@ export default function CampanhasPage() {
                 {/* ── STEP 3: AGENDAMENTO + ENVIO ── */}
                 {step === 3 && (
                   <>
-                    <Field label="Quando enviar" hint="Deixe em branco para disparar imediatamente">
-                      <Input type="datetime-local" value={schedule} onChange={(e) => setSchedule(e.target.value)} />
-                    </Field>
+                    <LightField label="Quando enviar" hint="Deixe em branco para disparar imediatamente">
+                      <input type="datetime-local" value={schedule} onChange={(e) => setSchedule(e.target.value)} className="dash-input" />
+                    </LightField>
 
-                    <div className="rounded-xl border border-white/10 bg-bg/40 p-4 space-y-3">
-                      <div className="text-xs font-semibold text-ink-300 uppercase tracking-wide">⏱️ Configurações de envio</div>
+                    <div className="rounded-xl border border-dash-border bg-dash-subtle p-4 space-y-3">
+                      <div className="dash-section-label !mb-0">Configurações de envio</div>
                       <div className="grid grid-cols-2 gap-3">
-                        <Field label="Delay entre msgs (seg)" hint="Recomendado: 3–10 seg">
-                          <Input type="number" min={1} max={60} value={delay} onChange={(e) => setDelay(e.target.value)} />
-                        </Field>
-                        <Field label="Pausar a cada X msgs" hint="0 = sem pausa">
-                          <Input type="number" min={0} max={1000} value={pauseEvery} onChange={(e) => setPauseEvery(e.target.value)} />
-                        </Field>
+                        <LightField label="Delay entre msgs (seg)" hint="Recomendado: 3–10 seg">
+                          <input type="number" min={1} max={60} value={delay} onChange={(e) => setDelay(e.target.value)} className="dash-input" />
+                        </LightField>
+                        <LightField label="Pausar a cada X msgs" hint="0 = sem pausa">
+                          <input type="number" min={0} max={1000} value={pauseEvery} onChange={(e) => setPauseEvery(e.target.value)} className="dash-input" />
+                        </LightField>
                       </div>
                       {parseInt(pauseEvery) > 0 && (
-                        <Field label="Duração da pausa (minutos)">
-                          <Input type="number" min={1} max={60} value={pauseDuration} onChange={(e) => setPauseDuration(e.target.value)} />
-                        </Field>
+                        <LightField label="Duração da pausa (minutos)">
+                          <input type="number" min={1} max={60} value={pauseDuration} onChange={(e) => setPauseDuration(e.target.value)} className="dash-input" />
+                        </LightField>
                       )}
                     </div>
 
@@ -648,56 +681,60 @@ export default function CampanhasPage() {
                       const selectedSource = sourceSessionSlot ? connectedSessions.find(s => String(s.slot) === sourceSessionSlot) : null;
                       const hasCloudCfg = !!(cloudConfig?.has_token && cloudConfig?.enabled);
                       return (
-                        <div className="rounded-xl border border-white/10 bg-bg/40 p-4 space-y-3">
-                          <div className="text-xs font-semibold text-ink-300 uppercase tracking-wide">📱 Conexões de saída</div>
+                        <div className="rounded-xl border border-dash-border bg-dash-subtle p-4 space-y-3">
+                          <div className="dash-section-label !mb-0">Conexões de saída</div>
                           {!hasAny ? (
-                            <div className="text-sm px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-300">
-                              ⚠️ Nenhum número conectado — <Link href="/dashboard/canais" className="underline font-semibold">conectar agora</Link>
+                            <div className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg"
+                              style={{ background: `${DASH_ACCENT.amber}14`, border: `1px solid ${DASH_ACCENT.amber}33`, color: DASH_ACCENT.amber }}>
+                              <AlertTriangle className="size-4 shrink-0" />
+                              Nenhum número conectado — <Link href="/dashboard/canais" className="underline font-semibold">conectar agora</Link>
                             </div>
                           ) : (
                             <div className="flex flex-wrap gap-2">
                               {connectedSessions.map(s => (
-                                <div key={s.slot} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/25 text-sm">
-                                  <span className="size-2 rounded-full bg-primary" />
-                                  <span className="font-medium text-primary">Número {s.slot}</span>
-                                  {s.phone && <span className="text-ink-400 text-xs">+{s.phone}</span>}
+                                <div key={s.slot} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dash-green/10 border border-dash-green/25 text-sm">
+                                  <span className="size-2 rounded-full bg-dash-green" />
+                                  <span className="font-medium text-dash-green">Número {s.slot}</span>
+                                  {s.phone && <span className="text-dash-faint text-xs">+{s.phone}</span>}
                                 </div>
                               ))}
                             </div>
                           )}
                           {hasAny && (
-                            <Field label="Número de disparo"
+                            <LightField label="Número de disparo"
                               hint={selectedSource ? `Sai pelo Número ${selectedSource.slot}${selectedSource.phone ? ` (+${selectedSource.phone})` : ""}.` : "Automático usa o primeiro; 2 Chips alterna entre os dois."}>
-                              <Select value={sourceSessionSlot}
+                              <select value={sourceSessionSlot}
                                 onChange={(e) => { setSourceSessionSlot(e.target.value); if (e.target.value) setDualChip(false); }}
-                                disabled={channel === "cloud"}>
+                                disabled={channel === "cloud"}
+                                className="dash-input disabled:opacity-50">
                                 <option value="">Automático</option>
                                 {connectedSessions.map(s => (
                                   <option key={s.slot} value={s.slot}>Número {s.slot}{s.phone ? ` (+${s.phone})` : ""}</option>
                                 ))}
-                              </Select>
-                            </Field>
+                              </select>
+                            </LightField>
                           )}
                           <div>
-                            <div className="text-xs font-semibold text-ink-400 mb-2 uppercase tracking-wide">Canal de envio</div>
+                            <div className="text-xs font-semibold text-dash-muted mb-2 uppercase tracking-wide">Canal de envio</div>
                             <div className="grid grid-cols-3 gap-2">
                               {[
-                                { value: "auto", icon: "⚡", label: "Automático", desc: "Canal disponível" },
-                                { value: "baileys", icon: "📱", label: "WhatsApp", desc: "Número conectado" },
-                                { value: "cloud", icon: "☁️", label: "API Meta", desc: "Business API" },
+                                { value: "auto", Icon: Zap, label: "Automático", desc: "Canal disponível" },
+                                { value: "baileys", Icon: Smartphone, label: "WhatsApp", desc: "Número conectado" },
+                                { value: "cloud", Icon: Cloud, label: "API Meta", desc: "Business API" },
                               ].map(opt => {
                                 const disabled = opt.value === "cloud" && !hasCloudCfg;
                                 const active = channel === opt.value;
+                                const OptIcon = opt.Icon;
                                 return (
                                   <button key={opt.value} type="button" disabled={disabled}
                                     onClick={() => { if (disabled) return; setChannel(opt.value); if (opt.value === "cloud") { setSourceSessionSlot(""); setDualChip(false); } }}
                                     className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border text-center transition-all
-                                      ${disabled ? "opacity-30 cursor-not-allowed border-white/10 bg-white/[0.02]" :
-                                        active ? "border-primary/50 bg-primary/10 text-primary" :
-                                        "border-white/10 bg-white/[0.02] hover:border-white/20 text-ink-300"}`}>
-                                    <span className="text-base">{opt.icon}</span>
+                                      ${disabled ? "opacity-40 cursor-not-allowed border-dash-border bg-white" :
+                                        active ? "border-dash-green/50 bg-dash-green/10 text-dash-green" :
+                                        "border-dash-border bg-white hover:border-dash-faint text-dash-muted"}`}>
+                                    <OptIcon className="size-4" />
                                     <span className="text-xs font-semibold">{opt.label}</span>
-                                    <span className="text-[10px] text-ink-500">{disabled ? "Não configurado" : opt.desc}</span>
+                                    <span className="text-[10px] text-dash-faint">{disabled ? "Não configurado" : opt.desc}</span>
                                   </button>
                                 );
                               })}
@@ -706,19 +743,19 @@ export default function CampanhasPage() {
                           <div
                             onClick={() => { if (!hasTwo) return; setDualChip(v => { const n = !v; if (n) setSourceSessionSlot(""); return n; }); }}
                             className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all cursor-pointer select-none
-                              ${!hasTwo ? "opacity-40 cursor-not-allowed border-white/10 bg-white/[0.02]" :
-                                dualChip ? "border-primary/40 bg-primary/8" : "border-white/10 bg-white/[0.02] hover:border-white/20"}`}>
+                              ${!hasTwo ? "opacity-40 cursor-not-allowed border-dash-border bg-white" :
+                                dualChip ? "border-dash-green/40 bg-dash-green/8" : "border-dash-border bg-white hover:border-dash-faint"}`}>
                             <div className="flex items-center gap-3">
-                              <span className="text-lg">🔄</span>
+                              <Repeat2 className="size-5 text-dash-muted" />
                               <div>
-                                <div className="text-sm font-semibold flex items-center gap-2">
+                                <div className="text-sm font-semibold flex items-center gap-2 text-dash-ink">
                                   Modo 2 Chips
-                                  {!hasTwo && <span className="text-xs font-normal text-ink-500 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">Requer 2 números</span>}
+                                  {!hasTwo && <span className="text-xs font-normal text-dash-faint bg-dash-subtle border border-dash-border px-2 py-0.5 rounded-full">Requer 2 números</span>}
                                 </div>
-                                <div className="text-xs text-ink-400 mt-0.5">Alterna entre os 2 números — reduz risco de banimento</div>
+                                <div className="text-xs text-dash-faint mt-0.5">Alterna entre os 2 números — reduz risco de banimento</div>
                               </div>
                             </div>
-                            <div className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${dualChip && hasTwo ? "bg-primary" : "bg-white/10"}`}>
+                            <div className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${dualChip && hasTwo ? "bg-dash-green" : "bg-dash-border"}`}>
                               <div className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ${dualChip && hasTwo ? "translate-x-5" : "translate-x-0.5"}`} />
                             </div>
                           </div>
@@ -731,7 +768,7 @@ export default function CampanhasPage() {
                 {/* ── STEP 4: REVISÃO ── */}
                 {step === 4 && (
                   <div className="space-y-3">
-                    <div className="text-sm font-semibold mb-1">Resumo da campanha</div>
+                    <div className="text-sm font-semibold mb-1 text-dash-ink">Resumo da campanha</div>
                     {[
                       ["Mensagens", `${msgCount} variação(ões)`],
                       ["Destinatários", `${selected.size} contato(s)`],
@@ -742,13 +779,13 @@ export default function CampanhasPage() {
                       ["Delay / Pausa", `${delay}s · pausa a cada ${pauseEvery || 0}`],
                       ["Anexo", media ? (media.originalname || media.filename) : "Nenhum"],
                     ].map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between gap-3 text-sm border-b border-white/[0.05] pb-2">
-                        <span className="text-ink-500">{k}</span>
-                        <span className="text-ink-100 font-medium text-right">{v}</span>
+                      <div key={k} className="flex items-center justify-between gap-3 text-sm border-b border-dash-border2 pb-2">
+                        <span className="text-dash-faint">{k}</span>
+                        <span className="text-dash-ink font-medium text-right">{v}</span>
                       </div>
                     ))}
-                    <div className="flex items-center gap-2 text-xs text-ink-400 mt-3 px-3 py-2.5 rounded-xl border border-primary/20 bg-primary/[0.04]">
-                      <ShieldCheck className="size-4 text-primary shrink-0" />
+                    <div className="flex items-center gap-2 text-xs text-dash-muted mt-3 px-3 py-2.5 rounded-xl border border-dash-green/20 bg-dash-green/[0.04]">
+                      <ShieldCheck className="size-4 text-dash-green shrink-0" />
                       Envio em conformidade com as políticas do WhatsApp. Respeite consentimento dos contatos.
                     </div>
                   </div>
@@ -756,62 +793,66 @@ export default function CampanhasPage() {
               </motion.div>
             </AnimatePresence>
 
-            {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mt-4">{err}</div>}
-            {ok && <div className="text-sm text-primary bg-primary/10 border border-primary/25 rounded-xl px-4 py-3 mt-4">{ok}</div>}
+            {err && <div className="text-sm text-dash-red bg-dash-red/10 border border-dash-red/25 rounded-xl px-4 py-3 mt-4">{err}</div>}
+            {ok && <div className="text-sm text-dash-green bg-dash-green/10 border border-dash-green/25 rounded-xl px-4 py-3 mt-4">{ok}</div>}
 
-            <div className="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-white/[0.06]">
-              <Button variant="ghost" onClick={back} disabled={step === 1} className="!py-2.5">
+            <div className="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-dash-border2">
+              <DashButton variant="ghost" onClick={back} disabled={step === 1} className="!py-2.5">
                 <ChevronLeft className="size-4" /> Voltar
-              </Button>
+              </DashButton>
               {step < 4 ? (
-                <Button onClick={next} disabled={!canContinue} className="!py-2.5">
+                <DashButton onClick={next} disabled={!canContinue} className="!py-2.5">
                   Continuar <ChevronRight className="size-4" />
-                </Button>
+                </DashButton>
               ) : (
-                <Button onClick={sendDispatch} loading={sending} className="!py-2.5 flex-1 sm:flex-none">
+                <DashButton onClick={sendDispatch} loading={sending} className="!py-2.5 flex-1 sm:flex-none">
                   <Send className="size-4" /> Confirmar e enviar
-                </Button>
+                </DashButton>
               )}
             </div>
           </div>
 
           {/* Pré-visualização */}
-          <div className="rounded-2xl border border-white/[0.06] p-5 lg:sticky lg:top-4"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}>
-            <div className="text-sm font-semibold mb-3">Pré-visualização</div>
-            <div className="rounded-2xl border border-white/10 bg-[#0b141a] p-3">
+          <div className="dash-card lg:sticky lg:top-4">
+            <div className="text-sm font-semibold mb-3 text-dash-ink">Pré-visualização</div>
+            <div className="rounded-2xl border border-dash-border bg-[#0b141a] p-3">
               <div className="flex items-center gap-2 mb-2">
-                <div className="size-7 rounded-full bg-gradient-to-br from-primary to-accent-blue" />
+                <div className="size-7 rounded-full" style={{ background: `linear-gradient(135deg, ${DASH_ACCENT.amber}, ${DASH_ACCENT.emerald})` }} />
                 <div className="text-xs">
                   <div className="font-semibold text-white">Seu Número</div>
                   <div className="text-[10px] text-emerald-400">online</div>
                 </div>
               </div>
               <div className="bg-[#202c33] rounded-xl rounded-tl-sm px-3 py-2 text-[13px] text-[#e9edef] whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
-                {firstMsgPreview || <span className="text-ink-600 italic">Sua mensagem aparece aqui…</span>}
-                {media && <div className="mt-2 text-[11px] text-emerald-400">📎 {media.type}</div>}
+                {firstMsgPreview || <span className="text-white/40 italic">Sua mensagem aparece aqui…</span>}
+                {media && <div className="mt-2 text-[11px] text-emerald-400 flex items-center gap-1"><Paperclip className="size-3" /> {media.type}</div>}
               </div>
             </div>
             <div className="mt-4 space-y-2 text-xs">
-              <div className="flex justify-between"><span className="text-ink-500">Destinatários</span><span className="font-semibold">{selected.size}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">Variáveis</span><span className="text-ink-300">{"{nome}"} · {"{numero}"}</span></div>
-              <div className="flex justify-between"><span className="text-ink-500">Envio</span><span className="text-ink-300">{schedule ? "Agendado" : "Imediato"}</span></div>
+              <div className="flex justify-between"><span className="text-dash-faint">Destinatários</span><span className="font-semibold text-dash-ink">{selected.size}</span></div>
+              <div className="flex justify-between"><span className="text-dash-faint">Variáveis</span><span className="text-dash-muted">{"{nome}"} · {"{numero}"}</span></div>
+              <div className="flex justify-between"><span className="text-dash-faint">Envio</span><span className="text-dash-muted">{schedule ? "Agendado" : "Imediato"}</span></div>
             </div>
           </div>
         </div>
 
         {/* ── Histórico / monitor de campanhas (preservado) ── */}
-        <div className="rounded-2xl border border-white/[0.06] p-5"
-          style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}>
+        <div className="dash-card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-semibold">Campanhas</h3>
-              <p className="text-xs text-ink-500">Acompanhe, pause ou cancele disparos em andamento</p>
+              <h3 className="font-semibold text-dash-ink m-0">Campanhas</h3>
+              <p className="text-xs text-dash-faint m-0">Acompanhe, pause ou cancele disparos em andamento</p>
             </div>
-            <button onClick={loadAll} className="text-xs text-ink-300 hover:text-primary">🔄 Atualizar</button>
+            <DashIconButton onClick={loadAll} title="Atualizar"><RefreshCw className="size-3.5" /></DashIconButton>
           </div>
           {dispatches.length === 0 ? (
-            <p className="text-sm text-ink-500 text-center py-8">Nenhum disparo realizado ainda</p>
+            <DashEmptyState
+              icon={Megaphone}
+              accent={ACCENT}
+              title="Nenhuma campanha ainda"
+              desc="Configure sua mensagem e destinatários acima para criar o primeiro disparo."
+              cta={{ label: "Nova campanha", icon: Send, onClick: () => { setStep(1); topRef.current?.scrollIntoView({ behavior: "smooth" }); } }}
+            />
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {dispatches.slice().reverse().map((d) => {
@@ -822,32 +863,34 @@ export default function CampanhasPage() {
                 const delivered = sent + failed;
                 const okRate = delivered ? sent / delivered : (total ? 1 : 0);
                 const hScore = Math.round(okRate * 100);
-                const hColor = hScore >= 85 ? "#00FF88" : hScore >= 60 ? "#F59E0B" : "#EF4444";
+                const hColor = hScore >= 85 ? DASH_ACCENT.emerald : hScore >= 60 ? DASH_ACCENT.amber : DASH_ACCENT.red;
                 const hLabel = hScore >= 85 ? "Saudável" : hScore >= 60 ? "Atenção" : "Crítico";
-                const s = STATUS[d.status] || { label: d.status || "—", cls: "bg-white/5 text-ink-300 border-white/10" };
+                const s = STATUS[d.status] || { label: d.status || "—", color: DASH_ACCENT.slate };
+                const barColor = d.status === "failed" ? DASH_ACCENT.red : d.status === "completed" ? DASH_ACCENT.green : DASH_ACCENT.amber;
                 return (
                   <button key={d.id} onClick={() => setDetailOpen(d)}
-                    className="text-left rounded-xl border border-white/10 bg-white/[0.02] p-4 hover:border-primary/30 hover:bg-white/[0.04] transition-colors">
+                    className="text-left rounded-2xl border border-dash-border bg-white p-4 hover:border-dash-amber/40 hover:bg-dash-subtle transition-colors">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-medium truncate">{d.message_title || d.messageTitle || "Campanha"}</div>
-                      <span className={`shrink-0 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${s.cls}`}>{s.label}</span>
+                      <div className="text-sm font-medium truncate text-dash-ink">{d.message_title || d.messageTitle || "Campanha"}</div>
+                      <DashBadge color={s.color} dot={false} className="shrink-0">{s.label}</DashBadge>
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
                       {total > 0 && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                           title={`Health score ${hScore}`}
                           style={{ background: `${hColor}1a`, color: hColor, border: `1px solid ${hColor}40` }}>
-                          ◉ {hLabel} · {hScore}
+                          {hLabel} · {hScore}
                         </span>
                       )}
-                      <span className="text-[11px] text-ink-500">{fmtDate(d.created_at || d.createdAt)} · {total} contatos</span>
+                      <span className="text-[11px] text-dash-faint">{fmtDate(d.created_at || d.createdAt)} · {total} contatos</span>
                     </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "linear-gradient(90deg,#00FF88,#00D1FF)" }} />
+                    <div className="mt-2 h-1.5 rounded-full bg-[#F1F3F6] overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
                     </div>
-                    <div className="flex gap-3 mt-1.5 text-[11px] text-ink-300">
-                      <span>✅ {sent}</span><span>❌ {failed}</span>
-                      <span className="ml-auto text-primary">Ver relatório →</span>
+                    <div className="flex gap-3 mt-1.5 text-[11px] text-dash-muted">
+                      <span style={{ color: DASH_ACCENT.emerald }}>{sent} enviados</span>
+                      <span style={{ color: DASH_ACCENT.red }}>{failed} falhas</span>
+                      <span className="ml-auto text-dash-green font-medium">Ver relatório →</span>
                     </div>
                   </button>
                 );
@@ -959,43 +1002,45 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
     } finally { setExporting(false); }
   }
 
+  const STATUS_COLORS = {
+    sent: DASH_ACCENT.emerald,
+    failed: DASH_ACCENT.red,
+    sending: DASH_ACCENT.amber,
+    pending: DASH_ACCENT.slate,
+  };
   const statusBadge = (st) => {
-    const map = {
-      sent:    { label: "Enviado",  cls: "bg-primary/15 text-primary border-primary/30" },
-      failed:  { label: "Falhou",   cls: "bg-red-500/15 text-red-300 border-red-500/30" },
-      sending: { label: "Enviando", cls: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-    };
-    const m = map[st] || { label: "Pendente", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" };
-    return <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${m.cls}`}>{m.label}</span>;
+    const labels = { sent: "Enviado", failed: "Falhou", sending: "Enviando" };
+    const key = labels[st] ? st : "pending";
+    return <DashBadge color={STATUS_COLORS[key]}>{labels[st] || "Pendente"}</DashBadge>;
   };
 
   return (
-    <Modal
+    <DashModal
       open={!!dispatch}
       onClose={onClose}
       size="lg"
       title={dispatch.message_title || dispatch.messageTitle || "Detalhe do Disparo"}
       footer={
         <>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Fechar</button>
+          <DashButton variant="ghost" onClick={onClose}>Fechar</DashButton>
           {isActive && (
-            <button onClick={() => handleAction("pause")} disabled={actionLoading === "pause"} className="px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-              {actionLoading === "pause" ? "Pausando..." : "⏸ Pausar"}
-            </button>
+            <DashButton variant="secondary" onClick={() => handleAction("pause")} loading={actionLoading === "pause"}>
+              <Pause className="size-4" /> Pausar
+            </DashButton>
           )}
           {isPaused && (
-            <button onClick={() => handleAction("resume")} disabled={actionLoading === "resume"} className="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-              {actionLoading === "resume" ? "Retomando..." : "▶ Retomar"}
-            </button>
+            <DashButton variant="secondary" onClick={() => handleAction("resume")} loading={actionLoading === "resume"}>
+              <Play className="size-4" /> Retomar
+            </DashButton>
           )}
           {(isActive || isPaused) && (
-            <button onClick={() => { if (confirm("Cancelar disparo? Os contatos pendentes não receberão a mensagem.")) handleAction("cancel"); }} disabled={actionLoading === "cancel"} className="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-              {actionLoading === "cancel" ? "Cancelando..." : "✕ Cancelar"}
-            </button>
+            <DashButton variant="danger" onClick={() => { if (confirm("Cancelar disparo? Os contatos pendentes não receberão a mensagem.")) handleAction("cancel"); }} loading={actionLoading === "cancel"}>
+              <XCircle className="size-4" /> Cancelar
+            </DashButton>
           )}
-          <button onClick={exportXLSX} disabled={exporting || !items.length} className="px-4 py-2 rounded-lg bg-primary text-bg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-            {exporting ? "Gerando..." : "📊 Exportar Excel"}
-          </button>
+          <DashButton onClick={exportXLSX} loading={exporting} disabled={!items.length}>
+            <FileDown className="size-4" /> Exportar Excel
+          </DashButton>
         </>
       }
     >
@@ -1008,8 +1053,8 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
 
       {(dispatch.message_content || dispatch.messageContent) && (
         <div className="mb-5">
-          <div className="text-xs text-ink-400 uppercase tracking-wider mb-1">Mensagem enviada</div>
-          <div className="rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3 text-sm whitespace-pre-wrap max-h-32 overflow-y-auto">
+          <div className="dash-section-label">Mensagem enviada</div>
+          <div className="rounded-xl bg-dash-subtle border border-dash-border px-4 py-3 text-sm text-dash-ink2 whitespace-pre-wrap max-h-32 overflow-y-auto">
             {dispatch.message_content || dispatch.messageContent}
           </div>
         </div>
@@ -1018,15 +1063,15 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
       <div className="flex gap-2 mb-3">
         {[
           { v: "all",     label: `Todos (${items.length})` },
-          { v: "sent",    label: `✅ ${sent}` },
-          { v: "failed",  label: `❌ ${failed}` },
-          { v: "pending", label: `⌛ ${pending}` },
+          { v: "sent",    label: `Enviados (${sent})` },
+          { v: "failed",  label: `Falhas (${failed})` },
+          { v: "pending", label: `Pendentes (${pending})` },
         ].map((f) => (
           <button
             key={f.v}
             onClick={() => setFilter(f.v)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-              filter === f.v ? "bg-primary/15 text-primary border-primary/30" : "bg-white/5 text-ink-300 border-white/10 hover:bg-white/10"
+              filter === f.v ? "bg-dash-green/10 text-dash-green border-dash-green/30" : "bg-dash-subtle text-dash-muted border-dash-border hover:border-dash-faint"
             }`}
           >
             {f.label}
@@ -1034,45 +1079,46 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
         ))}
       </div>
 
-      <div className="rounded-xl border border-white/10 overflow-hidden max-h-[50vh] overflow-y-auto">
+      <div className="rounded-xl border border-dash-border overflow-hidden max-h-[50vh] overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="bg-white/[0.04] sticky top-0 z-10">
-            <tr className="text-left text-[11px] text-ink-400 uppercase tracking-wider">
-              <th className="px-3 py-2">Contato</th>
-              <th className="px-3 py-2">Número</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2 hidden sm:table-cell">Quando</th>
-              <th className="px-3 py-2 hidden md:table-cell">Erro</th>
+          <thead className="bg-dash-subtle sticky top-0 z-10">
+            <tr className="text-left">
+              <th className="dash-th">Contato</th>
+              <th className="dash-th">Número</th>
+              <th className="dash-th">Status</th>
+              <th className="dash-th hidden sm:table-cell">Quando</th>
+              <th className="dash-th hidden md:table-cell">Erro</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.04]">
+          <tbody className="divide-y divide-dash-border2">
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-3 py-6 text-center text-ink-500">Nenhum item nesse filtro</td></tr>
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-dash-faint">Nenhum item nesse filtro</td></tr>
             ) : filtered.map((i, idx) => (
-              <tr key={idx} className="hover:bg-white/[0.02]">
-                <td className="px-3 py-2 font-medium">{i.contactName || i.name || "—"}</td>
-                <td className="px-3 py-2 text-ink-300 font-mono text-xs">{i.contactPhone || i.phone || "—"}</td>
+              <tr key={idx} className="hover:bg-dash-subtle">
+                <td className="px-3 py-2 font-medium text-dash-ink">{i.contactName || i.name || "—"}</td>
+                <td className="px-3 py-2 text-dash-muted font-mono text-xs">{i.contactPhone || i.phone || "—"}</td>
                 <td className="px-3 py-2">{statusBadge(i.status)}</td>
-                <td className="px-3 py-2 text-ink-400 text-xs hidden sm:table-cell">{i.sentAt ? new Date(i.sentAt).toLocaleString("pt-BR") : "—"}</td>
-                <td className="px-3 py-2 text-red-400 text-xs hidden md:table-cell max-w-xs truncate" title={i.error}>{i.error || "—"}</td>
+                <td className="px-3 py-2 text-dash-faint text-xs hidden sm:table-cell">{i.sentAt ? new Date(i.sentAt).toLocaleString("pt-BR") : "—"}</td>
+                <td className="px-3 py-2 text-dash-red text-xs hidden md:table-cell max-w-xs truncate" title={i.error}>{i.error || "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </Modal>
+    </DashModal>
   );
 }
 
 function Stat({ label, value, tone = "neutral" }) {
   const tones = {
-    neutral: "bg-white/[0.03] border-white/10 text-ink-100",
-    success: "bg-primary/[0.08] border-primary/30 text-primary",
-    danger:  "bg-red-500/[0.08] border-red-500/30 text-red-300",
-    warn:    "bg-yellow-500/[0.06] border-yellow-500/25 text-yellow-300",
+    neutral: { bg: "bg-dash-subtle", border: "border-dash-border", text: "text-dash-ink" },
+    success: { bg: "bg-dash-green/[0.08]", border: "border-dash-green/30", text: "text-dash-green" },
+    danger:  { bg: "bg-dash-red/[0.08]", border: "border-dash-red/30", text: "text-dash-red" },
+    warn:    { bg: "bg-dash-amber/[0.08]", border: "border-dash-amber/30", text: "text-dash-amber" },
   };
+  const t = tones[tone];
   return (
-    <div className={`rounded-lg border px-3 py-2.5 ${tones[tone]}`}>
+    <div className={`rounded-lg border px-3 py-2.5 ${t.bg} ${t.border} ${t.text}`}>
       <div className="text-[10px] uppercase tracking-wider opacity-70 font-semibold">{label}</div>
       <div className="text-2xl font-bold tabular-nums leading-tight mt-0.5">{value.toLocaleString("pt-BR")}</div>
     </div>

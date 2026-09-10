@@ -19,9 +19,11 @@ import {
 } from "lucide-react";
 import { API_URL, getToken } from "../../../lib/api";
 import { useRouter } from "next/navigation";
-import EmptyState from "../../../components/dashboard/EmptyState";
+import { DashButton, DashIconButton, DashBadge, DashTh } from "../../../components/dashboard/DashUI";
+import { DASH_ACCENT, SCREEN_ACCENT, dashHeaderIconStyle } from "../../../components/dashboard/dashTheme";
 
 // ─── helpers ────────────────────────────────────────────────
+const ACCENT = SCREEN_ACCENT.crm; // azul #2F80ED
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 }).format(v || 0);
 const fmtDate = (d) => {
   if (!d) return "";
@@ -33,7 +35,7 @@ const fmtDate = (d) => {
   if (diff < 604800) return `há ${Math.floor(diff / 86400)}d`;
   return dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 };
-const scoreColor = (s) => s >= 71 ? "#00FF88" : s >= 41 ? "#f59e0b" : "#ef4444";
+const scoreColor = (s) => s >= 71 ? DASH_ACCENT.green : s >= 41 ? DASH_ACCENT.amber : DASH_ACCENT.red;
 const scoreLabel = (s) => s >= 71 ? "Quente" : s >= 41 ? "Morno" : "Frio";
 const initials = (name) => name?.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase() || "?";
 
@@ -50,16 +52,16 @@ async function apiFetch(path, opts = {}) {
 
 // ─── activity icons/labels ───────────────────────────────────
 const ACT_META = {
-  created:           { icon: User,        label: "Lead criado",         color: "#6366f1" },
-  stage_change:      { icon: ArrowRight,  label: "Etapa alterada",      color: "#00D1FF" },
-  note:              { icon: Edit2,        label: "Nota",                color: "#8b5cf6" },
-  message_sent:      { icon: MessageSquare,label: "Mensagem enviada",   color: "#00FF88" },
-  message_received:  { icon: MessageSquare,label: "Mensagem recebida",  color: "#f59e0b" },
-  campaign_sent:     { icon: Zap,          label: "Campanha enviada",   color: "#f97316" },
-  workflow_executed: { icon: Activity,     label: "Workflow executado", color: "#00D1FF" },
-  task_created:      { icon: CheckSquare,  label: "Tarefa criada",      color: "#8b5cf6" },
-  task_completed:    { icon: Check,        label: "Tarefa concluída",   color: "#00FF88" },
-  field_updated:     { icon: Edit2,        label: "Campo atualizado",   color: "#6366f1" },
+  created:           { icon: User,        label: "Lead criado",         color: DASH_ACCENT.violet },
+  stage_change:      { icon: ArrowRight,  label: "Etapa alterada",      color: DASH_ACCENT.blue },
+  note:              { icon: Edit2,        label: "Nota",                color: DASH_ACCENT.violet },
+  message_sent:      { icon: MessageSquare,label: "Mensagem enviada",   color: DASH_ACCENT.green },
+  message_received:  { icon: MessageSquare,label: "Mensagem recebida",  color: DASH_ACCENT.amber },
+  campaign_sent:     { icon: Zap,          label: "Campanha enviada",   color: DASH_ACCENT.amber },
+  workflow_executed: { icon: Activity,     label: "Workflow executado", color: DASH_ACCENT.blue },
+  task_created:      { icon: CheckSquare,  label: "Tarefa criada",      color: DASH_ACCENT.violet },
+  task_completed:    { icon: Check,        label: "Tarefa concluída",   color: DASH_ACCENT.green },
+  field_updated:     { icon: Edit2,        label: "Campo atualizado",   color: DASH_ACCENT.slate },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -67,7 +69,11 @@ const ACT_META = {
 // ════════════════════════════════════════════════════════════
 function LeadCard({ lead, onClick, overlay = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging && !overlay ? 0.3 : 1 };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || "transform .22s cubic-bezier(.16,1,.3,1)",
+    opacity: isDragging && !overlay ? 0.3 : 1,
+  };
   const sc = lead.score || 0;
 
   return (
@@ -77,25 +83,25 @@ function LeadCard({ lead, onClick, overlay = false }) {
       {...attributes}
       {...listeners}
       onClick={() => !isDragging && onClick(lead)}
-      className="group relative rounded-xl border border-white/[0.07] bg-[#0d1526] hover:border-white/[0.15] hover:bg-[#111d35] transition-all cursor-pointer select-none touch-none"
+      className="group relative rounded-[14px] border border-dash-border bg-white cursor-pointer select-none touch-none shadow-[0_1px_2px_rgba(10,16,32,.04)] hover:shadow-[0_16px_30px_-22px_rgba(10,16,32,.4)] hover:-translate-y-0.5 transition-[transform,box-shadow] duration-200"
     >
-      <div className="p-3 space-y-2.5">
+      <div className="p-[13px] space-y-2.5">
         {/* Header */}
         <div className="flex items-start gap-2.5">
           {lead.avatar_url ? (
-            <img src={lead.avatar_url} alt={lead.name} className="size-8 rounded-lg object-cover shrink-0 ring-1 ring-white/10" />
+            <img src={lead.avatar_url} alt={lead.name} className="size-8 rounded-lg object-cover shrink-0 ring-1 ring-dash-border" />
           ) : (
-            <div className="size-8 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ring-1 ring-white/10"
-              style={{ background: `${scoreColor(sc)}22`, color: scoreColor(sc) }}>
+            <div className="size-8 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ring-1 ring-dash-border"
+              style={{ background: `${scoreColor(sc)}18`, color: scoreColor(sc) }}>
               {initials(lead.name)}
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-ink-100 truncate">{lead.name}</p>
-            <p className="text-[10px] text-ink-500 truncate">{lead.phone}</p>
+            <p className="text-xs font-semibold text-dash-ink truncate">{lead.name}</p>
+            <p className="text-[10px] text-dash-faint truncate">{lead.phone}</p>
           </div>
           {/* WhatsApp icon */}
-          <svg className="size-3.5 text-[#25D366] shrink-0 opacity-60" fill="currentColor" viewBox="0 0 24 24">
+          <svg className="size-3.5 text-[#25D366] shrink-0 opacity-70" fill="currentColor" viewBox="0 0 24 24">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
             <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.127 1.526 5.868L0 24l6.3-1.656A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.895 0-3.665-.517-5.19-1.418l-.373-.22-3.862 1.016.98-3.782-.242-.389A9.952 9.952 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
           </svg>
@@ -104,13 +110,13 @@ function LeadCard({ lead, onClick, overlay = false }) {
         {/* Source tag */}
         {lead.source && (
           <div className="flex items-center gap-1">
-            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/[0.06] text-ink-400 capitalize">{lead.source}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-dash-subtle border border-dash-border2 text-dash-muted capitalize">{lead.source}</span>
           </div>
         )}
 
         {/* Value + Score */}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-ink-200">
+          <span className="text-[11px] font-semibold text-dash-green" style={{ fontVariantNumeric: "tabular-nums" }}>
             {lead.estimated_value > 0 ? fmt(lead.estimated_value) : "R$ 0"}
           </span>
           <div className="flex items-center gap-1">
@@ -125,15 +131,15 @@ function LeadCard({ lead, onClick, overlay = false }) {
         {lead.tags?.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {lead.tags.slice(0, 2).map(t => (
-              <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{t}</span>
+              <DashBadge key={t} color={ACCENT} dot={false} className="!px-[9px] !py-[3px] !text-[11px]">{t}</DashBadge>
             ))}
-            {lead.tags.length > 2 && <span className="text-[9px] text-ink-500">+{lead.tags.length - 2}</span>}
+            {lead.tags.length > 2 && <span className="text-[9px] text-dash-faint">+{lead.tags.length - 2}</span>}
           </div>
         )}
 
         {/* Last interaction */}
         {lead.last_interaction_at && (
-          <p className="text-[10px] text-ink-600">{fmtDate(lead.last_interaction_at)}</p>
+          <p className="text-[10px] text-dash-faint2">{fmtDate(lead.last_interaction_at)}</p>
         )}
       </div>
     </div>
@@ -157,21 +163,21 @@ function StageColumn({ stage, leads, onLeadClick, onAddLead }) {
   const remaining = leads.length - shown.length;
 
   return (
-    <div className="flex flex-col shrink-0 w-[260px] h-full min-h-0">
+    <div className="flex flex-col shrink-0 w-[260px] h-full min-h-0 rounded-2xl border border-dash-border2 bg-[#F7F8FA] p-3">
       {/* Header */}
-      <div className="shrink-0 flex items-center gap-2 mb-2 px-1">
-        <div className="size-2.5 rounded-full shrink-0" style={{ background: stage.color, boxShadow: `0 0 8px ${stage.color}60` }} />
-        <span className="text-xs font-semibold text-ink-200 flex-1 truncate">{stage.name}</span>
-        <span className="text-[10px] text-ink-500 font-medium">{leads.length}</span>
+      <div className="shrink-0 flex items-center gap-2 mb-2 px-0.5">
+        <div className="size-2.5 rounded-full shrink-0" style={{ background: stage.color }} />
+        <span className="text-[12.5px] font-bold text-dash-ink flex-1 truncate">{stage.name}</span>
+        <span className="font-mono text-[10px] text-dash-faint font-semibold">{leads.length}</span>
       </div>
       {totalValue > 0 && (
-        <p className="shrink-0 text-[10px] text-ink-500 px-1 mb-2">{fmt(totalValue)}</p>
+        <p className="shrink-0 text-[10px] text-dash-faint px-0.5 mb-2">{fmt(totalValue)}</p>
       )}
 
       {/* Cards area — rola internamente (vertical) */}
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-0 overflow-y-auto space-y-2 rounded-xl p-2 transition-colors ${isOver ? "bg-primary/[0.06] border border-primary/20" : "bg-white/[0.02] border border-white/[0.04]"}`}
+        className={`flex-1 min-h-0 overflow-y-auto space-y-2 rounded-xl p-1 transition-colors ${isOver ? "bg-dash-blue/[0.06]" : ""}`}
       >
         <SortableContext items={shown.map(l => l.id)} strategy={verticalListSortingStrategy}>
           {shown.map(lead => (
@@ -182,7 +188,7 @@ function StageColumn({ stage, leads, onLeadClick, onAddLead }) {
         {remaining > 0 && (
           <button
             onClick={() => setVisible(v => v + PAGE_SIZE)}
-            className="w-full py-2 rounded-lg text-[11px] font-medium text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 transition-colors"
+            className="w-full py-2 rounded-lg text-[11px] font-medium text-dash-blue bg-dash-blue/10 border border-dash-blue/25 hover:bg-dash-blue/20 transition-colors"
           >
             Carregar mais ({remaining})
           </button>
@@ -190,7 +196,7 @@ function StageColumn({ stage, leads, onLeadClick, onAddLead }) {
 
         <button
           onClick={() => onAddLead(stage.id)}
-          className="w-full flex items-center gap-1.5 justify-center py-2 rounded-lg text-[11px] text-ink-600 hover:text-ink-400 hover:bg-white/[0.04] transition-colors"
+          className="w-full flex items-center gap-1.5 justify-center py-2 rounded-lg text-[11px] text-dash-faint hover:text-dash-muted hover:bg-white/60 transition-colors"
         >
           <Plus className="size-3.5" />
           Adicionar lead
@@ -266,12 +272,12 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
 
   const Field = ({ label, value, field, type = "text" }) => (
     <div>
-      <p className="text-[10px] text-ink-600 mb-0.5">{label}</p>
+      <p className="text-[10px] text-dash-faint mb-0.5">{label}</p>
       {editing ? (
         <input type={type} value={form[field] || ""} onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
-          className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-xs text-ink-100 outline-none focus:border-primary/40" />
+          className="dash-input !py-1.5 !text-xs" />
       ) : (
-        <p className="text-xs text-ink-200">{value || "—"}</p>
+        <p className="text-xs text-dash-ink2">{value || "—"}</p>
       )}
     </div>
   );
@@ -282,43 +288,42 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 360, opacity: 0 }}
       transition={{ type: "spring", stiffness: 380, damping: 38 }}
-      className="fixed right-0 top-0 h-screen w-[360px] z-40 border-l border-white/[0.08] flex flex-col overflow-hidden"
-      style={{ background: "rgba(9,14,26,0.98)", backdropFilter: "blur(24px)" }}
+      className="fixed right-0 top-0 h-screen w-[360px] z-40 border-l border-dash-border flex flex-col overflow-hidden bg-white shadow-[-16px_0_40px_-24px_rgba(10,16,32,.25)]"
     >
       {/* Header */}
-      <div className="shrink-0 p-4 border-b border-white/[0.06]">
+      <div className="shrink-0 p-4 border-b border-dash-border2">
         <div className="flex items-start gap-3 mb-3">
           {lead.avatar_url ? (
-            <img src={lead.avatar_url} alt={lead.name} className="size-12 rounded-xl object-cover ring-2 ring-white/10" />
+            <img src={lead.avatar_url} alt={lead.name} className="size-12 rounded-xl object-cover ring-1 ring-dash-border" />
           ) : (
-            <div className="size-12 rounded-xl flex items-center justify-center text-base font-bold ring-2 ring-white/10"
-              style={{ background: `${scoreColor(sc)}22`, color: scoreColor(sc) }}>
+            <div className="size-12 rounded-xl flex items-center justify-center text-base font-bold ring-1 ring-dash-border"
+              style={{ background: `${scoreColor(sc)}18`, color: scoreColor(sc) }}>
               {initials(lead.name)}
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h2 className="font-semibold text-ink-50 truncate">{lead.name}</h2>
+            <h2 className="font-semibold text-dash-ink truncate">{lead.name}</h2>
             {stage && (
               <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full mt-1"
-                style={{ background: `${stage.color}20`, color: stage.color, border: `1px solid ${stage.color}40` }}>
+                style={{ background: `${stage.color}14`, color: stage.color, border: `1px solid ${stage.color}33` }}>
                 {stage.name}
               </span>
             )}
           </div>
-          <button onClick={onClose} className="text-ink-500 hover:text-ink-300 shrink-0 mt-0.5">
+          <DashIconButton onClick={onClose} className="shrink-0 mt-0.5">
             <X className="size-4" />
-          </button>
+          </DashIconButton>
         </div>
         {/* Actions */}
         <div className="flex gap-2">
           <button onClick={() => onOpenConversas(lead.phone)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium bg-primary/15 border border-primary/25 text-primary hover:bg-primary/25 transition-colors">
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium bg-dash-blue/10 border border-dash-blue/25 text-dash-blue hover:bg-dash-blue/[0.18] transition-colors">
             <MessageSquare className="size-3.5" />
             Conversa
           </button>
           <button
             onClick={() => setEditing(v => !v)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium bg-white/[0.06] border border-white/[0.1] text-ink-300 hover:text-ink-100 transition-colors">
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium bg-dash-subtle border border-dash-border text-dash-muted hover:text-dash-ink hover:border-dash-faint transition-colors">
             <Edit2 className="size-3.5" />
             Editar
           </button>
@@ -326,10 +331,10 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
       </div>
 
       {/* Tabs */}
-      <div className="shrink-0 flex border-b border-white/[0.06]">
+      <div className="shrink-0 flex border-b border-dash-border2">
         {[["details","Detalhes"],["activities","Histórico"],["tasks","Tarefas"]].map(([v,l]) => (
           <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${tab === v ? "text-primary border-b-2 border-primary" : "text-ink-500 hover:text-ink-300"}`}>
+            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${tab === v ? "text-dash-blue border-b-2 border-dash-blue" : "text-dash-faint hover:text-dash-muted"}`}>
             {l}
           </button>
         ))}
@@ -340,14 +345,14 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
         {tab === "details" && (
           <div className="space-y-5">
             {/* Score */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-dash-subtle border border-dash-border2">
               <div className="size-10 rounded-full border-2 flex items-center justify-center text-sm font-bold"
                 style={{ borderColor: scoreColor(sc), color: scoreColor(sc) }}>
                 {sc}
               </div>
               <div>
                 <p className="text-xs font-semibold" style={{ color: scoreColor(sc) }}>{scoreLabel(sc)}</p>
-                <div className="w-28 h-1.5 bg-white/[0.08] rounded-full mt-1 overflow-hidden">
+                <div className="w-28 h-1.5 bg-dash-border rounded-full mt-1 overflow-hidden">
                   <div className="h-full rounded-full transition-all" style={{ width: `${sc}%`, background: scoreColor(sc) }} />
                 </div>
               </div>
@@ -355,7 +360,7 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
 
             {/* Principal */}
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-600 mb-2">Informações principais</p>
+              <p className="dash-section-label !mb-2">Informações principais</p>
               <div className="space-y-2.5">
                 <Field label="Nome" value={lead.name} field="name" />
                 <div className="flex items-center gap-1">
@@ -373,29 +378,29 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
 
             {/* Comercial */}
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-600 mb-2">Comercial</p>
+              <p className="dash-section-label !mb-2">Comercial</p>
               <div className="space-y-2.5">
                 <div>
-                  <p className="text-[10px] text-ink-600 mb-0.5">Valor estimado</p>
+                  <p className="text-[10px] text-dash-faint mb-0.5">Valor estimado</p>
                   {editing ? (
                     <input type="number" value={form.estimated_value || 0}
                       onChange={e => setForm(p => ({ ...p, estimated_value: e.target.value }))}
-                      className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-xs text-ink-100 outline-none focus:border-primary/40" />
+                      className="dash-input !py-1.5 !text-xs" />
                   ) : (
-                    <p className="text-xs font-semibold text-primary">{fmt(lead.estimated_value)}</p>
+                    <p className="text-xs font-semibold text-dash-green">{fmt(lead.estimated_value)}</p>
                   )}
                 </div>
                 <div>
-                  <p className="text-[10px] text-ink-600 mb-0.5">Etapa</p>
-                  <p className="text-xs text-ink-200">{stage?.name || "—"}</p>
+                  <p className="text-[10px] text-dash-faint mb-0.5">Etapa</p>
+                  <p className="text-xs text-dash-ink2">{stage?.name || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-ink-600 mb-0.5">Probabilidade</p>
+                  <p className="text-[10px] text-dash-faint mb-0.5">Probabilidade</p>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div className="flex-1 h-1.5 bg-dash-border rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${sc}%`, background: scoreColor(sc) }} />
                     </div>
-                    <span className="text-[10px] text-ink-400">{sc}%</span>
+                    <span className="text-[10px] text-dash-muted">{sc}%</span>
                   </div>
                 </div>
               </div>
@@ -403,19 +408,19 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
 
             {/* Tags */}
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-600 mb-2">Tags</p>
+              <p className="dash-section-label !mb-2">Tags</p>
               {editing ? (
                 <input value={(form.tags || []).join(", ")}
                   onChange={e => setForm(p => ({ ...p, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) }))}
                   placeholder="tag1, tag2, tag3"
-                  className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-xs text-ink-100 outline-none focus:border-primary/40" />
+                  className="dash-input !py-1.5 !text-xs" />
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {(lead.tags || []).length > 0
                     ? lead.tags.map(t => (
-                      <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{t}</span>
+                      <DashBadge key={t} color={ACCENT} dot={false}>{t}</DashBadge>
                     ))
-                    : <p className="text-xs text-ink-600">Nenhuma tag</p>
+                    : <p className="text-xs text-dash-faint">Nenhuma tag</p>
                   }
                 </div>
               )}
@@ -423,14 +428,12 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
 
             {editing && (
               <div className="flex gap-2 pt-1">
-                <button onClick={save} disabled={saving}
-                  className="flex-1 py-2 rounded-xl text-xs font-semibold text-bg bg-gradient-to-r from-primary to-secondary">
+                <DashButton onClick={save} loading={saving} className="flex-1">
                   {saving ? "Salvando..." : "Salvar"}
-                </button>
-                <button onClick={() => { setEditing(false); setForm({ ...lead }); }}
-                  className="px-4 py-2 rounded-xl text-xs text-ink-400 border border-white/[0.1] hover:border-white/[0.2]">
+                </DashButton>
+                <DashButton variant="secondary" onClick={() => { setEditing(false); setForm({ ...lead }); }}>
                   Cancelar
-                </button>
+                </DashButton>
               </div>
             )}
           </div>
@@ -443,19 +446,18 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
               <input value={newNote} onChange={e => setNewNote(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && addNote()}
                 placeholder="Adicionar nota..."
-                className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-ink-100 outline-none focus:border-primary/40 placeholder:text-ink-600" />
-              <button onClick={addNote}
-                className="px-3 rounded-xl bg-primary/15 border border-primary/25 text-primary hover:bg-primary/25 transition-colors">
+                className="dash-input flex-1" />
+              <DashIconButton onClick={addNote} className="!w-auto px-3">
                 <Plus className="size-4" />
-              </button>
+              </DashIconButton>
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="size-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <div className="size-5 border-2 border-dash-blue/30 border-t-dash-blue rounded-full animate-spin" />
               </div>
             ) : activities.length === 0 ? (
-              <p className="text-center text-xs text-ink-600 py-8">Nenhuma atividade ainda</p>
+              <p className="text-center text-xs text-dash-faint py-8">Nenhuma atividade ainda</p>
             ) : (
               <div className="space-y-2">
                 {activities.map(act => {
@@ -464,13 +466,13 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
                   return (
                     <div key={act.id} className="flex gap-2.5">
                       <div className="size-6 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                        style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}30` }}>
+                        style={{ background: `${meta.color}14`, border: `1px solid ${meta.color}33` }}>
                         <Icon className="size-3" style={{ color: meta.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-ink-500">{meta.label}</p>
-                        <p className="text-xs text-ink-200 break-words">{act.content}</p>
-                        <p className="text-[10px] text-ink-600 mt-0.5">{fmtDate(act.created_at)}</p>
+                        <p className="text-[10px] text-dash-faint">{meta.label}</p>
+                        <p className="text-xs text-dash-ink2 break-words">{act.content}</p>
+                        <p className="text-[10px] text-dash-faint2 mt-0.5">{fmtDate(act.created_at)}</p>
                       </div>
                     </div>
                   );
@@ -487,32 +489,31 @@ function LeadPanel({ lead, stages, onClose, onUpdate, onOpenConversas }) {
               <input value={newTask} onChange={e => setNewTask(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && addTask()}
                 placeholder="Nova tarefa..."
-                className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-ink-100 outline-none focus:border-primary/40 placeholder:text-ink-600" />
-              <button onClick={addTask}
-                className="px-3 rounded-xl bg-primary/15 border border-primary/25 text-primary hover:bg-primary/25 transition-colors">
+                className="dash-input flex-1" />
+              <DashIconButton onClick={addTask} className="!w-auto px-3">
                 <Plus className="size-4" />
-              </button>
+              </DashIconButton>
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="size-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <div className="size-5 border-2 border-dash-blue/30 border-t-dash-blue rounded-full animate-spin" />
               </div>
             ) : tasks.length === 0 ? (
-              <p className="text-center text-xs text-ink-600 py-8">Nenhuma tarefa ainda</p>
+              <p className="text-center text-xs text-dash-faint py-8">Nenhuma tarefa ainda</p>
             ) : (
               <div className="space-y-1.5">
                 {tasks.map(t => (
-                  <div key={t.id} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] group/task">
-                    <button onClick={() => toggleTask(t)} className="shrink-0 text-ink-500 hover:text-primary transition-colors">
-                      {t.completed ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+                  <div key={t.id} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-dash-subtle border border-dash-border2 group/task">
+                    <button onClick={() => toggleTask(t)} className="shrink-0 text-dash-faint hover:text-dash-green transition-colors">
+                      {t.completed ? <CheckSquare className="size-4 text-dash-green" /> : <Square className="size-4" />}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs ${t.completed ? "line-through text-ink-600" : "text-ink-200"}`}>{t.title}</p>
-                      {t.due_date && <p className="text-[10px] text-ink-600">{new Date(t.due_date).toLocaleDateString("pt-BR")}</p>}
+                      <p className={`text-xs ${t.completed ? "line-through text-dash-faint" : "text-dash-ink2"}`}>{t.title}</p>
+                      {t.due_date && <p className="text-[10px] text-dash-faint2">{new Date(t.due_date).toLocaleDateString("pt-BR")}</p>}
                     </div>
                     <button onClick={() => deleteTask(t)}
-                      className="shrink-0 text-ink-700 hover:text-red-400 opacity-0 group-hover/task:opacity-100 transition-all">
+                      className="shrink-0 text-dash-faint2 hover:text-dash-red opacity-0 group-hover/task:opacity-100 transition-all">
                       <Trash2 className="size-3.5" />
                     </button>
                   </div>
@@ -534,21 +535,21 @@ function StatsBar({ stats }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
       {[
-        { label: "Total de Leads", value: stats.total, icon: Users, color: "#6366f1" },
-        { label: "Valor em Pipeline", value: fmt(stats.totalValue), icon: DollarSign, color: "#00D1FF" },
-        { label: "Taxa de Conversão", value: `${stats.convRate}%`, icon: TrendingUp, color: "#00FF88" },
-        { label: "Ticket Médio", value: fmt(stats.avgTicket), icon: Target, color: "#f59e0b" },
-        { label: "Leads Ganhos", value: stats.won, icon: Star, color: "#00FF88" },
-        { label: "Leads Perdidos", value: stats.lostCount, icon: AlertCircle, color: "#ef4444" },
+        { label: "Total de Leads", value: stats.total, icon: Users, color: DASH_ACCENT.violet },
+        { label: "Valor em Pipeline", value: fmt(stats.totalValue), icon: DollarSign, color: DASH_ACCENT.blue },
+        { label: "Taxa de Conversão", value: `${stats.convRate}%`, icon: TrendingUp, color: DASH_ACCENT.green },
+        { label: "Ticket Médio", value: fmt(stats.avgTicket), icon: Target, color: DASH_ACCENT.amber },
+        { label: "Leads Ganhos", value: stats.won, icon: Star, color: DASH_ACCENT.green },
+        { label: "Leads Perdidos", value: stats.lostCount, icon: AlertCircle, color: DASH_ACCENT.red },
       ].map(({ label, value, icon: Icon, color }) => (
-        <div key={label} className="p-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+        <div key={label} className="p-3 rounded-xl border border-dash-border bg-white">
           <div className="flex items-center gap-2 mb-1">
-            <div className="size-6 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+            <div className="size-6 rounded-lg flex items-center justify-center" style={{ background: `${color}14` }}>
               <Icon className="size-3.5" style={{ color }} />
             </div>
-            <p className="text-[10px] text-ink-500 truncate">{label}</p>
+            <p className="text-[10px] text-dash-faint truncate">{label}</p>
           </div>
-          <p className="text-base font-bold text-ink-50">{value}</p>
+          <p className="text-base font-bold text-dash-ink">{value}</p>
         </div>
       ))}
     </div>
@@ -572,7 +573,7 @@ export default function CRMPage() {
   const [listLimit, setListLimit] = useState(100);
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
-  const [newStageColor, setNewStageColor] = useState("#00FF88");
+  const [newStageColor, setNewStageColor] = useState(DASH_ACCENT.green);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -716,51 +717,52 @@ export default function CRMPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-screen bg-dash-bg">
+        <div className="size-8 border-2 border-dash-blue/30 border-t-dash-blue rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-dash-bg">
       {/* Main */}
       <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${selectedLead ? "mr-[360px]" : ""}`}>
         {/* Top bar */}
-        <div className="shrink-0 px-6 py-4 border-b border-white/[0.06] flex items-center gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-ink-50">CRM</h1>
-            <p className="text-xs text-ink-500">Pipeline de Vendas</p>
+        <div className="shrink-0 px-6 py-4 border-b border-dash-border2 flex items-center gap-4 bg-dash-card">
+          <div className="flex items-center gap-2.5">
+            <span style={dashHeaderIconStyle(ACCENT)}><Briefcase width={16} height={16} /></span>
+            <div>
+              <h1 className="text-xl font-bold text-dash-ink leading-tight">CRM</h1>
+              <p className="text-xs text-dash-faint">Pipeline de Vendas</p>
+            </div>
           </div>
 
           <div className="flex-1" />
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-ink-600" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-dash-faint" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar leads..."
-              className="bg-white/[0.05] border border-white/[0.1] rounded-xl pl-9 pr-3 py-2 text-xs text-ink-100 outline-none focus:border-primary/40 w-48" />
+              className="dash-input pl-9 !py-2 !text-xs w-48" />
           </div>
 
           {/* Novo lead */}
-          <button onClick={() => router.push("/dashboard/leads?new=1")}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-bg"
-            style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
+          <DashButton onClick={() => router.push("/dashboard/leads?new=1")}>
             <Plus className="size-4" />
             Novo lead
-          </button>
+          </DashButton>
 
-          <button onClick={load} className="p-2 rounded-xl text-ink-500 hover:text-ink-300 hover:bg-white/[0.04] transition-colors">
+          <DashIconButton onClick={load}>
             <RefreshCw className="size-4" />
-          </button>
+          </DashIconButton>
         </div>
 
         {/* Sub-tabs */}
-        <div className="shrink-0 px-6 flex gap-1 border-b border-white/[0.06]">
+        <div className="shrink-0 px-6 flex gap-1 border-b border-dash-border2 bg-dash-card">
           {[["pipeline","Pipeline"],["list","Lista"],["reports","Relatórios"]].map(([v,l]) => (
             <button key={v} onClick={() => setTab(v)}
-              className={`py-3 px-4 text-sm font-medium transition-colors ${tab === v ? "text-primary border-b-2 border-primary" : "text-ink-500 hover:text-ink-300"}`}>
+              className={`py-3 px-4 text-sm font-medium transition-colors ${tab === v ? "text-dash-blue border-b-2 border-dash-blue" : "text-dash-faint hover:text-dash-muted"}`}>
               {l}
             </button>
           ))}
@@ -770,14 +772,23 @@ export default function CRMPage() {
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {tab === "pipeline" && leads.length === 0 && (
             <div className="flex-1 min-h-0 overflow-auto p-6">
-              <EmptyState
-                icon="🗂️"
-                title="Seu pipeline está vazio"
-                desc="Importe seus contatos ou adicione um lead para começar a organizar suas vendas no funil."
-                cta={{ label: "Importar contatos", onClick: () => router.push("/dashboard/leads") }}
-                secondary={{ label: "+ Adicionar lead", onClick: () => router.push("/dashboard/leads?new=1") }}
-                tip="Os leads entram em 'Novo Lead' e avançam no funil conforme você conversa com o cliente."
-              />
+              <div className="dash-empty">
+                <span className="mx-auto mb-4 flex items-center justify-center" style={{ width: 52, height: 52, ...dashHeaderIconStyle(ACCENT), borderRadius: 16 }}>
+                  <Briefcase width={24} height={24} />
+                </span>
+                <h3 className="m-0 text-base font-semibold text-dash-ink">Seu pipeline está vazio</h3>
+                <p className="mx-auto mt-2 max-w-[320px] text-[13.5px] leading-relaxed text-dash-faint">
+                  Importe seus contatos ou adicione um lead para começar a organizar suas vendas no funil.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                  <DashButton onClick={() => router.push("/dashboard/leads")}>Importar contatos</DashButton>
+                  <DashButton variant="secondary" onClick={() => router.push("/dashboard/leads?new=1")}>+ Adicionar lead</DashButton>
+                </div>
+                <div className="mt-5 inline-flex items-center gap-2 text-xs text-dash-faint bg-white border border-dash-border rounded-full px-3 py-1.5">
+                  <span>💡</span>
+                  <span>Os leads entram em &quot;Novo Lead&quot; e avançam no funil conforme você conversa com o cliente.</span>
+                </div>
+              </div>
             </div>
           )}
           {tab === "pipeline" && leads.length > 0 && (
@@ -798,21 +809,19 @@ export default function CRMPage() {
                   {/* Add stage button */}
                   <div className="shrink-0 w-[260px]">
                     {newStageOpen ? (
-                      <div className="p-3 rounded-xl border border-white/[0.1] bg-white/[0.03] space-y-2">
+                      <div className="p-3 rounded-2xl border border-dash-border2 bg-[#F7F8FA] space-y-2">
                         <input value={newStageName} onChange={e => setNewStageName(e.target.value)}
                           placeholder="Nome da etapa..."
                           autoFocus
                           onKeyDown={e => e.key === "Enter" && handleAddStage()}
-                          className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg px-2.5 py-1.5 text-xs text-ink-100 outline-none focus:border-primary/40" />
+                          className="dash-input !py-1.5 !text-xs !bg-white" />
                         <div className="flex items-center gap-2">
                           <input type="color" value={newStageColor} onChange={e => setNewStageColor(e.target.value)}
-                            className="size-7 rounded-lg cursor-pointer bg-transparent border border-white/[0.1]" />
-                          <button onClick={handleAddStage}
-                            className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-bg"
-                            style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
+                            className="size-7 rounded-lg cursor-pointer bg-transparent border border-dash-border" />
+                          <DashButton onClick={handleAddStage} className="flex-1 !py-1.5">
                             Criar
-                          </button>
-                          <button onClick={() => setNewStageOpen(false)} className="text-ink-500">
+                          </DashButton>
+                          <button onClick={() => setNewStageOpen(false)} className="text-dash-faint hover:text-dash-muted">
                             <X className="size-4" />
                           </button>
                         </div>
@@ -820,13 +829,13 @@ export default function CRMPage() {
                     ) : (
                       <div className="space-y-2">
                         <button onClick={() => setNewStageOpen(true)}
-                          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/[0.15] text-xs text-ink-600 hover:text-ink-400 hover:border-white/[0.25] transition-colors">
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dashed border-[#DDE2E9] text-xs text-dash-faint hover:text-dash-muted hover:border-dash-faint transition-colors">
                           <Plus className="size-4" />
                           Nova etapa
                         </button>
                         {stages.length <= 1 && (
                           <button onClick={applyTemplate}
-                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-primary/30 bg-primary/[0.08] text-xs font-medium text-primary hover:bg-primary/[0.15] transition-colors">
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dash-blue/30 bg-dash-blue/[0.08] text-xs font-medium text-dash-blue hover:bg-dash-blue/[0.15] transition-colors">
                             <Zap className="size-4" />
                             Usar funil modelo
                           </button>
@@ -847,12 +856,12 @@ export default function CRMPage() {
           {tab === "list" && (
             <div className="flex-1 min-h-0 overflow-auto p-6">
               <StatsBar stats={stats} />
-              <div className="rounded-2xl border border-white/[0.08] overflow-hidden">
+              <div className="dash-card-flush">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                    <tr className="border-b border-dash-border2 bg-dash-subtle">
                       {["Lead","Telefone","Etapa","Score","Valor","Origem","Última interação"].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-ink-600 font-medium">{h}</th>
+                        <th key={h} className="text-left p-0"><DashTh>{h}</DashTh></th>
                       ))}
                     </tr>
                   </thead>
@@ -863,47 +872,47 @@ export default function CRMPage() {
                       return (
                         <tr key={lead.id}
                           onClick={() => setSelectedLead(lead)}
-                          className="border-b border-white/[0.04] hover:bg-white/[0.03] cursor-pointer transition-colors">
+                          className="border-b border-dash-border2 hover:bg-dash-subtle cursor-pointer transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2.5">
                               {lead.avatar_url ? (
                                 <img src={lead.avatar_url} alt={lead.name} className="size-7 rounded-lg object-cover" />
                               ) : (
                                 <div className="size-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
-                                  style={{ background: `${scoreColor(sc)}22`, color: scoreColor(sc) }}>
+                                  style={{ background: `${scoreColor(sc)}18`, color: scoreColor(sc) }}>
                                   {initials(lead.name)}
                                 </div>
                               )}
-                              <span className="font-medium text-ink-100">{lead.name}</span>
+                              <span className="font-medium text-dash-ink">{lead.name}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-ink-400">{lead.phone}</td>
+                          <td className="px-4 py-3 text-dash-muted">{lead.phone}</td>
                           <td className="px-4 py-3">
                             {stage ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px]"
-                                style={{ background: `${stage.color}20`, color: stage.color }}>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                style={{ background: `${stage.color}14`, border: `1px solid ${stage.color}33`, color: stage.color }}>
                                 {stage.name}
                               </span>
-                            ) : <span className="text-ink-600">—</span>}
+                            ) : <span className="text-dash-faint">—</span>}
                           </td>
                           <td className="px-4 py-3">
                             <span className="font-semibold" style={{ color: scoreColor(sc) }}>{sc}</span>
                           </td>
-                          <td className="px-4 py-3 text-ink-300">{lead.estimated_value > 0 ? fmt(lead.estimated_value) : "—"}</td>
-                          <td className="px-4 py-3 text-ink-500 capitalize">{lead.source || "—"}</td>
-                          <td className="px-4 py-3 text-ink-600">{fmtDate(lead.last_interaction_at)}</td>
+                          <td className="px-4 py-3 text-dash-ink2">{lead.estimated_value > 0 ? fmt(lead.estimated_value) : "—"}</td>
+                          <td className="px-4 py-3 text-dash-faint capitalize">{lead.source || "—"}</td>
+                          <td className="px-4 py-3 text-dash-faint2">{fmtDate(lead.last_interaction_at)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
                 {filteredLeads.length === 0 && (
-                  <p className="text-center text-xs text-ink-600 py-12">Nenhum lead encontrado</p>
+                  <p className="text-center text-xs text-dash-faint py-12">Nenhum lead encontrado</p>
                 )}
                 {filteredLeads.length > listShown.length && (
                   <button
                     onClick={() => setListLimit(v => v + 100)}
-                    className="w-full py-3 text-xs font-medium text-primary bg-primary/[0.06] hover:bg-primary/10 transition-colors border-t border-white/[0.06]"
+                    className="w-full py-3 text-xs font-medium text-dash-blue bg-dash-blue/[0.06] hover:bg-dash-blue/10 transition-colors border-t border-dash-border2"
                   >
                     Carregar mais ({filteredLeads.length - listShown.length} restantes)
                   </button>
@@ -917,19 +926,19 @@ export default function CRMPage() {
               <StatsBar stats={stats} />
               {/* Leads por Etapa */}
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="p-5 rounded-2xl border border-white/[0.08] bg-white/[0.02]">
-                  <h3 className="text-sm font-semibold text-ink-200 mb-4">Leads por Etapa</h3>
+                <div className="dash-card !p-5">
+                  <h3 className="text-sm font-semibold text-dash-ink mb-4">Leads por Etapa</h3>
                   <div className="space-y-3">
                     {stats.byStage.map(s => (
                       <div key={s.id}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <div className="size-2 rounded-full" style={{ background: s.color }} />
-                            <span className="text-xs text-ink-300">{s.name}</span>
+                            <span className="text-xs text-dash-ink2">{s.name}</span>
                           </div>
-                          <span className="text-xs font-semibold text-ink-200">{s.count}</span>
+                          <span className="text-xs font-semibold text-dash-ink">{s.count}</span>
                         </div>
-                        <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-dash-border rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all"
                             style={{ width: `${stats.total > 0 ? (s.count / stats.total) * 100 : 0}%`, background: s.color }} />
                         </div>
@@ -938,26 +947,26 @@ export default function CRMPage() {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl border border-white/[0.08] bg-white/[0.02]">
-                  <h3 className="text-sm font-semibold text-ink-200 mb-4">Valor por Etapa</h3>
+                <div className="dash-card !p-5">
+                  <h3 className="text-sm font-semibold text-dash-ink mb-4">Valor por Etapa</h3>
                   <div className="space-y-3">
                     {stats.byStage.filter(s => s.value > 0).sort((a,b) => b.value - a.value).map(s => (
                       <div key={s.id}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <div className="size-2 rounded-full" style={{ background: s.color }} />
-                            <span className="text-xs text-ink-300">{s.name}</span>
+                            <span className="text-xs text-dash-ink2">{s.name}</span>
                           </div>
-                          <span className="text-xs font-semibold text-primary">{fmt(s.value)}</span>
+                          <span className="text-xs font-semibold text-dash-green">{fmt(s.value)}</span>
                         </div>
-                        <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-dash-border rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all"
                             style={{ width: `${stats.totalValue > 0 ? (s.value / stats.totalValue) * 100 : 0}%`, background: s.color }} />
                         </div>
                       </div>
                     ))}
                     {stats.byStage.every(s => s.value === 0) && (
-                      <p className="text-xs text-ink-600 text-center py-4">Nenhum valor estimado cadastrado</p>
+                      <p className="text-xs text-dash-faint text-center py-4">Nenhum valor estimado cadastrado</p>
                     )}
                   </div>
                 </div>

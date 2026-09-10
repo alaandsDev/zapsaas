@@ -8,28 +8,22 @@ import {
   Phone, MessageSquare, Zap, StickyNote, Pencil, Trash2, DollarSign,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
-import Modal from "../../../components/dashboard/Modal";
-import EmptyState from "../../../components/dashboard/EmptyState";
-import { SkeletonList } from "../../../components/dashboard/Skeleton";
-import { Field, Input, Select, Button } from "../../../components/ui/Field";
+import {
+  DashButton, DashIconButton, DashBadge, DashPageHeader,
+  DashEmptyState, DashSkeletonList, DashModal,
+} from "../../../components/dashboard/DashUI";
+import { DASH_ACCENT, dashBadge, dashHeaderIconStyle } from "../../../components/dashboard/dashTheme";
 import { api } from "../../../lib/api";
 
-/* ── status (chips suaves com glow) ── */
+const ACCENT = DASH_ACCENT.blue; // cor de acento da tela Leads
+
+/* ── status (badges no padrão dash-*) ── */
 const STATUS = {
-  new:       { label: "Novo",       color: "#3B82F6" },
-  contacted: { label: "Contactado", color: "#F59E0B" },
-  converted: { label: "Convertido", color: "#00FF88" },
+  new:       { label: "Novo",       color: DASH_ACCENT.blue },
+  contacted: { label: "Contactado", color: DASH_ACCENT.amber },
+  converted: { label: "Convertido", color: DASH_ACCENT.green },
 };
 const SOURCE_LABEL = { form: "Formulário", whatsapp: "WhatsApp", import: "Importação", manual: "Manual" };
-
-function chip(color) {
-  return {
-    background: `${color}1a`,
-    color,
-    borderColor: `${color}40`,
-    boxShadow: `0 0 12px -4px ${color}55`,
-  };
-}
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -58,9 +52,9 @@ function leadScore(l) {
     if (days <= 1) s += 18; else if (days <= 7) s += 10; else if (days > 30) s -= 12;
   }
   s = Math.max(5, Math.min(99, Math.round(s)));
-  const band = s >= 75 ? { label: "Quente", color: "#EF4444" }
-    : s >= 50 ? { label: "Morno", color: "#F59E0B" }
-    : { label: "Frio", color: "#64748B" };
+  const band = s >= 75 ? { label: "Quente", color: DASH_ACCENT.red }
+    : s >= 50 ? { label: "Morno", color: DASH_ACCENT.amber }
+    : { label: "Frio", color: DASH_ACCENT.slate };
   return { score: s, ...band };
 }
 
@@ -105,14 +99,14 @@ function Avatar({ name, url, size = 40 }) {
         alt=""
         onError={() => setErr(true)}
         style={{ width: size, height: size }}
-        className="rounded-full object-cover bg-bg2 shrink-0"
+        className="rounded-full object-cover bg-dash-border shrink-0"
       />
     );
   }
   return (
     <div
       style={{ width: size, height: size, fontSize: size * 0.4 }}
-      className="rounded-full bg-gradient-to-br from-primary/80 to-secondary/80 text-bg font-bold flex items-center justify-center shrink-0"
+      className="rounded-full bg-gradient-to-br from-dash-blue to-dash-green text-white font-bold flex items-center justify-center shrink-0"
     >
       {initial}
     </div>
@@ -135,32 +129,32 @@ function LeadConversas({ lead }) {
       .catch(() => setChats([]));
   }, [lead?.phone]);
 
-  if (chats === null) return <p className="text-xs text-ink-500 py-4 text-center">Carregando conversas…</p>;
+  if (chats === null) return <p className="text-xs text-dash-faint py-4 text-center">Carregando conversas…</p>;
   if (!chats.length) return (
     <div className="text-center py-6 space-y-2">
-      <MessageSquare className="size-8 text-ink-700 mx-auto" />
-      <p className="text-xs text-ink-500">Nenhuma conversa encontrada para este contato.</p>
-      <a href="/dashboard/conversas" className="inline-block text-xs font-semibold text-primary hover:underline">Abrir Conversas →</a>
+      <MessageSquare className="size-8 text-dash-faint2 mx-auto" />
+      <p className="text-xs text-dash-faint">Nenhuma conversa encontrada para este contato.</p>
+      <a href="/dashboard/conversas" className="inline-block text-xs font-semibold text-dash-blue hover:underline">Abrir Conversas →</a>
     </div>
   );
 
-  const SLOT_COLOR = { 0: "#60A5FA", 1: "#00FF88", 2: "#7C3AED", 3: "#00D1FF", 4: "#F59E0B", 5: "#EF4444" };
+  const SLOT_COLOR = { 0: DASH_ACCENT.blue, 1: DASH_ACCENT.green, 2: DASH_ACCENT.violet, 3: DASH_ACCENT.blue, 4: DASH_ACCENT.amber, 5: DASH_ACCENT.red };
   return (
     <div className="space-y-2">
       {chats.map((chat) => {
-        const color = SLOT_COLOR[chat.session_slot] ?? "#8B8B8B";
+        const color = SLOT_COLOR[chat.session_slot] ?? DASH_ACCENT.slate;
         const label = chat.session_slot === 0 ? "Canal Oficial" : `Chip ${chat.session_slot}`;
+        const b = dashBadge(color, { dot: false });
         return (
           <a key={chat.id} href="/dashboard/conversas"
-            className="block p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-primary/20 transition-colors">
+            className="block p-3 rounded-xl border border-dash-border bg-dash-subtle hover:border-dash-blue/30 transition-colors">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
-                style={{ color, borderColor: `${color}40`, background: `${color}15` }}>{label}</span>
-              <span className="text-[10px] text-ink-500">{fmtDate(chat.last_message_at)}</span>
+              <span style={b.style}>{label}</span>
+              <span className="text-[10px] font-mono text-dash-faint">{fmtDate(chat.last_message_at)}</span>
             </div>
-            <p className="text-[12px] text-ink-400 truncate">{chat.last_message || "Sem mensagens"}</p>
+            <p className="text-[12px] text-dash-muted truncate">{chat.last_message || "Sem mensagens"}</p>
             {chat.unread > 0 && (
-              <span className="inline-flex mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">
+              <span className="inline-flex mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-dash-green/15 text-dash-green font-semibold">
                 {chat.unread} não lida{chat.unread > 1 ? "s" : ""}
               </span>
             )}
@@ -178,29 +172,29 @@ function LeadAutomacao({ lead }) {
     api("/api/workflows").then(setWorkflows).catch(() => setWorkflows([]));
   }, []);
 
-  if (workflows === null) return <p className="text-xs text-ink-500 py-4 text-center">Carregando…</p>;
+  if (workflows === null) return <p className="text-xs text-dash-faint py-4 text-center">Carregando…</p>;
 
   const entryFlow = (workflows || []).find((w) => w.is_entry);
   if (!entryFlow) return (
     <div className="text-center py-6 space-y-2">
-      <Zap className="size-8 text-ink-700 mx-auto" />
-      <p className="text-xs text-ink-500">Nenhum fluxo de entrada configurado.</p>
-      <a href="/dashboard/workflow" className="inline-block text-xs font-semibold text-primary hover:underline">Criar fluxo →</a>
+      <Zap className="size-8 text-dash-faint2 mx-auto" />
+      <p className="text-xs text-dash-faint">Nenhum fluxo de entrada configurado.</p>
+      <a href="/dashboard/workflow" className="inline-block text-xs font-semibold text-dash-blue hover:underline">Criar fluxo →</a>
     </div>
   );
 
   const isActive = entryFlow.enabled !== false && entryFlow.status === "published";
   return (
     <div className="space-y-3 text-sm">
-      <div className="p-3 rounded-xl border border-primary/20 bg-primary/5">
+      <div className="p-3 rounded-xl border border-dash-green/25 bg-dash-green/5">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">Fluxo de entrada</span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${isActive ? "border-primary/30 bg-primary/10 text-primary" : "border-white/10 text-ink-500"}`}>
+          <span className="text-[10px] font-mono font-semibold text-dash-green uppercase tracking-wide">Fluxo de entrada</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${isActive ? "border-dash-green/30 bg-dash-green/10 text-dash-green" : "border-dash-border text-dash-faint"}`}>
             {isActive ? "Ativo" : "Inativo"}
           </span>
         </div>
-        <p className="text-[12px] text-ink-200 font-medium">{entryFlow.name}</p>
-        <p className="text-[10px] text-ink-500 mt-0.5">
+        <p className="text-[12px] text-dash-ink2 font-medium">{entryFlow.name}</p>
+        <p className="text-[10px] text-dash-faint mt-0.5">
           {isActive
             ? "Dispara automaticamente quando este contato enviar a primeira mensagem."
             : "Publique e ative o fluxo para disparar automaticamente."}
@@ -208,11 +202,11 @@ function LeadAutomacao({ lead }) {
       </div>
       {(workflows || []).filter((w) => !w.is_entry).length > 0 && (
         <div>
-          <p className="text-[10px] text-ink-500 uppercase tracking-wide mb-1.5">Outros fluxos</p>
+          <p className="text-[10px] font-mono text-dash-faint uppercase tracking-wide mb-1.5">Outros fluxos</p>
           {workflows.filter((w) => !w.is_entry).slice(0, 3).map((w) => (
             <div key={w.id} className="flex items-center justify-between py-1.5 text-[12px]">
-              <span className="text-ink-300 truncate flex-1">{w.name}</span>
-              <span className={`text-[10px] ml-2 ${w.enabled !== false && w.status === "published" ? "text-primary" : "text-ink-600"}`}>
+              <span className="text-dash-ink2 truncate flex-1">{w.name}</span>
+              <span className={`text-[10px] ml-2 ${w.enabled !== false && w.status === "published" ? "text-dash-green" : "text-dash-faint2"}`}>
                 {w.enabled !== false && w.status === "published" ? "ativo" : "inativo"}
               </span>
             </div>
@@ -220,7 +214,7 @@ function LeadAutomacao({ lead }) {
         </div>
       )}
       <a href="/dashboard/workflow"
-        className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border border-white/10 text-xs text-ink-400 hover:text-ink-200 hover:border-white/20 transition-colors">
+        className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border border-dash-border text-xs text-dash-muted hover:text-dash-ink hover:border-dash-faint transition-colors">
         <Zap className="size-3.5" /> Gerenciar fluxos
       </a>
     </div>
@@ -328,11 +322,11 @@ export default function LeadsPage() {
     // Leads Ativos: tiveram interação nos últimos 30 dias
     const ativos = leads.filter((l) => l.last_interaction_at && new Date(l.last_interaction_at) >= since30d).length;
     return [
-      { label: "Leads Totais", value: total, suffix: "", icon: Users, color: "#00FF88" },
-      { label: "Leads Novos", value: novos, suffix: "", icon: UserPlus, color: "#3B82F6", tooltip: "Criados nos últimos 7 dias" },
-      { label: "Taxa de Resposta", value: taxa, suffix: "%", icon: TrendingUp, color: "#7C3AED" },
-      { label: "Conversões", value: conv, suffix: "", icon: Target, color: "#F59E0B" },
-      { label: "Leads Ativos", value: ativos, suffix: "", icon: Activity, color: "#00FF88", tooltip: "Com interação nos últimos 30 dias" },
+      { label: "Leads Totais", value: total, suffix: "", icon: Users, color: DASH_ACCENT.green },
+      { label: "Leads Novos", value: novos, suffix: "", icon: UserPlus, color: DASH_ACCENT.blue, tooltip: "Criados nos últimos 7 dias" },
+      { label: "Taxa de Resposta", value: taxa, suffix: "%", icon: TrendingUp, color: DASH_ACCENT.violet },
+      { label: "Conversões", value: conv, suffix: "", icon: Target, color: DASH_ACCENT.amber },
+      { label: "Leads Ativos", value: ativos, suffix: "", icon: Activity, color: DASH_ACCENT.emerald, tooltip: "Com interação nos últimos 30 dias" },
     ];
   }, [leads]);
 
@@ -406,15 +400,15 @@ export default function LeadsPage() {
       onClick={onClick}
       className={`w-full group flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all border ${
         active
-          ? "bg-primary/10 border-primary/25 text-primary shadow-[0_0_18px_-8px_rgba(0,255,136,0.6)]"
-          : "border-transparent text-ink-300 hover:text-ink-100 hover:bg-white/[0.04]"
+          ? "bg-dash-blue/10 border-dash-blue/25 text-dash-blue font-medium"
+          : "border-transparent text-dash-muted hover:text-dash-ink hover:bg-black/[0.03]"
       }`}
     >
       {dot ? <span className="size-2 rounded-full shrink-0" style={{ background: dot }} />
            : Icon && <Icon className="size-4 shrink-0" />}
       <span className="flex-1 min-w-0 text-left truncate">{label}</span>
       {count != null && (
-        <span className={`text-[11px] tabular-nums shrink-0 ${active ? "text-primary" : "text-ink-500"}`}>
+        <span className={`text-[11px] font-mono tabular-nums shrink-0 ${active ? "text-dash-blue" : "text-dash-faint"}`}>
           {count.toLocaleString("pt-BR")}
         </span>
       )}
@@ -423,32 +417,37 @@ export default function LeadsPage() {
 
   return (
     <>
-      <Topbar
-        title="Leads"
-        subtitle="Central operacional de relacionamento"
-        actions={
-          <>
-            <Button variant="ghost" onClick={syncAllLists} disabled={syncing}>
-              <Zap className="size-4" /> <span className="hidden sm:inline">{syncing ? "Sincronizando…" : "Sincronizar Listas"}</span>
-            </Button>
-            <Button variant="ghost" onClick={() => setOpenImport(true)}>
-              <Upload className="size-4" /> <span className="hidden sm:inline">Importar</span>
-            </Button>
-            <Button onClick={() => setOpenLead(true)}>
-              <Plus className="size-4" /> <span className="hidden sm:inline">Novo Lead</span>
-            </Button>
-          </>
-        }
-      />
+      <Topbar title="Leads" />
 
       <div className="px-4 sm:px-6 py-5 space-y-5">
+
+        <DashPageHeader
+          icon={Users}
+          accent={ACCENT}
+          title="Leads"
+          count={leads.length}
+          subtitle="Central operacional de relacionamento"
+          actions={
+            <>
+              <DashButton variant="ghost" onClick={syncAllLists} disabled={syncing}>
+                <Zap className="size-4" /> <span className="hidden sm:inline">{syncing ? "Sincronizando…" : "Sincronizar Listas"}</span>
+              </DashButton>
+              <DashButton variant="secondary" onClick={() => setOpenImport(true)}>
+                <Upload className="size-4" /> <span className="hidden sm:inline">Importar</span>
+              </DashButton>
+              <DashButton variant="primary" onClick={() => setOpenLead(true)}>
+                <Plus className="size-4" /> <span className="hidden sm:inline">Novo Lead</span>
+              </DashButton>
+            </>
+          }
+        />
 
         {/* Banner de resultado da sincronização */}
         {syncResult && (
           <motion.div
             initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm"
-            style={{ borderColor: "rgba(0,255,174,0.3)", background: "rgba(0,255,174,0.06)", color: "#00FFAE" }}
+            className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm"
+            style={{ borderColor: `${DASH_ACCENT.green}33`, background: `${DASH_ACCENT.green}0d`, color: DASH_ACCENT.green }}
           >
             <span>
               {syncResult._pics
@@ -470,14 +469,12 @@ export default function LeadsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, type: "spring", stiffness: 320, damping: 26 }}
                 whileHover={{ y: -3 }}
-                className="glass p-4 relative overflow-hidden group"
+                className="dash-card !p-4"
               >
-                <div className="absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                  style={{ boxShadow: `inset 0 0 0 1px ${k.color}44, 0 0 28px -10px ${k.color}55` }} />
-                <div className="relative flex items-start justify-between">
+                <div className="flex items-start justify-between">
                   <div>
-                    <div className="text-[11px] text-ink-400 font-medium">{k.label}</div>
-                    <div className="text-2xl font-bold mt-1.5 tabular-nums" style={{ color: k.color }}>
+                    <div className="text-[11px] text-dash-faint font-medium">{k.label}</div>
+                    <div className="text-2xl font-bold mt-1.5 font-mono tabular-nums" style={{ color: k.color }}>
                       {loading ? "—" : <AnimatedNumber value={k.value} suffix={k.suffix} />}
                     </div>
                   </div>
@@ -495,9 +492,9 @@ export default function LeadsPage() {
         <div className="grid lg:grid-cols-[230px_1fr] xl:grid-cols-[230px_1fr_340px] gap-4">
 
           {/* SIDEBAR ESQUERDA */}
-          <div className="glass p-3 space-y-5 h-fit min-w-0 lg:sticky lg:top-4">
+          <div className="dash-card !p-3 space-y-5 h-fit min-w-0 lg:sticky lg:top-4">
             <div>
-              <div className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-500">Segmentos</div>
+              <div className="px-2 mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-dash-faint2">Segmentos</div>
               <div className="space-y-1">
                 <RailItem active={seg.type === "all"} onClick={() => setSeg({ type: "all", value: null })}
                   icon={Users} label="Todos os Leads" count={leads.length} />
@@ -509,7 +506,7 @@ export default function LeadsPage() {
                 <RailItem
                   active={seg.type === "inactive"}
                   onClick={() => setSeg({ type: "inactive", value: null })}
-                  dot="#64748B"
+                  dot={DASH_ACCENT.slate}
                   label="Inativos (sem contato +30d)"
                   count={leads.filter((l) => !l.last_interaction_at || new Date(l.last_interaction_at) < new Date(Date.now() - 30*24*60*60*1000)).length}
                 />
@@ -518,7 +515,7 @@ export default function LeadsPage() {
 
             {sources.length > 0 && (
               <div>
-                <div className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-500">Origem</div>
+                <div className="px-2 mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-dash-faint2">Origem</div>
                 <div className="space-y-1">
                   {sources.map(([s, c]) => (
                     <RailItem key={s} active={seg.type === "source" && seg.value === s}
@@ -531,12 +528,12 @@ export default function LeadsPage() {
 
             {allTags.length > 0 && (
               <div>
-                <div className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-500">Tags</div>
+                <div className="px-2 mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-dash-faint2">Tags</div>
                 <div className="space-y-1">
                   {allTags.map(([t, c]) => (
                     <RailItem key={t} active={seg.type === "tag" && seg.value === t}
                       onClick={() => setSeg({ type: "tag", value: t })}
-                      dot="#7C3AED" label={t} count={c} />
+                      dot={DASH_ACCENT.violet} label={t} count={c} />
                   ))}
                 </div>
               </div>
@@ -544,13 +541,13 @@ export default function LeadsPage() {
 
             <div>
               <div className="px-2 mb-1.5 flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Listas</span>
-                <button onClick={() => setOpenImport(true)} className="text-ink-500 hover:text-primary">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-dash-faint2">Listas</span>
+                <button onClick={() => setOpenImport(true)} className="text-dash-faint hover:text-dash-blue">
                   <Plus className="size-3.5" />
                 </button>
               </div>
               <div className="space-y-1">
-                {lists.length === 0 && <div className="px-2 text-[11px] text-ink-600">Nenhuma lista</div>}
+                {lists.length === 0 && <div className="px-2 text-[11px] text-dash-faint2">Nenhuma lista</div>}
                 {lists.map((l) => (
                   <RailItem key={l.id} onClick={() => setOpenListView(l)}
                     icon={ListIcon} label={l.name} count={l.total || l.contacts_count || 0} />
@@ -561,52 +558,60 @@ export default function LeadsPage() {
 
           {/* ÁREA CENTRAL */}
           <div className="space-y-4 min-w-0">
-            {/* Busca premium */}
+            {/* Busca */}
             <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-ink-500 group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-dash-faint group-focus-within:text-dash-green transition-colors pointer-events-none" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Buscar lead, telefone, tag ou lista..."
-                className="w-full rounded-2xl bg-white/[0.03] border border-white/[0.08] pl-11 pr-4 py-3 text-sm outline-none transition-all
-                  focus:border-primary/50 focus:bg-white/[0.05] focus:shadow-[0_0_28px_-10px_rgba(0,255,136,0.5)] placeholder:text-ink-500"
+                className="dash-input pl-11 !rounded-2xl !py-3"
               />
             </div>
 
             <div className="flex items-center justify-between px-1">
-              <div className="text-sm text-ink-300">
-                <span className="font-semibold text-ink-100">{filtered.length.toLocaleString("pt-BR")}</span> leads
-                {seg.type !== "all" && <span className="text-ink-500"> · filtrado</span>}
+              <div className="text-sm text-dash-muted">
+                <span className="font-semibold text-dash-ink font-mono">{filtered.length.toLocaleString("pt-BR")}</span> leads
+                {seg.type !== "all" && <span className="text-dash-faint"> · filtrado</span>}
               </div>
               {seg.type !== "all" && (
                 <button onClick={() => setSeg({ type: "all", value: null })}
-                  className="text-[11px] text-primary hover:underline flex items-center gap-1">
+                  className="text-[11px] text-dash-blue hover:underline flex items-center gap-1">
                   <X className="size-3" /> limpar filtro
                 </button>
               )}
             </div>
 
             {loading ? (
-              <SkeletonList rows={6} cols={4} />
+              <DashSkeletonList rows={6} cols={4} />
             ) : filtered.length === 0 ? (
               leads.length === 0 ? (
-                <EmptyState
-                  icon="🎯"
-                  title="Sua base de contatos começa aqui"
-                  desc="Importe um Excel/CSV (limpamos duplicatas) ou cadastre manualmente."
-                  cta={{ label: "📂 Importar lista", onClick: () => setOpenImport(true) }}
-                  secondary={{ label: "+ Adicionar manualmente", onClick: () => setOpenLead(true) }}
-                />
+                <div className="space-y-3">
+                  <DashEmptyState
+                    icon={Target}
+                    accent={ACCENT}
+                    title="Sua base de contatos começa aqui"
+                    desc="Importe um Excel/CSV (limpamos duplicatas) ou cadastre manualmente."
+                    cta={{ label: "Importar lista", icon: Upload, onClick: () => setOpenImport(true) }}
+                  />
+                  <button onClick={() => setOpenLead(true)} className="block mx-auto text-[13px] text-dash-blue hover:underline">
+                    + Adicionar manualmente
+                  </button>
+                </div>
               ) : (
-                <EmptyState icon="🔍" title="Nenhum lead encontrado"
+                <DashEmptyState
+                  icon={Search}
+                  accent={ACCENT}
+                  title="Nenhum lead encontrado"
                   desc="Ajuste a busca ou o segmento selecionado."
-                  cta={{ label: "Limpar", onClick: () => { setSeg({ type: "all", value: null }); setQ(""); } }} />
+                  cta={{ label: "Limpar", onClick: () => { setSeg({ type: "all", value: null }); setQ(""); } }}
+                />
               )
             ) : (
               <div className="space-y-2">
                 <AnimatePresence initial={false}>
                   {filtered.map((l, i) => {
-                    const s = STATUS[l.status] || { label: l.status || "—", color: "#94A3B8" };
+                    const s = STATUS[l.status] || { label: l.status || "—", color: DASH_ACCENT.slate };
                     const sc = leadScore(l);
                     const isSel = selected?.id === l.id;
                     return (
@@ -620,47 +625,38 @@ export default function LeadsPage() {
                         onClick={() => { setSelected(l); setTab("resumo"); setConfirmDelete(false); setSaleOpen(false); setSaleMsg(null); setSaleAmount(""); }}
                         className={`w-full text-left flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all group
                           ${isSel
-                            ? "bg-primary/[0.06] border-primary/30 shadow-[0_0_24px_-12px_rgba(0,255,136,0.6)]"
-                            : "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.14] hover:bg-white/[0.04]"}`}
+                            ? "bg-dash-blue/[0.05] border-dash-blue/30"
+                            : "bg-white border-dash-border hover:border-dash-faint hover:bg-dash-subtle"}`}
                       >
                         <Avatar name={l.name} url={l.avatar_url} size={42} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm truncate">{l.name || "Sem nome"}</span>
-                            <span
-                              className="text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0"
-                              style={chip(s.color)}
-                            >
-                              {s.label}
-                            </span>
+                            <span className="font-semibold text-sm truncate text-dash-ink">{l.name || "Sem nome"}</span>
+                            <DashBadge color={s.color} dot={false}>{s.label}</DashBadge>
                             {(l.tags || []).slice(0, 3).map((t) => (
-                              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0" style={chip("#7C3AED")}>
-                                {t}
-                              </span>
+                              <DashBadge key={t} color={DASH_ACCENT.violet} dot={false}>{t}</DashBadge>
                             ))}
                           </div>
-                          <div className="text-xs text-ink-500 mt-0.5 truncate">
+                          <div className="text-xs text-dash-faint mt-0.5 truncate">
                             {l.phone || "—"}
-                            {l.interest ? <span className="text-ink-600"> · {l.interest}</span> : null}
+                            {l.interest ? <span className="text-dash-faint2"> · {l.interest}</span> : null}
                           </div>
                         </div>
                         <div
                           className="hidden sm:flex flex-col items-center justify-center shrink-0 w-12"
                           title={`Lead score ${sc.score} · ${sc.label}`}
                         >
-                          <span className="text-sm font-bold tabular-nums leading-none" style={{ color: sc.color }}>{sc.score}</span>
+                          <span className="text-sm font-bold font-mono tabular-nums leading-none" style={{ color: sc.color }}>{sc.score}</span>
                           <span className="text-[9px] mt-0.5" style={{ color: sc.color }}>{sc.label}</span>
-                          <div className="mt-1 h-1 w-9 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div className="mt-1 h-1 w-9 rounded-full bg-dash-border overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: `${sc.score}%`, background: sc.color }} />
                           </div>
                         </div>
                         <div className="hidden md:flex flex-col items-end gap-1 shrink-0">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full border text-ink-400 border-white/10 bg-white/[0.02]">
-                            {SOURCE_LABEL[l.source] || l.source || "Formulário"}
-                          </span>
-                          <span className="text-[10px] text-ink-600">{relTime(l.last_interaction_at || l.created_at || l.createdAt)}</span>
+                          <DashBadge color={DASH_ACCENT.blue} dot={false}>{SOURCE_LABEL[l.source] || l.source || "Formulário"}</DashBadge>
+                          <span className="text-[10px] font-mono text-dash-faint2">{relTime(l.last_interaction_at || l.created_at || l.createdAt)}</span>
                         </div>
-                        <ChevronRight className="size-4 text-ink-600 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                        <ChevronRight className="size-4 text-dash-faint2 group-hover:text-dash-blue group-hover:translate-x-0.5 transition-all shrink-0" />
                       </motion.button>
                     );
                   })}
@@ -679,19 +675,19 @@ export default function LeadsPage() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  className="glass p-5 lg:sticky lg:top-4"
+                  className="dash-card lg:sticky lg:top-4"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <Avatar name={selected.name} url={selected.avatar_url} size={48} />
                       <div className="min-w-0">
-                        <div className="font-bold truncate">{selected.name || "Sem nome"}</div>
-                        <div className="text-xs text-ink-500">{selected.phone || "—"}</div>
+                        <div className="font-bold truncate text-dash-ink">{selected.name || "Sem nome"}</div>
+                        <div className="text-xs text-dash-faint">{selected.phone || "—"}</div>
                       </div>
                     </div>
-                    <button onClick={() => setSelected(null)} className="text-ink-500 hover:text-ink-100">
+                    <DashIconButton onClick={() => setSelected(null)}>
                       <X className="size-4" />
-                    </button>
+                    </DashIconButton>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 mt-4">
@@ -704,7 +700,7 @@ export default function LeadsPage() {
                         key={label}
                         href={href || undefined}
                         onClick={onClick}
-                        className="flex flex-col items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] py-2.5 text-[11px] text-ink-300 hover:text-primary hover:border-primary/30 transition-colors cursor-pointer"
+                        className="flex flex-col items-center gap-1 rounded-xl border border-dash-border bg-dash-subtle py-2.5 text-[11px] text-dash-muted hover:text-dash-blue hover:border-dash-blue/30 transition-colors cursor-pointer"
                       >
                         <Icon className="size-4" />
                         {label}
@@ -712,7 +708,7 @@ export default function LeadsPage() {
                     ))}
                   </div>
 
-                  <div className="flex gap-1 mt-4 border-b border-white/[0.06]">
+                  <div className="flex gap-1 mt-4 border-b border-dash-border2">
                     {[
                       { k: "resumo", label: "Resumo" },
                       { k: "conversas", label: "Conversas" },
@@ -723,7 +719,7 @@ export default function LeadsPage() {
                         key={t.k}
                         onClick={() => setTab(t.k)}
                         className={`px-2.5 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
-                          tab === t.k ? "border-primary text-primary" : "border-transparent text-ink-500 hover:text-ink-200"
+                          tab === t.k ? "border-dash-blue text-dash-blue" : "border-transparent text-dash-faint hover:text-dash-ink"
                         }`}
                       >
                         {t.label}
@@ -737,16 +733,16 @@ export default function LeadsPage() {
                         {(() => {
                           const sc = leadScore(selected);
                           return (
-                            <div className="rounded-xl border border-secondary/25 p-3"
-                              style={{ background: "linear-gradient(120deg, rgba(124,58,237,0.10), rgba(255,255,255,0.02))" }}>
+                            <div className="rounded-xl border p-3"
+                              style={{ borderColor: `${DASH_ACCENT.violet}33`, background: `linear-gradient(120deg, ${DASH_ACCENT.violet}14, #FFFFFF)` }}>
                               <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[11px] font-semibold text-secondary uppercase tracking-wide">Wayvo AI · resumo</span>
-                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                                  style={{ background: `${sc.color}1a`, color: sc.color }}>
+                                <span className="text-[11px] font-mono font-semibold uppercase tracking-wide" style={{ color: DASH_ACCENT.violet }}>Wayvo AI · resumo</span>
+                                <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded-full"
+                                  style={{ background: `${sc.color}14`, color: sc.color }}>
                                   {sc.label} · {sc.score}
                                 </span>
                               </div>
-                              <p className="text-[12px] text-ink-300 leading-relaxed">{aiSummary(selected)}</p>
+                              <p className="text-[12px] text-dash-ink2 leading-relaxed">{aiSummary(selected)}</p>
                             </div>
                           );
                         })()}
@@ -758,25 +754,28 @@ export default function LeadsPage() {
                           ["Última interação", relTime(selected.last_interaction_at || selected.created_at || selected.createdAt)],
                         ].map(([k, v]) => (
                           <div key={k} className="flex items-center justify-between gap-3">
-                            <span className="text-ink-500 text-xs">{k}</span>
-                            <span className="text-ink-100 text-xs font-medium text-right truncate">{v}</span>
+                            <span className="text-dash-faint text-xs">{k}</span>
+                            <span className="text-dash-ink text-xs font-medium text-right truncate">{v}</span>
                           </div>
                         ))}
 
                         <div>
-                          <div className="text-ink-500 text-xs mb-1.5">Tags</div>
+                          <div className="text-dash-faint text-xs mb-1.5">Tags</div>
                           <div className="flex flex-wrap gap-1.5">
-                            {(selected.tags || []).map((t) => (
-                              <span key={t} className="text-[11px] px-2 py-0.5 rounded-full border font-medium flex items-center gap-1" style={chip("#7C3AED")}>
-                                {t}
-                                <button
-                                  onClick={() => patchLead(selected.id, { tags: (selected.tags || []).filter((x) => x !== t) })}
-                                  className="hover:text-white"
-                                >
-                                  <X className="size-3" />
-                                </button>
-                              </span>
-                            ))}
+                            {(selected.tags || []).map((t) => {
+                              const b = dashBadge(DASH_ACCENT.violet, { dot: false });
+                              return (
+                                <span key={t} style={b.style} className="flex items-center gap-1">
+                                  {t}
+                                  <button
+                                    onClick={() => patchLead(selected.id, { tags: (selected.tags || []).filter((x) => x !== t) })}
+                                    className="hover:opacity-70"
+                                  >
+                                    <X className="size-3" />
+                                  </button>
+                                </span>
+                              );
+                            })}
                           </div>
                           <input
                             value={tagInput}
@@ -789,7 +788,7 @@ export default function LeadsPage() {
                               }
                             }}
                             placeholder="+ adicionar tag (Enter)"
-                            className="mt-2 w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-2.5 py-1.5 text-xs outline-none focus:border-primary/50"
+                            className="dash-input mt-2 !py-1.5 !text-xs"
                           />
                         </div>
 
@@ -799,11 +798,12 @@ export default function LeadsPage() {
                             <motion.div
                               key="sale-form"
                               initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                              className="mt-1 mb-1 rounded-xl border border-primary/25 bg-primary/[0.06] p-3 space-y-2"
+                              className="mt-1 mb-1 rounded-xl border p-3 space-y-2"
+                              style={{ borderColor: `${DASH_ACCENT.green}33`, background: `${DASH_ACCENT.green}0a` }}
                             >
-                              <p className="text-xs font-semibold text-primary">Registrar venda</p>
+                              <p className="text-xs font-semibold text-dash-green">Registrar venda</p>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-ink-400 shrink-0">R$</span>
+                                <span className="text-xs text-dash-faint shrink-0">R$</span>
                                 <input
                                   autoFocus
                                   type="text"
@@ -812,28 +812,30 @@ export default function LeadsPage() {
                                   onChange={(e) => { setSaleAmount(e.target.value); setSaleMsg(null); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") handleSale(); if (e.key === "Escape") { setSaleOpen(false); setSaleAmount(""); setSaleMsg(null); } }}
                                   placeholder="0,00"
-                                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-ink-600 outline-none focus:border-primary/50"
+                                  className="dash-input flex-1 !py-1.5 !text-sm"
                                 />
                               </div>
                               {saleMsg && (
-                                <p className={`text-xs px-2 py-1.5 rounded-lg border ${saleMsg.type === "ok" ? "text-primary bg-primary/10 border-primary/25" : "text-red-400 bg-red-500/10 border-red-500/20"}`}>
+                                <p className={`text-xs px-2 py-1.5 rounded-lg border ${saleMsg.type === "ok" ? "text-dash-green bg-dash-green/10 border-dash-green/25" : "text-dash-red bg-dash-red/10 border-dash-red/20"}`}>
                                   {saleMsg.text}
                                 </p>
                               )}
                               <div className="flex gap-2">
-                                <button
+                                <DashButton
+                                  variant="primary"
                                   onClick={handleSale}
-                                  disabled={saleLoading}
-                                  className="flex-1 py-1.5 rounded-lg bg-primary text-bg text-xs font-bold disabled:opacity-60"
+                                  loading={saleLoading}
+                                  className="flex-1 !py-1.5 !text-xs"
                                 >
-                                  {saleLoading ? "Salvando..." : "Confirmar"}
-                                </button>
-                                <button
+                                  Confirmar
+                                </DashButton>
+                                <DashButton
+                                  variant="secondary"
                                   onClick={() => { setSaleOpen(false); setSaleAmount(""); setSaleMsg(null); }}
-                                  className="px-3 py-1.5 rounded-lg border border-white/10 text-xs text-ink-400 hover:text-ink-200"
+                                  className="!py-1.5 !text-xs"
                                 >
                                   Cancelar
-                                </button>
+                                </DashButton>
                               </div>
                             </motion.div>
                           ) : (
@@ -841,7 +843,7 @@ export default function LeadsPage() {
                               key="sale-btn"
                               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                               onClick={() => { setSaleOpen(true); setSaleAmount(""); setSaleMsg(null); }}
-                              className="w-full mt-1 mb-1 flex items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-semibold py-2 hover:bg-primary/15 transition-colors"
+                              className="w-full mt-1 mb-1 flex items-center justify-center gap-1.5 rounded-xl border border-dash-green/30 bg-dash-green/10 text-dash-green text-xs font-semibold py-2 hover:bg-dash-green/15 transition-colors"
                             >
                               <DollarSign className="size-3.5" /> Registrar venda
                             </motion.button>
@@ -854,20 +856,20 @@ export default function LeadsPage() {
                             <motion.div
                               key="confirm-del"
                               initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                              className="pt-1 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2"
+                              className="pt-1 flex items-center gap-2 rounded-xl border border-dash-red/20 bg-dash-red/[0.06] px-3 py-2"
                             >
-                              <span className="text-xs text-red-300 flex-1">Remover este lead?</span>
-                              <button onClick={() => delLead(selected.id)} className="text-xs font-bold text-red-400 hover:text-red-300">Sim</button>
-                              <button onClick={() => setConfirmDelete(false)} className="text-xs text-ink-500 hover:text-ink-300">Não</button>
+                              <span className="text-xs text-dash-red flex-1">Remover este lead?</span>
+                              <button onClick={() => delLead(selected.id)} className="text-xs font-bold text-dash-red hover:opacity-80">Sim</button>
+                              <button onClick={() => setConfirmDelete(false)} className="text-xs text-dash-faint hover:text-dash-ink">Não</button>
                             </motion.div>
                           ) : (
                             <motion.div key="edit-del" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="pt-1 flex gap-2">
-                              <Button variant="ghost" className="flex-1 !py-2 text-xs" onClick={() => setEditLead(selected)}>
+                              <DashButton variant="secondary" className="flex-1 !py-2 !text-xs" onClick={() => setEditLead(selected)}>
                                 <Pencil className="size-3.5" /> Editar
-                              </Button>
-                              <Button variant="ghost" className="!py-2 text-xs !text-red-400" onClick={() => setConfirmDelete(true)}>
+                              </DashButton>
+                              <DashButton variant="danger" className="!py-2 !text-xs" onClick={() => setConfirmDelete(true)}>
                                 <Trash2 className="size-3.5" />
-                              </Button>
+                              </DashButton>
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -877,7 +879,7 @@ export default function LeadsPage() {
                     {tab === "automacao" && <LeadAutomacao lead={selected} />}
                     {tab === "notas" && (
                       <div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-ink-500 mb-2">
+                        <div className="flex items-center gap-1.5 text-[11px] text-dash-faint mb-2">
                           <StickyNote className="size-3.5" /> Notas internas (não enviadas ao cliente)
                         </div>
                         <textarea
@@ -889,7 +891,7 @@ export default function LeadsPage() {
                             }
                           }}
                           placeholder="Anotações da equipe sobre este lead..."
-                          className="w-full min-h-[140px] rounded-xl bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-xs outline-none focus:border-primary/50 resize-none"
+                          className="dash-input min-h-[140px] resize-none text-xs"
                         />
                       </div>
                     )}
@@ -898,11 +900,11 @@ export default function LeadsPage() {
               ) : (
                 <motion.div
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="glass p-8 text-center lg:sticky lg:top-4"
+                  className="dash-card text-center lg:sticky lg:top-4"
                 >
-                  <Users className="size-9 mx-auto text-ink-600 mb-3" />
-                  <p className="text-sm text-ink-400">Selecione um lead</p>
-                  <p className="text-xs text-ink-600 mt-1">os detalhes aparecem aqui</p>
+                  <Users className="size-9 mx-auto text-dash-faint2 mb-3" />
+                  <p className="text-sm text-dash-muted">Selecione um lead</p>
+                  <p className="text-xs text-dash-faint2 mt-1">os detalhes aparecem aqui</p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -921,26 +923,26 @@ export default function LeadsPage() {
 function PanelEmpty({ icon: Icon, text, href, cta }) {
   return (
     <div className="text-center py-4">
-      <Icon className="size-7 mx-auto mb-2 text-ink-600" />
-      <p className="text-xs text-ink-500 mb-3">{text}</p>
-      <a href={href} className="text-xs text-primary font-semibold hover:underline inline-flex items-center gap-1">
+      <Icon className="size-7 mx-auto mb-2 text-dash-faint2" />
+      <p className="text-xs text-dash-faint mb-3">{text}</p>
+      <a href={href} className="text-xs text-dash-blue font-semibold hover:underline inline-flex items-center gap-1">
         {cta} <ChevronRight className="size-3" />
       </a>
     </div>
   );
 }
 
-/* ════════════════════ MODAIS (mantidos da versão anterior) ════════════════════ */
+/* ════════════════════ MODAIS ════════════════════ */
 function StatBlock({ label, value, hint, tone = "neutral" }) {
   const tones = {
-    neutral: "border-white/10 bg-white/[0.03] text-ink-100",
-    warn:    "border-yellow-500/25 bg-yellow-500/[0.06] text-yellow-300",
-    success: "border-primary/30 bg-primary/[0.08] text-primary",
+    neutral: "border-dash-border bg-dash-subtle text-dash-ink",
+    warn:    "border-dash-amber/30 bg-dash-amber/10 text-dash-amber",
+    success: "border-dash-green/30 bg-dash-green/10 text-dash-green",
   };
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${tones[tone]}`}>
-      <div className="text-[10px] uppercase tracking-wider opacity-70 font-semibold">{label}</div>
-      <div className="text-2xl font-bold tabular-nums leading-tight mt-0.5">{value.toLocaleString("pt-BR")}</div>
+      <div className="text-[10px] font-mono uppercase tracking-wider opacity-70 font-semibold">{label}</div>
+      <div className="text-2xl font-bold font-mono tabular-nums leading-tight mt-0.5">{value.toLocaleString("pt-BR")}</div>
       {hint && <div className="text-[10px] opacity-60 mt-0.5">{hint}</div>}
     </div>
   );
@@ -971,33 +973,47 @@ function LeadModal({ open, onClose, initial, onSaved }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={initial ? "Editar Lead" : "Novo Lead"}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Nome *"><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-        <Field label="Telefone *"><Input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="11999999999" /></Field>
-        <Field label="Interesse">
-          <Select value={form.interest} onChange={(e) => setForm({ ...form, interest: e.target.value })}>
+    <DashModal
+      open={open}
+      onClose={onClose}
+      title={initial ? "Editar Lead" : "Novo Lead"}
+      footer={
+        <>
+          <DashButton type="button" variant="secondary" onClick={onClose}>Cancelar</DashButton>
+          <DashButton type="submit" form="lead-form" loading={loading}>{initial ? "Salvar" : "Adicionar"}</DashButton>
+        </>
+      }
+    >
+      <form id="lead-form" onSubmit={submit} className="space-y-4">
+        <label className="block">
+          <span className="block text-xs font-semibold text-dash-ink2 mb-1.5">Nome *</span>
+          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="dash-input" />
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-dash-ink2 mb-1.5">Telefone *</span>
+          <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="11999999999" className="dash-input" />
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-dash-ink2 mb-1.5">Interesse</span>
+          <select value={form.interest} onChange={(e) => setForm({ ...form, interest: e.target.value })} className="dash-input">
             <option value="">Selecione...</option>
             <option>Plano Básico</option>
             <option>Plano Pro</option>
             <option>Plano Enterprise</option>
             <option>Dúvidas gerais</option>
-          </Select>
-        </Field>
-        <Field label="Status">
-          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+          </select>
+        </label>
+        <label className="block">
+          <span className="block text-xs font-semibold text-dash-ink2 mb-1.5">Status</span>
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="dash-input">
             <option value="new">Novo</option>
             <option value="contacted">Contactado</option>
             <option value="converted">Convertido</option>
-          </Select>
-        </Field>
-        {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={loading}>{initial ? "Salvar" : "Adicionar"}</Button>
-        </div>
+          </select>
+        </label>
+        {err && <div className="text-sm text-dash-red bg-dash-red/10 border border-dash-red/20 rounded-xl px-4 py-3">{err}</div>}
       </form>
-    </Modal>
+    </DashModal>
   );
 }
 
@@ -1092,64 +1108,71 @@ function ImportModal({ open, onClose, onSaved }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Importar Lista de Contatos" size="lg">
-      <div className="space-y-4">
-        <Field label="Nome da Lista">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Clientes Janeiro" />
-        </Field>
-        <div
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); readFile(e.dataTransfer.files?.[0]); }}
-          className="rounded-xl border-2 border-dashed border-white/10 hover:border-primary/40 hover:bg-primary/[0.03] transition-all p-8 text-center cursor-pointer"
-        >
-          <div className="text-4xl mb-2">📂</div>
-          <h4 className="font-semibold">Clique ou arraste o arquivo aqui</h4>
-          <p className="text-xs text-ink-500 mt-1">Formato: Excel (.xlsx) ou CSV (.csv)</p>
-          <p className="text-xs text-ink-500">Colunas obrigatórias: <strong>NOME</strong> e <strong>NUMERO</strong></p>
-          <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv"
-            onChange={(e) => readFile(e.target.files?.[0])} className="hidden" />
-        </div>
-        {info && <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-xl px-4 py-2">{info}</div>}
-        {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-        {stats && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold">Relatório da importação</div>
-              <div className="text-[10px] uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">limpeza automática</div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <StatBlock label="Importados" value={stats.total} tone="neutral" />
-              <StatBlock label="Duplicados" value={stats.duplicates} tone={stats.duplicates > 0 ? "warn" : "neutral"} hint="removidos" />
-              <StatBlock label="Válidos" value={stats.valid.length} tone="success" hint="serão salvos" />
-            </div>
-            {stats.invalid > 0 && <div className="text-xs text-ink-400 mt-2">⚠️ {stats.invalid} número(s) inválido(s) descartado(s)</div>}
-            {stats.duplicates > 0 && <div className="text-xs text-ink-400 mt-1">✨ {stats.duplicates} duplicata(s) removida(s)</div>}
-          </div>
-        )}
-        {rows.length > 0 && (
-          <div className="rounded-xl border border-white/10 max-h-48 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-white/[0.02] sticky top-0">
-                <tr className="text-left text-xs text-ink-500">
-                  <th className="px-3 py-2">Nome</th><th className="px-3 py-2">Número</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {rows.slice(0, 30).map((r, i) => (
-                  <tr key={i}><td className="px-3 py-1.5">{r.NOME}</td><td className="px-3 py-1.5 font-mono text-xs">{r.NUMERO}</td></tr>
-                ))}
-                {rows.length > 30 && <tr><td colSpan={2} className="px-3 py-2 text-xs text-ink-500 italic">...e mais {rows.length - 30}</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={save} loading={loading} disabled={!rows.length}>Salvar Lista</Button>
-        </div>
+    <DashModal
+      open={open}
+      onClose={onClose}
+      title="Importar Lista de Contatos"
+      size="lg"
+      footer={
+        <>
+          <DashButton type="button" variant="secondary" onClick={onClose}>Cancelar</DashButton>
+          <DashButton onClick={save} loading={loading} disabled={!rows.length}>Salvar Lista</DashButton>
+        </>
+      }
+    >
+      <label className="block">
+        <span className="block text-xs font-semibold text-dash-ink2 mb-1.5">Nome da Lista</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Clientes Janeiro" className="dash-input" />
+      </label>
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { e.preventDefault(); readFile(e.dataTransfer.files?.[0]); }}
+        className="rounded-xl border-2 border-dashed border-[#DDE2E9] hover:border-dash-green/40 hover:bg-dash-green/[0.03] transition-all p-8 text-center cursor-pointer"
+      >
+        <div className="text-4xl mb-2">📂</div>
+        <h4 className="font-semibold text-dash-ink">Clique ou arraste o arquivo aqui</h4>
+        <p className="text-xs text-dash-faint mt-1">Formato: Excel (.xlsx) ou CSV (.csv)</p>
+        <p className="text-xs text-dash-faint">Colunas obrigatórias: <strong>NOME</strong> e <strong>NUMERO</strong></p>
+        <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv"
+          onChange={(e) => readFile(e.target.files?.[0])} className="hidden" />
       </div>
-    </Modal>
+      {info && <div className="text-sm text-dash-green bg-dash-green/10 border border-dash-green/20 rounded-xl px-4 py-2">{info}</div>}
+      {err && <div className="text-sm text-dash-red bg-dash-red/10 border border-dash-red/20 rounded-xl px-4 py-3">{err}</div>}
+      {stats && (
+        <div className="rounded-xl border border-dash-border bg-dash-subtle p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm font-semibold text-dash-ink">Relatório da importação</div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-dash-green bg-dash-green/10 px-2 py-0.5 rounded-full">limpeza automática</div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <StatBlock label="Importados" value={stats.total} tone="neutral" />
+            <StatBlock label="Duplicados" value={stats.duplicates} tone={stats.duplicates > 0 ? "warn" : "neutral"} hint="removidos" />
+            <StatBlock label="Válidos" value={stats.valid.length} tone="success" hint="serão salvos" />
+          </div>
+          {stats.invalid > 0 && <div className="text-xs text-dash-muted mt-2">⚠️ {stats.invalid} número(s) inválido(s) descartado(s)</div>}
+          {stats.duplicates > 0 && <div className="text-xs text-dash-muted mt-1">✨ {stats.duplicates} duplicata(s) removida(s)</div>}
+        </div>
+      )}
+      {rows.length > 0 && (
+        <div className="rounded-xl border border-dash-border max-h-48 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-dash-subtle sticky top-0">
+              <tr className="text-left">
+                <th className="px-3 py-2 font-mono text-[10px] tracking-[0.12em] uppercase text-dash-faint2 font-semibold">Nome</th>
+                <th className="px-3 py-2 font-mono text-[10px] tracking-[0.12em] uppercase text-dash-faint2 font-semibold">Número</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-dash-border2">
+              {rows.slice(0, 30).map((r, i) => (
+                <tr key={i}><td className="px-3 py-1.5 text-dash-ink">{r.NOME}</td><td className="px-3 py-1.5 font-mono text-xs text-dash-ink2">{r.NUMERO}</td></tr>
+              ))}
+              {rows.length > 30 && <tr><td colSpan={2} className="px-3 py-2 text-xs text-dash-faint italic">...e mais {rows.length - 30}</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </DashModal>
   );
 }
 
@@ -1162,26 +1185,28 @@ function ListViewModal({ list, onClose }) {
   if (!list) return null;
   const contacts = data?.contacts || [];
   return (
-    <Modal open={!!list} onClose={onClose} title={list.name} size="lg">
-      <div className="text-xs text-ink-500 mb-3">{list.total || contacts.length} contatos · importado {fmtDate(list.created_at)}</div>
-      <div className="rounded-xl border border-white/10 max-h-[50vh] overflow-y-auto">
+    <DashModal open={!!list} onClose={onClose} title={list.name} size="lg">
+      <div className="text-xs text-dash-faint mb-3">{list.total || contacts.length} contatos · importado {fmtDate(list.created_at)}</div>
+      <div className="rounded-xl border border-dash-border max-h-[50vh] overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="bg-white/[0.02] sticky top-0">
-            <tr className="text-left text-xs text-ink-500">
-              <th className="px-3 py-2">#</th><th className="px-3 py-2">Nome</th><th className="px-3 py-2">Número</th>
+          <thead className="bg-dash-subtle sticky top-0">
+            <tr className="text-left">
+              <th className="px-3 py-2 font-mono text-[10px] tracking-[0.12em] uppercase text-dash-faint2 font-semibold">#</th>
+              <th className="px-3 py-2 font-mono text-[10px] tracking-[0.12em] uppercase text-dash-faint2 font-semibold">Nome</th>
+              <th className="px-3 py-2 font-mono text-[10px] tracking-[0.12em] uppercase text-dash-faint2 font-semibold">Número</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.04]">
+          <tbody className="divide-y divide-dash-border2">
             {contacts.map((c, i) => (
               <tr key={i}>
-                <td className="px-3 py-1.5 text-ink-500">{i + 1}</td>
-                <td className="px-3 py-1.5">{c.NOME || c.nome || c.name || ""}</td>
-                <td className="px-3 py-1.5 font-mono text-xs text-ink-300">{c.NUMERO || c.numero || c.phone || ""}</td>
+                <td className="px-3 py-1.5 text-dash-faint">{i + 1}</td>
+                <td className="px-3 py-1.5 text-dash-ink">{c.NOME || c.nome || c.name || ""}</td>
+                <td className="px-3 py-1.5 font-mono text-xs text-dash-ink2">{c.NUMERO || c.numero || c.phone || ""}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </Modal>
+    </DashModal>
   );
 }

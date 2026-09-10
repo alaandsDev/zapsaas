@@ -245,6 +245,32 @@
   .nav-inactive {
     @apply text-ink-300 border border-transparent hover:text-ink-100 hover:bg-white/[0.04];
   }
+
+  /* ───────────────────────── Dashboard light (telas internas) ─────────────────────────
+     Escopo: Sidebar/Topbar + Conversas, Leads, CRM, Vendas, Campanhas, SMS, Agente de IA,
+     Canais, Suporte/Equipe. Ver "Wayvo Padrões Internos" — nenhuma cor nova fora daqui. */
+  .dash-shell { @apply bg-dash-bg text-dash-ink; background-image: none; }
+
+  .dash-card { @apply rounded-[20px] border border-dash-border bg-dash-card p-6; }
+  .dash-card-flush { @apply rounded-[20px] border border-dash-border bg-dash-card overflow-hidden; }
+
+  .dash-section-label { @apply font-mono text-[10.5px] tracking-[0.14em] uppercase text-dash-faint2 font-semibold mb-4; }
+
+  .dash-btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .dash-btn-primary { @apply dash-btn text-white bg-dash-green border border-dash-green hover:bg-dash-green-hover shadow-dash-btn; }
+  .dash-btn-secondary { @apply dash-btn text-dash-ink2 bg-dash-card border border-dash-input hover:border-dash-faint; }
+  .dash-btn-ghost { @apply dash-btn text-dash-muted border border-transparent hover:bg-black/[0.03]; }
+  .dash-btn-danger { @apply dash-btn text-dash-red bg-dash-red/10 border border-dash-red/30 hover:bg-dash-red/15; }
+
+  .dash-icon-btn { @apply w-[30px] h-[30px] rounded-[10px] border border-dash-border bg-dash-card text-dash-muted flex items-center justify-center transition-all duration-150 hover:border-dash-faint hover:text-dash-ink; }
+
+  .dash-input { @apply w-full rounded-[13px] bg-dash-subtle border border-dash-input px-3.5 py-2.5 text-sm text-dash-ink placeholder:text-dash-placeholder outline-none transition-all duration-150 focus:border-dash-green focus:shadow-dash-focus focus:bg-white; }
+
+  .dash-th { @apply px-4 py-2.5 font-mono text-[10px] tracking-[0.12em] uppercase text-dash-faint2 font-semibold; }
+
+  .dash-empty { @apply rounded-[18px] border border-dashed border-[#DDE2E9] bg-dash-subtle text-center px-6 py-9; }
+
+  .dash-skeleton { @apply rounded-lg bg-gradient-to-r from-[#F1F3F6] via-[#E7EAEF] to-[#F1F3F6] bg-[length:200%_100%] animate-shimmer; }
 }
 
 /* Tema fixo escuro — modo claro removido (data-theme="light" não tem efeito) */
