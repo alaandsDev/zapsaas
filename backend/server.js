@@ -1816,12 +1816,19 @@ async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
 }
 
 // Bulk direto via Cloud API (lista de números)
-async function sendBulkCloud(userId, phones, message, delayMs = 500) {
+async function sendBulkCloud(userId, phones, message, delayMs = 500, dispatchId = null) {
   const config = await getCloudConfig(userId);
   if (!config?.access_token) throw new Error('API Meta não configurada');
   const creds = { token: config.access_token, phoneNumberId: config.phone_number_id };
   const results = [];
   for (let i = 0; i < phones.length; i++) {
+    if (dispatchId) {
+      const { data: current } = await supabase.from('dispatches').select('status').eq('id', dispatchId).single();
+      if (current?.status === 'paused' || current?.status === 'cancelled') {
+        console.log(`[bulk/cloud] ${dispatchId} interrompido por status=${current.status}`);
+        break;
+      }
+    }
     const p = phones[i];
     try {
       const text = (p.text || message).replace(/\{nome\}/gi, p.name || '').replace(/\{name\}/gi, p.name || '');
@@ -4114,7 +4121,7 @@ app.post('/api/whatsapp/bulk', requireAuth, blockAgents, rateLimit(60 * 1000, 5)
         const _bulkCloudUserId = uid(req);
         (async () => {
           try {
-            const results = await sendBulkCloud(_bulkCloudUserId, phones, message, 600);
+            const results = await sendBulkCloud(_bulkCloudUserId, phones, message, 600, dispatch.id);
             const sent = results.filter(r => r.status === 'sent').length;
             const failed = results.filter(r => r.status === 'failed').length;
             const updatedItems = items.map((item, i) => ({ ...item, ...results[i] }));
@@ -4176,6 +4183,15 @@ app.post('/api/whatsapp/bulk', requireAuth, blockAgents, rateLimit(60 * 1000, 5)
         selectedSessions.forEach(s => { slotCount[s.slot] = 0; });
 
         for (let i = 0; i < phones.length; i++) {
+          // Verifica se foi pausado ou cancelado durante o envio
+          const { data: current } = await supabase.from('dispatches').select('status').eq('id', dispatch.id).single();
+          if (current?.status === 'paused' || current?.status === 'cancelled') {
+            console.log(`[bulk] ${dispatch.id} interrompido por status=${current.status}`);
+            return;
+          }
+          // Pula contatos já enviados (retomada após restart)
+          if (updatedItems[i]?.status === 'sent') { if (effectiveDualChip) sessionIdx++; continue; }
+
           const p = phones[i];
 
           // Round-robin com fallback: se slot atual falhar, tenta o próximo
