@@ -54,14 +54,14 @@ export default function GoogleButton() {
   if (!CLIENT_ID) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="h-px bg-white/10 flex-1" />
-        <span className="text-xs text-ink-500">ou</span>
-        <div className="h-px bg-white/10 flex-1" />
+        <div className="h-px bg-[#E9ECF1] flex-1" />
+        <span className="text-xs text-[#8A94A6]">ou</span>
+        <div className="h-px bg-[#E9ECF1] flex-1" />
       </div>
       <div className="flex justify-center" ref={ref} />
-      {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
+      {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{err}</div>}
     </div>
   );
 }

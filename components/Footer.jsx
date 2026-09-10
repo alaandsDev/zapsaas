@@ -1,93 +1,91 @@
 import Link from "next/link";
+import { ShieldCheck, Lock } from "lucide-react";
 import Logo from "./Logo";
+
+const linkClass = "text-[#4B5565] hover:text-[#0E8A47] transition-colors";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/[0.06] mt-12 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/[0.01] to-transparent pointer-events-none" />
-      <div className="container-x relative pt-16 pb-10">
-        {/* Top: brand + links */}
+    <footer className="bg-[#EDEFF3] border-t border-[#E4E7EC]">
+      <div className="container-x pt-16 pb-10">
         <div className="grid md:grid-cols-12 gap-10">
-          {/* Brand */}
-          <div className="md:col-span-4">
+          {/* Marca */}
+          <div className="md:col-span-4 text-[#0A1020]">
             <Logo />
-            <p className="mt-4 text-sm text-ink-300 max-w-sm leading-relaxed">
+            <p className="mt-4 max-w-sm text-[14px] leading-relaxed text-[#4B5565]">
               O sistema operacional de comunicação no WhatsApp: CRM conversacional, automação e IA.
             </p>
-
-            {/* Status pill */}
-            <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-xs">
-              <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="text-primary font-semibold">Todos os sistemas operando</span>
+            <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#EAFBF1] border border-[#D2F0E0] text-[12px]">
+              <span className="size-1.5 rounded-full bg-[#0E8A47] animate-pulse" />
+              <span className="text-[#0E8A47] font-semibold">Todos os sistemas operando</span>
             </div>
           </div>
 
           {/* Soluções */}
           <div className="md:col-span-2">
-            <div className="text-sm font-semibold mb-4">Soluções</div>
-            <ul className="space-y-2.5 text-sm text-ink-300">
-              <li><Link href="/oticas" className="hover:text-ink-100 transition-colors">Para Óticas</Link></li>
-              <li><Link href="/clinicas" className="hover:text-ink-100 transition-colors">Para Clínicas</Link></li>
-              <li><Link href="/delivery" className="hover:text-ink-100 transition-colors">Para Delivery</Link></li>
-              <li><Link href="/imobiliarias" className="hover:text-ink-100 transition-colors">Para Imobiliárias</Link></li>
+            <div className="text-[14px] font-semibold text-[#0A1020] mb-4">Soluções</div>
+            <ul className="space-y-2.5 text-[14px]">
+              <li><Link href="/oticas" className={linkClass}>Para Óticas</Link></li>
+              <li><Link href="/clinicas" className={linkClass}>Para Clínicas</Link></li>
+              <li><Link href="/delivery" className={linkClass}>Para Delivery</Link></li>
+              <li><Link href="/imobiliarias" className={linkClass}>Para Imobiliárias</Link></li>
             </ul>
           </div>
 
           {/* Produto */}
           <div className="md:col-span-2">
-            <div className="text-sm font-semibold mb-4">Produto</div>
-            <ul className="space-y-2.5 text-sm text-ink-300">
-              <li><Link href="/#planos" className="hover:text-ink-100 transition-colors">Planos</Link></li>
-              <li><Link href="/#faq" className="hover:text-ink-100 transition-colors">Perguntas</Link></li>
-              <li><Link href="/blog" className="hover:text-ink-100 transition-colors">Blog</Link></li>
-              <li><Link href="/register" className="hover:text-ink-100 transition-colors">Testar 7 dias</Link></li>
-              <li><Link href="/login" className="hover:text-ink-100 transition-colors">Entrar</Link></li>
-              <li><Link href="/changelog" className="hover:text-ink-100 transition-colors">Novidades</Link></li>
+            <div className="text-[14px] font-semibold text-[#0A1020] mb-4">Produto</div>
+            <ul className="space-y-2.5 text-[14px]">
+              <li><Link href="/#planos" className={linkClass}>Planos</Link></li>
+              <li><Link href="/#faq" className={linkClass}>Perguntas</Link></li>
+              <li><Link href="/blog" className={linkClass}>Blog</Link></li>
+              <li><Link href="/register" className={linkClass}>Testar 7 dias</Link></li>
+              <li><Link href="/login" className={linkClass}>Entrar</Link></li>
+              <li><Link href="/changelog" className={linkClass}>Novidades</Link></li>
             </ul>
           </div>
 
           {/* Contato + legal */}
           <div className="md:col-span-4">
-            <div className="text-sm font-semibold mb-4">Fale com a gente</div>
-            <ul className="space-y-2.5 text-sm text-ink-300">
+            <div className="text-[14px] font-semibold text-[#0A1020] mb-4">Fale com a gente</div>
+            <ul className="space-y-2.5 text-[14px] text-[#4B5565]">
               <li>
                 Suporte:{" "}
-                <a href="mailto:suporte@wayvo.app.br" className="text-primary hover:underline">
+                <a href="mailto:suporte@wayvo.app.br" className="text-[#0E8A47] hover:text-[#0B7239] hover:underline">
                   suporte@wayvo.app.br
                 </a>
               </li>
               <li>
                 Privacidade e LGPD:{" "}
-                <a href="mailto:privacidade@wayvo.app.br" className="text-primary hover:underline">
+                <a href="mailto:privacidade@wayvo.app.br" className="text-[#0E8A47] hover:text-[#0B7239] hover:underline">
                   privacidade@wayvo.app.br
                 </a>
               </li>
               <li>
                 Jurídico:{" "}
-                <a href="mailto:legal@wayvo.app.br" className="text-primary hover:underline">
+                <a href="mailto:legal@wayvo.app.br" className="text-[#0E8A47] hover:text-[#0B7239] hover:underline">
                   legal@wayvo.app.br
                 </a>
               </li>
             </ul>
 
-            <div className="text-sm font-semibold mt-7 mb-4">Legal</div>
-            <ul className="space-y-2.5 text-sm text-ink-300">
-              <li><Link href="/privacidade" className="hover:text-ink-100 transition-colors">Política de Privacidade</Link></li>
-              <li><Link href="/termos" className="hover:text-ink-100 transition-colors">Termos de Uso</Link></li>
+            <div className="text-[14px] font-semibold text-[#0A1020] mt-7 mb-4">Legal</div>
+            <ul className="space-y-2.5 text-[14px]">
+              <li><Link href="/privacidade" className={linkClass}>Política de Privacidade</Link></li>
+              <li><Link href="/termos" className={linkClass}>Termos de Uso</Link></li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="mt-14 pt-8 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-4 text-xs text-ink-500">
+        <div className="mt-14 pt-8 border-t border-[#E4E7EC] flex flex-wrap items-center justify-between gap-4 text-[12.5px] text-[#8A94A6]">
           <div>© {new Date().getFullYear()} Wayvo. Todos os direitos reservados.</div>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center gap-5">
             <span className="inline-flex items-center gap-1.5">
-              <svg className="size-3.5 text-primary" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4 5v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V5l-8-3z"/></svg>
+              <Lock className="size-3.5 text-[#0E8A47]" strokeWidth={2.5} />
               Pagamento seguro Stripe
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <svg className="size-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              <ShieldCheck className="size-3.5 text-[#0E8A47]" strokeWidth={2.5} />
               LGPD compliant
             </span>
             <span>Feito 🇧🇷 com café e código</span>

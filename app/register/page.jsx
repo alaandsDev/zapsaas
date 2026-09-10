@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthShell from "../../components/auth/AuthShell";
-import { Field, Input, Button } from "../../components/ui/Field";
+import { AuthField, AuthInput, AuthButton } from "../../components/auth/AuthField";
 import { api, setAuth } from "../../lib/api";
 import GoogleButton from "../../components/auth/GoogleButton";
 import { track } from "../../components/Analytics";
@@ -51,42 +51,43 @@ export default function Register() {
 
   return (
     <AuthShell
+      mode="register"
       title="Criar conta"
-      subtitle="7 dias de teste no plano Starter. Precisa de cartão pra começar, só cobra depois do 7º dia."
+      subtitle="7 dias de teste no plano Starter. Cartão pedido agora, cobrança só depois do 7º dia."
       footer={
         <>
           Já tem conta?{" "}
-          <Link href="/login" className="text-primary hover:underline font-medium">
-            Entrar
+          <Link href="/login" className="text-[#0E8A47] hover:text-[#0B7239] font-semibold">
+            Entrar →
           </Link>
         </>
       }
     >
       <form onSubmit={onSubmit} className="space-y-4">
-        <Field label="Nome">
-          <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
-        </Field>
-        <Field label="E-mail">
-          <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
-        </Field>
-        <Field label="WhatsApp" hint="Com DDD — ex: 11987654321">
-          <Input type="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="11987654321" />
-        </Field>
-        <Field label="Senha" hint="Mínimo 6 caracteres">
-          <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-        </Field>
-        {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-        <Button type="submit" loading={loading} className="w-full">
+        <AuthField label="Nome">
+          <AuthInput required value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
+        </AuthField>
+        <AuthField label="E-mail">
+          <AuthInput type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
+        </AuthField>
+        <AuthField label="WhatsApp" hint="Com DDD — ex: 11987654321">
+          <AuthInput type="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="11987654321" />
+        </AuthField>
+        <AuthField label="Senha" hint="Mínimo 6 caracteres">
+          <AuthInput type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+        </AuthField>
+        {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{err}</div>}
+        <AuthButton type="submit" loading={loading}>
           {loading ? "Abrindo assinatura..." : "Continuar para o pagamento →"}
-        </Button>
-        <p className="text-xs text-ink-500 text-center">
+        </AuthButton>
+        <p className="text-xs text-[#8A94A6] text-center">
           Ao criar sua conta você concorda com nossos{" "}
-          <Link href="/termos" target="_blank" className="text-primary hover:underline">Termos de Uso</Link>
+          <Link href="/termos" target="_blank" className="text-[#0E8A47] hover:text-[#0B7239]">Termos de Uso</Link>
           {" "}e{" "}
-          <Link href="/privacidade" target="_blank" className="text-primary hover:underline">Política de Privacidade</Link>.
+          <Link href="/privacidade" target="_blank" className="text-[#0E8A47] hover:text-[#0B7239]">Política de Privacidade</Link>.
         </p>
       </form>
-      <div className="mt-4"><GoogleButton /></div>
+      <div className="mt-6"><GoogleButton /></div>
     </AuthShell>
   );
 }

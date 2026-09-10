@@ -1,111 +1,63 @@
-"use client";
-import { useEffect, useRef, useState } from "react";
 import Reveal from "./ui/Reveal";
 
-export default function HowItWorks({ steps, title = "Funciona em 3 passos" }) {
-  const containerRef = useRef(null);
-  const badgeRefs = useRef([]);
-  const [path, setPath] = useState("");
-
-  // Mede a posição real de cada badge numerado e desenha a trilha em degraus
-  // conectando eles — assim o traço sempre acompanha o layout de verdade
-  // (responsivo, texto de tamanho variável), em vez de coordenadas fixas
-  // que quebrariam em qualquer viewport diferente do que eu testei.
-  useEffect(() => {
-    function measure() {
-      const container = containerRef.current;
-      if (!container) return;
-      const cRect = container.getBoundingClientRect();
-      const points = badgeRefs.current.filter(Boolean).map((el) => {
-        const r = el.getBoundingClientRect();
-        return { x: r.left + r.width / 2 - cRect.left, y: r.top + r.height / 2 - cRect.top };
-      });
-      if (points.length < 2) { setPath(""); return; }
-      let d = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length; i++) {
-        const prev = points[i - 1];
-        const cur = points[i];
-        const midY = (prev.y + cur.y) / 2;
-        d += ` V ${midY} H ${cur.x} V ${cur.y}`;
-      }
-      setPath(d);
-    }
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (containerRef.current) ro.observe(containerRef.current);
-    window.addEventListener("resize", measure);
-    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
-  }, [steps]);
-
+export default function HowItWorks({ steps }) {
   return (
-    <section id="como-funciona" className="py-24">
+    <section id="como-funciona" className="bg-[#F5F6F8] py-24">
       <div className="container-x">
-        <Reveal className="relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br from-card via-card to-bg shadow-elevated">
-          <div className="relative grid lg:grid-cols-[0.85fr_1.15fr]">
-
-            {/* Coluna esquerda: texto + foto — sem padding na coluna em si (só no
-                texto), pra imagem poder encostar de verdade na base do card em
-                vez de parar no padding e sobrar um vão vazio embaixo dela. */}
-            <div className="relative min-h-[420px] sm:min-h-[640px] lg:min-h-[800px] overflow-hidden">
-              <svg className="absolute bottom-6 left-2 size-36 sm:size-44 text-primary/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M13 2 3 14h7l-1 8 11-14h-7z" />
-              </svg>
+        <Reveal className="relative rounded-[28px] overflow-hidden border border-[#E9ECF1]">
+          <div
+            className="relative grid lg:grid-cols-[0.9fr_1.1fr]"
+            style={{ background: "linear-gradient(160deg,#FFFFFF 0%,#F6F9F7 55%,#F1F6FB 100%)" }}
+          >
+            {/* Esquerda: texto + a agente ancorada na base do card */}
+            <div className="relative min-h-[420px] sm:min-h-[560px] lg:min-h-[640px] overflow-hidden">
               <div className="relative z-10 p-8 sm:p-12">
-                <div className="eyebrow mb-4">Como funciona</div>
-                <h2 className="text-4xl sm:text-5xl font-bold leading-tight">
-                  Funciona em<br /><span className="text-primary">3 passos</span>
+                <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#0E8A47] mb-4">
+                  Como funciona
+                </div>
+                <h2 className="text-[34px] sm:text-[42px] font-bold leading-[1.08] tracking-[-0.02em] text-[#0A1020]">
+                  Funciona em<br />
+                  <span className="text-[#0E8A47]">3 passos</span>
                 </h2>
-                <p className="mt-4 text-ink-300 max-w-xs">
+                <p className="mt-4 max-w-xs text-[16px] leading-relaxed text-[#4B5565]">
                   Sem programador, sem instalação. Em minutos seu negócio começa a vender no automático.
                 </p>
               </div>
               <img
                 src="/team/agente-wayvo.png"
                 alt=""
-                className="hidden sm:block absolute bottom-0 right-2 lg:right-8 w-[280px] lg:w-[400px] h-auto object-contain object-bottom pointer-events-none select-none"
+                className="hidden sm:block absolute bottom-0 right-2 lg:right-6 w-[280px] lg:w-[380px] h-auto object-contain object-bottom pointer-events-none select-none"
               />
             </div>
 
-            {/* Coluna direita: passos numerados, conectados pela trilha.
-                items-stretch (padrão do grid) já iguala a altura das duas
-                colunas — aqui só centralizo o conteúdo verticalmente também,
-                pra não ficar grudado no topo com vão vazio embaixo enquanto
-                a foto ocupa a coluna esquerda até a base. */}
-            <div
-              ref={containerRef}
-              className="relative flex flex-col justify-center p-8 sm:p-12 lg:py-16 border-t lg:border-t-0 lg:border-l border-white/[0.08]"
-            >
-              <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" aria-hidden="true">
-                {path && (
-                  <path
-                    d={path}
-                    fill="none"
-                    stroke="#25D366"
-                    strokeOpacity="0.35"
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                )}
-              </svg>
-              <div className="relative space-y-14">
-                {steps.map((s, i) => (
-                  <div key={i} className="flex items-start gap-5" style={{ marginLeft: `${i * 64}px` }}>
-                    <div
-                      ref={(el) => (badgeRefs.current[i] = el)}
-                      className="relative z-10 size-14 shrink-0 rounded-2xl bg-primary text-bg font-bold text-xl flex items-center justify-center shadow-glow"
-                    >
-                      {i + 1}
-                    </div>
-                    <div className="pt-2">
-                      <h3 className="text-2xl font-bold text-primary">{s.title}</h3>
-                      <p className="text-ink-300 mt-1.5 text-lg leading-relaxed max-w-md">{s.desc}</p>
-                    </div>
-                  </div>
-                ))}
+            {/* Direita: passos conectados por uma trilha vertical verde */}
+            <div className="relative p-8 sm:p-12 lg:py-16 border-t lg:border-t-0 lg:border-l border-[#E9ECF1]">
+              <div className="relative">
+                {/* Trilha — encostada no centro dos círculos (26px = metade de 52px) */}
+                <div
+                  className="absolute left-[26px] top-[52px] bottom-[52px] w-[2px] -translate-x-1/2 pointer-events-none"
+                  style={{ background: "linear-gradient(to bottom, #0E8A47, rgba(14,138,71,0.25))" }}
+                />
+                <div className="relative space-y-12">
+                  {steps.map((s, i) => (
+                    <Reveal key={i} delay={Math.min(i * 90, 180)}>
+                      <div className="flex items-start gap-5">
+                        <div
+                          className="relative z-10 size-[52px] shrink-0 rounded-full bg-[#0E8A47] text-white font-bold text-[20px] flex items-center justify-center"
+                          style={{ boxShadow: "0 10px 22px -10px rgba(14,138,71,0.6)" }}
+                        >
+                          {i + 1}
+                        </div>
+                        <div className="pt-1.5">
+                          <h3 className="text-[21px] font-bold text-[#0A1020] leading-snug">{s.title}</h3>
+                          <p className="mt-2 max-w-md text-[16px] leading-relaxed text-[#4B5565]">{s.desc}</p>
+                        </div>
+                      </div>
+                    </Reveal>
+                  ))}
+                </div>
               </div>
             </div>
-
           </div>
         </Reveal>
       </div>

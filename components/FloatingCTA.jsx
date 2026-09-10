@@ -35,26 +35,50 @@ export default function FloatingCTA() {
     setDismissed(true);
   }
 
+  // A landing (/) já está no tema light novo — as demais páginas públicas
+  // (nicho, blog, changelog) ainda são escuras até serem migradas também.
+  const isLight = pathname === "/";
+
   return (
     <div className="fixed bottom-5 right-5 z-50 max-w-[calc(100vw-2.5rem)] sm:max-w-sm animate-toast-in">
-      <div className="card p-4 pr-3 shadow-2xl shadow-primary/20 bg-bg2/95 backdrop-blur-md border-primary/25 flex items-center gap-3">
-        <div className="size-10 shrink-0 rounded-xl bg-gradient-to-br from-primary to-accent-blue flex items-center justify-center text-bg">
+      <div
+        className={
+          isLight
+            ? "rounded-2xl p-4 pr-3 shadow-2xl shadow-[#0E8A47]/15 bg-white/95 backdrop-blur-md border border-[#D2F0E0] flex items-center gap-3"
+            : "card p-4 pr-3 shadow-2xl shadow-primary/20 bg-bg2/95 backdrop-blur-md border-primary/25 flex items-center gap-3"
+        }
+      >
+        <div
+          className={
+            isLight
+              ? "size-10 shrink-0 rounded-xl bg-gradient-to-br from-[#0E8A47] to-[#2F80ED] flex items-center justify-center text-white"
+              : "size-10 shrink-0 rounded-xl bg-gradient-to-br from-primary to-accent-blue flex items-center justify-center text-bg"
+          }
+        >
           <Icon name="instantaneo" className="size-5" strokeWidth={2.25} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm">Teste 7 dias grátis</div>
-          <div className="text-xs text-ink-400 mt-0.5">Só cobra depois do 7º dia · Cancele quando quiser</div>
+          <div className={isLight ? "font-semibold text-sm text-[#0A1020]" : "font-semibold text-sm"}>Teste 7 dias grátis</div>
+          <div className={isLight ? "text-xs text-[#5A6474] mt-0.5" : "text-xs text-ink-400 mt-0.5"}>Só cobra depois do 7º dia · Cancele quando quiser</div>
         </div>
         <Link
           href="/register"
-          className="shrink-0 px-4 py-2 rounded-lg bg-primary text-bg font-semibold text-xs hover:opacity-90 whitespace-nowrap"
+          className={
+            isLight
+              ? "shrink-0 px-4 py-2 rounded-lg bg-[#0E8A47] text-white font-semibold text-xs hover:bg-[#0B7239] whitespace-nowrap"
+              : "shrink-0 px-4 py-2 rounded-lg bg-primary text-bg font-semibold text-xs hover:opacity-90 whitespace-nowrap"
+          }
         >
           Começar
         </Link>
         <button
           onClick={dismiss}
           aria-label="Fechar"
-          className="shrink-0 size-7 rounded-md text-ink-500 hover:text-ink-100 hover:bg-white/5 flex items-center justify-center text-lg leading-none"
+          className={
+            isLight
+              ? "shrink-0 size-7 rounded-md text-[#98A1B0] hover:text-[#0A1020] hover:bg-black/5 flex items-center justify-center text-lg leading-none"
+              : "shrink-0 size-7 rounded-md text-ink-500 hover:text-ink-100 hover:bg-white/5 flex items-center justify-center text-lg leading-none"
+          }
         >
           ×
         </button>

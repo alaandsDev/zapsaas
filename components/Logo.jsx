@@ -14,7 +14,7 @@ export default function Logo({ size = 28, showWordmark = true }) {
         draggable={false}
       />
       {showWordmark && (
-        <span className="font-bold text-lg tracking-tight">Wayvo</span>
+        <span className="font-bold text-[19px] leading-none tracking-tight">Wayvo</span>
       )}
     </div>
   );

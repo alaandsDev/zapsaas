@@ -13,9 +13,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import Topbar from "../../components/dashboard/Topbar";
 import { api, getUser, API_URL, getToken } from "../../lib/api";
 
-/* ── paleta premium (escopo dashboard) ── */
-const NEON = "#00FF88"; // primary brand color
-const CYAN = "#00D1FF";
+/* ── paleta Wayvo Padrões Internos (tema light do dashboard) ── */
+const NEON = "#0E8A47";   // verde (CTA principal / acento primário)
+const CYAN = "#2F80ED";   // azul
+const VIOLET = "#6D3BEA";
+const AMBER = "#C2740A";
+const RED = "#C2434A";
+const EMERALD = "#12A150";
+const INK = "#0A1020";
+const INK2 = "#26303E";
+const MUTED = "#5A6474";
+const FAINT = "#8A94A6";
+const FAINT2 = "#98A1B0";
 
 /* ── helpers ── */
 function timeAgo(iso) {
@@ -46,9 +55,9 @@ function AnimatedNumber({ value = 0, prefix = "", suffix = "", duration = 900 })
 const CHART_TOOLTIP = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl px-3 py-2 text-xs border border-white/10 backdrop-blur-xl"
-      style={{ background: "rgba(11,17,32,0.92)", boxShadow: "0 20px 50px -20px rgba(0,0,0,0.8)" }}>
-      <p className="text-ink-400 mb-1.5">{label}</p>
+    <div className="rounded-xl px-3 py-2 text-xs border"
+      style={{ background: "#FFFFFF", borderColor: "#E9ECF1", boxShadow: "0 12px 32px -12px rgba(10,16,32,0.18)" }}>
+      <p className="mb-1.5" style={{ color: FAINT }}>{label}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }} className="font-semibold flex items-center gap-2">
           <span className="size-2 rounded-full" style={{ background: p.color }} />
@@ -60,15 +69,15 @@ const CHART_TOOLTIP = ({ active, payload, label }) => {
 };
 
 const ACTIVITY_META = {
-  message:  { icon: MessageSquare, color: NEON,      label: "Mensagem" },
-  lead:     { icon: Users,         color: CYAN,      label: "Novo lead" },
-  dispatch: { icon: Send,          color: "#F59E0B", label: "Disparo" },
-  flow:     { icon: Zap,           color: "#7C3AED", label: "Automação" },
-  connect:  { icon: Phone,         color: "#22C55E", label: "Conexão" },
+  message:  { icon: MessageSquare, color: NEON,   label: "Mensagem" },
+  lead:     { icon: Users,         color: CYAN,   label: "Novo lead" },
+  dispatch: { icon: Send,          color: AMBER,  label: "Disparo" },
+  flow:     { icon: Zap,           color: VIOLET, label: "Automação" },
+  connect:  { icon: Phone,         color: EMERALD, label: "Conexão" },
 };
 
 function Skel({ className = "" }) {
-  return <div className={`animate-pulse rounded-xl bg-white/[0.05] ${className}`} />;
+  return <div className={`dash-skeleton ${className}`} />;
 }
 
 /* ── Sparkline decorativo (tendência do volume real de disparos) ── */
@@ -128,63 +137,67 @@ function OnboardingChecklist({ connectedSlots, stats, dispatches }) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ delay: 0.05 }}
-        className="relative rounded-2xl border border-white/[0.08] overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #0F172A 0%, #0B1120 60%, #0F172A 100%)" }}
+        className="relative rounded-[20px] border overflow-hidden"
+        style={{ borderColor: "#E9ECF1", background: "#FFFFFF" }}
       >
         {/* dismiss */}
         <button onClick={dismiss}
-          className="absolute top-4 right-4 size-7 flex items-center justify-center rounded-lg text-ink-500 hover:text-ink-200 hover:bg-white/[0.06] transition-all z-10">
+          className="absolute top-4 right-4 size-7 flex items-center justify-center rounded-lg transition-all z-10"
+          style={{ color: FAINT2 }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = INK; e.currentTarget.style.background = "#F4F6F8"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = FAINT2; e.currentTarget.style.background = "transparent"; }}>
           <X className="size-4" />
         </button>
 
-        <div className="p-5 lg:p-6">
+        <div className="p-5 lg:p-[22px]">
           {/* header */}
           <div className="flex items-center gap-3 mb-4">
             <div className="size-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `${NEON}18`, border: `1px solid ${NEON}30` }}>
+              style={{ background: "#EAFBF1", border: "1px solid #D2F0E0" }}>
               <Sparkles className="size-4" style={{ color: NEON }} />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-sm">Primeiros passos</h3>
-              <p className="text-xs text-ink-400">{completedCount} de 3 concluídos</p>
+              <h3 className="font-semibold text-sm" style={{ color: INK }}>Primeiros passos</h3>
+              <p className="text-xs" style={{ color: FAINT2 }}>{completedCount} de 3 concluídos</p>
             </div>
           </div>
 
           {/* progress bar */}
-          <div className="h-1.5 rounded-full bg-white/[0.07] mb-5 overflow-hidden">
+          <div className="h-1.5 rounded-full mb-5 overflow-hidden" style={{ background: "#EEF1F4" }}>
             <motion.div
               className="h-full rounded-full"
               style={{ background: `linear-gradient(90deg,${NEON},${CYAN})` }}
               initial={{ width: 0 }}
-              animate={{ width: `${(completedCount / 4) * 100}%` }}
+              animate={{ width: `${(completedCount / 3) * 100}%` }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             />
           </div>
 
           {/* steps */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {OB_STEPS.map((step) => {
               const isDone = done[step.id];
               const Icon = step.icon;
+              const stepColor = step.id === "connect" ? NEON : step.id === "leads" ? CYAN : AMBER;
               return (
                 <Link key={step.id} href={isDone ? "#" : step.href}
                   onClick={isDone ? (e) => e.preventDefault() : undefined}
-                  className={`group flex flex-col gap-2.5 p-4 rounded-xl border transition-all ${
-                    isDone
-                      ? "border-white/[0.05] opacity-60 cursor-default"
-                      : "border-white/[0.08] hover:border-primary/30 hover:bg-white/[0.03]"
-                  }`}>
+                  className="group flex flex-col gap-2.5 p-4 rounded-[14px] border transition-all"
+                  style={isDone
+                    ? { borderColor: "#F1F3F6", background: "#FBFCFD", cursor: "default" }
+                    : { borderColor: "#E4EFE9", background: "#FFFFFF" }}>
                   <div className="flex items-center justify-between">
-                    <div className={`size-8 rounded-lg flex items-center justify-center ${isDone ? "bg-white/[0.06]" : "bg-white/[0.06] group-hover:bg-primary/10"} transition-colors`}>
-                      <Icon className="size-4" style={{ color: isDone ? "#4ade80" : step.id === "connect" ? NEON : step.id === "leads" ? CYAN : step.id === "campaign" ? "#F59E0B" : "#7C3AED" }} />
+                    <div className="size-8 rounded-lg flex items-center justify-center transition-colors"
+                      style={{ background: isDone ? "#F1F3F6" : `${stepColor}14` }}>
+                      <Icon className="size-4" style={{ color: isDone ? FAINT2 : stepColor }} />
                     </div>
                     {isDone
-                      ? <CheckCircle2 className="size-4 text-green-400 shrink-0" />
-                      : <Circle className="size-4 text-ink-600 shrink-0" />}
+                      ? <CheckCircle2 className="size-4 shrink-0" style={{ color: NEON }} />
+                      : <Circle className="size-4 shrink-0" style={{ color: "#C7CDD8" }} />}
                   </div>
                   <div>
-                    <p className={`text-xs font-semibold ${isDone ? "line-through text-ink-500" : "text-ink-100"}`}>{step.label}</p>
-                    {!isDone && <p className="text-[11px] text-ink-500 mt-0.5 leading-relaxed">{step.desc}</p>}
+                    <p className="text-xs font-semibold" style={isDone ? { textDecoration: "line-through", color: FAINT2 } : { color: INK }}>{step.label}</p>
+                    {!isDone && <p className="text-[11.5px] mt-0.5 leading-relaxed" style={{ color: FAINT }}>{step.desc}</p>}
                   </div>
                 </Link>
               );
@@ -288,8 +301,8 @@ export default function DashboardHome() {
   const KPIs = [
     { label: "Total de Leads", value: stats.leads ?? 0, delta: "+12%", icon: Users, color: NEON },
     { label: "Mensagens Enviadas", value: stats.messagesSent ?? 0, delta: "+8%", icon: MessageSquare, color: CYAN },
-    { label: "Campanhas Ativas", value: activeDispatches, delta: `${dispatches.length} total`, icon: Send, color: "#F59E0B" },
-    { label: "Números Conectados", value: connectedSlots, delta: `de ${sessions.length}`, icon: Phone, color: "#22C55E" },
+    { label: "Campanhas Ativas", value: activeDispatches, delta: `${dispatches.length} total`, icon: Send, color: AMBER },
+    { label: "Números Conectados", value: connectedSlots, delta: `de ${sessions.length}`, icon: Phone, color: EMERALD },
     {
       label: "Receita Gerada",
       money: revenue?.total ?? 0,
@@ -310,12 +323,12 @@ export default function DashboardHome() {
     return [
       { label: "Mensagens enviadas", value: enviadas, color: NEON },
       { label: "Leads capturados", value: leads, color: CYAN },
-      { label: "Campanhas", value: camp, color: "#7C3AED" },
+      { label: "Campanhas", value: camp, color: VIOLET },
     ].map((s) => ({ ...s, pct: Math.round((s.value / max) * 100) }));
   }, [stats, dispatches]);
 
   const SRC_LABEL = { form: "Formulário", whatsapp: "WhatsApp", import: "Importação", manual: "Manual", instagram: "Instagram", facebook: "Facebook", site: "Site" };
-  const CH_COLORS = [NEON, CYAN, "#7C3AED", "#F59E0B", "#22C55E", "#EC4899"];
+  const CH_COLORS = [NEON, CYAN, VIOLET, AMBER, EMERALD, RED];
   const channels = useMemo(() => {
     const list = insights?.channels || [];
     const total = list.reduce((a, c) => a + c.count, 0) || 1;
@@ -345,23 +358,23 @@ export default function DashboardHome() {
     const revOk = (revenue?.total || 0) > 0 ? 1 : 0.6;
     const score = Math.round((deliv * 0.55 + chOk * 0.3 + revOk * 0.15) * 100);
     const label = score >= 80 ? "Operação estável" : score >= 55 ? "Operação saudável" : "Requer atenção";
-    const tint = score >= 80 ? "#00FF88" : score >= 55 ? "#22D3EE" : "#F59E0B";
+    const tint = score >= 80 ? NEON : score >= 55 ? CYAN : AMBER;
     return { score, label, tint };
   }, [dispatches, connectedSlots, revenue]);
 
   const aiStrip = useMemo(() => {
     const items = [];
     if (bestHour && bestHour.value > 0)
-      items.push({ tint: "#22D3EE", title: "Melhor horário", text: `Pico de respostas ~${bestHour.h}. Agende campanhas nessa janela.` });
+      items.push({ tint: CYAN, title: "Melhor horário", text: `Pico de respostas ~${bestHour.h}. Agende campanhas nessa janela.` });
     const last = dispatches[0];
     if (last && (last.total || 0) > 0) {
       const r = Math.round(((last.sent || 0) / Math.max(last.total, 1)) * 100);
-      if (r < 70) items.push({ tint: "#F59E0B", title: "Campanha fraca", text: `"${(last.message_title || "Última campanha").slice(0, 22)}" entregou ${r}%.` });
+      if (r < 70) items.push({ tint: AMBER, title: "Campanha fraca", text: `"${(last.message_title || "Última campanha").slice(0, 22)}" entregou ${r}%.` });
     }
     if ((stats.newLeads || 0) > 0)
-      items.push({ tint: "#EF4444", title: "Leads quentes", text: `${stats.newLeads} lead(s) novo(s) — priorize o atendimento agora.` });
+      items.push({ tint: RED, title: "Leads quentes", text: `${stats.newLeads} lead(s) novo(s) — priorize o atendimento agora.` });
     if (items.length < 3)
-      items.push({ tint: "#7C3AED", title: "Revenue ops", text: "Fluxo de follow-up recupera leads sem resposta." });
+      items.push({ tint: VIOLET, title: "Revenue ops", text: "Fluxo de follow-up recupera leads sem resposta." });
     return items.slice(0, 3);
   }, [bestHour, dispatches, stats]);
 
@@ -377,37 +390,35 @@ export default function DashboardHome() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-3xl border border-white/[0.06] p-6 lg:p-8"
-          style={{ background: "linear-gradient(135deg, #0F172A 0%, #0B1120 55%, #0F172A 100%)" }}
+          className="relative overflow-hidden rounded-[24px] border p-6 lg:p-[28px]"
+          style={{ borderColor: "#E4EFE9", background: "linear-gradient(140deg,#F2FBF6 0%,#FFFFFF 48%,#F0F5FD 100%)" }}
         >
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute -top-24 -right-16 w-96 h-96 rounded-full blur-3xl opacity-30"
-              style={{ background: `radial-gradient(circle, ${NEON}26, transparent 70%)` }} />
-            <div className="absolute -bottom-16 left-1/4 w-72 h-72 rounded-full blur-3xl opacity-20"
-              style={{ background: `radial-gradient(circle, ${CYAN}33, transparent 70%)` }} />
+            <div className="absolute -top-24 -right-16 w-96 h-96 rounded-full blur-[80px]"
+              style={{ background: "radial-gradient(circle, rgba(37,211,102,.20), transparent 70%)" }} />
           </div>
           <div className="relative flex items-start justify-between gap-6 flex-wrap">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[11px] font-semibold mb-4"
-                style={{ borderColor: `${NEON}40`, background: `${NEON}14`, color: NEON }}>
-                <span className="size-1.5 rounded-full animate-pulse" style={{ background: NEON }} />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[11px] font-bold uppercase mb-4"
+                style={{ borderColor: "#C7EBD8", background: "#FFFFFF", color: "#0B7239" }}>
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: "#25D366" }} />
+                  <span className="relative inline-flex rounded-full size-2" style={{ background: NEON }} />
+                </span>
                 SISTEMA OPERACIONAL ATIVO
               </div>
-              <h1 className="text-2xl lg:text-[32px] font-bold tracking-tight">Olá, {firstName}! 👋</h1>
-              <p className="text-ink-300 mt-2 text-sm">
+              <h1 className="text-2xl lg:text-[32px] font-bold tracking-tight" style={{ color: INK }}>Olá, {firstName}! 👋</h1>
+              <p className="mt-2 text-[14.5px]" style={{ color: MUTED }}>
                 {connectedSlots > 0
                   ? `${connectedSlots} número${connectedSlots > 1 ? "s" : ""} conectado${connectedSlots > 1 ? "s" : ""} • operação estável`
                   : "Conecte um número WhatsApp para começar"}
               </p>
             </div>
             <div className="flex gap-2.5 flex-wrap">
-              <Link href="/dashboard/campanhas"
-                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-sm text-bg transition-all hover:scale-[1.02]"
-                style={{ background: `linear-gradient(135deg, ${NEON}, ${CYAN})`, boxShadow: `0 8px 30px -8px ${NEON}80` }}>
+              <Link href="/dashboard/campanhas" className="dash-btn-primary">
                 <Send className="size-4" /> Novo Disparo
               </Link>
-              <Link href="/dashboard/workflow"
-                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-medium text-sm border border-white/10 text-ink-100 hover:bg-white/[0.05] transition-all">
+              <Link href="/dashboard/workflow" className="dash-btn-secondary">
                 <Zap className="size-4" /> Nova Automação
               </Link>
             </div>
@@ -428,11 +439,10 @@ export default function DashboardHome() {
           initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
           className="grid lg:grid-cols-[300px_1fr] gap-4"
         >
-          <div className="rounded-2xl border border-white/[0.06] p-5 flex items-center gap-5"
-            style={{ background: "linear-gradient(160deg,#0B1120,#0F172A)" }}>
+          <div className="dash-card !p-5 flex items-center gap-5" style={{ maxWidth: 340 }}>
             <div className="relative size-[84px] shrink-0">
               <svg viewBox="0 0 100 100" className="size-full -rotate-90">
-                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="9" />
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#EEF1F4" strokeWidth="9" />
                 <motion.circle
                   cx="50" cy="50" r="42" fill="none" stroke={health.tint} strokeWidth="9" strokeLinecap="round"
                   strokeDasharray={2 * Math.PI * 42}
@@ -445,13 +455,13 @@ export default function DashboardHome() {
                 <span className="text-xl font-bold tabular-nums" style={{ color: health.tint }}>
                   {loading ? "—" : health.score}
                 </span>
-                <span className="text-[9px] text-ink-500">/100</span>
+                <span className="text-[9px]" style={{ color: FAINT2 }}>/100</span>
               </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-ink-500">Saúde operacional</div>
+              <div className="text-[11px] uppercase tracking-wider font-mono font-semibold" style={{ color: FAINT2 }}>Saúde operacional</div>
               <div className="text-base font-bold mt-0.5" style={{ color: health.tint }}>{health.label}</div>
-              <div className="text-[11px] text-ink-500 mt-1">
+              <div className="text-[11.5px] mt-1" style={{ color: FAINT }}>
                 {connectedSlots} canal(is) · entrega e estabilidade monitoradas
               </div>
             </div>
@@ -459,29 +469,31 @@ export default function DashboardHome() {
 
           <button
             onClick={openCopilot}
-            className="group rounded-2xl border border-secondary/25 p-5 text-left transition-colors hover:border-secondary/45"
-            style={{ background: "linear-gradient(120deg, #170F2E 0%, #0B1120 55%)" }}
+            className="group rounded-[20px] border p-5 text-left transition-colors"
+            style={{ borderColor: "#E4DCFA", background: "linear-gradient(120deg,#F8F5FF,#FFFFFF 60%)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#D6C7F7"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#E4DCFA"; }}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <span className="size-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#7C3AED,#00D1FF)" }}>
+                <span className="size-7 rounded-[9px] flex items-center justify-center" style={{ background: `linear-gradient(135deg,${VIOLET},${CYAN})` }}>
                   <Sparkles className="size-3.5 text-white" />
                 </span>
-                <span className="text-sm font-semibold">Wayvo AI · insights</span>
+                <span className="text-[14.5px] font-semibold" style={{ color: INK }}>Wayvo AI · insights</span>
               </div>
-              <span className="text-[11px] text-secondary flex items-center gap-1 opacity-80 group-hover:opacity-100">
+              <span className="text-[11px] flex items-center gap-1" style={{ color: VIOLET }}>
                 Abrir copiloto <ChevronRight className="size-3.5" />
               </span>
             </div>
             <div className="grid sm:grid-cols-3 gap-2.5">
               {(loading ? Array.from({ length: 3 }) : aiStrip).map((it, i) => (
-                <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div key={i} className="rounded-[14px] border p-[13px]" style={{ borderColor: "#EDEFF3", background: "#FFFFFF" }}>
                   {loading ? (
-                    <div className="h-10 animate-pulse" />
+                    <div className="dash-skeleton h-10" />
                   ) : (
                     <>
-                      <div className="text-[12px] font-semibold" style={{ color: it.tint }}>{it.title}</div>
-                      <div className="text-[11px] text-ink-400 mt-1 leading-snug">{it.text}</div>
+                      <div className="text-[12.5px] font-bold" style={{ color: it.tint }}>{it.title}</div>
+                      <div className="text-[11.5px] mt-1 leading-snug" style={{ color: "#6B7585" }}>{it.text}</div>
                     </>
                   )}
                 </div>
@@ -492,8 +504,11 @@ export default function DashboardHome() {
 
         {/* ── KPIs ── */}
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] text-ink-600 uppercase tracking-wider font-semibold">Visão geral</span>
-          <button onClick={loadStats} className="flex items-center gap-1 text-[11px] text-ink-500 hover:text-primary transition-colors">
+          <span className="dash-section-label !mb-0">Visão geral</span>
+          <button onClick={loadStats} className="flex items-center gap-1 text-[11px] transition-colors"
+            style={{ color: FAINT2 }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = NEON; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = FAINT2; }}>
             <RefreshCw className="size-3" /> Atualizar
           </button>
         </div>
@@ -507,18 +522,16 @@ export default function DashboardHome() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.06, type: "spring", stiffness: 300, damping: 26 }}
                 whileHover={{ y: -4 }}
-                className="relative overflow-hidden rounded-2xl border border-white/[0.06] p-5 group"
-                style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}
+                className="relative overflow-hidden rounded-[20px] border p-5 group"
+                style={{ borderColor: "#E9ECF1", background: "#FFFFFF", boxShadow: "0 1px 2px rgba(10,16,32,.04)" }}
               >
-                <div className="absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                  style={{ boxShadow: `inset 0 0 0 1px ${k.color}40, 0 0 36px -12px ${k.color}66` }} />
                 <div className="relative">
                   <div className="flex items-center justify-between">
                     <div className="size-9 rounded-xl flex items-center justify-center border"
-                      style={{ background: `${k.color}16`, borderColor: `${k.color}33` }}>
+                      style={{ background: `${k.color}14`, borderColor: `${k.color}33` }}>
                       <Icon className="size-[18px]" style={{ color: k.color }} />
                     </div>
-                    <span className="text-[11px] font-semibold flex items-center gap-0.5 text-emerald-400">
+                    <span className="text-[11px] font-semibold flex items-center gap-0.5" style={{ color: EMERALD }}>
                       <ArrowUpRight className="size-3" /> {k.delta}
                     </span>
                   </div>
@@ -529,8 +542,8 @@ export default function DashboardHome() {
                         ? Number(k.money).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })
                         : <AnimatedNumber value={k.value} />}
                   </div>
-                  <p className="text-xs text-ink-400 mt-1.5">{k.label}</p>
-                  <div className="mt-2 -mx-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[12.5px] mt-1.5" style={{ color: FAINT }}>{k.label}</p>
+                  <div className="mt-2 -mx-1 opacity-80 group-hover:opacity-100 transition-opacity">
                     <Sparkline data={spark} color={k.color} />
                   </div>
                 </div>
@@ -543,25 +556,24 @@ export default function DashboardHome() {
         <div className="grid lg:grid-cols-[1fr_360px] gap-5">
           <motion.div
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="rounded-2xl border border-white/[0.06] p-5"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}
+            className="dash-card !p-5"
           >
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div>
-                <h3 className="font-semibold">Performance da Semana</h3>
-                <p className="text-xs text-ink-500 mt-0.5">Mensagens enviadas, leads e respostas</p>
+                <h3 className="font-semibold" style={{ color: INK }}>Performance da Semana</h3>
+                <p className="text-xs mt-0.5" style={{ color: FAINT2 }}>Mensagens enviadas, leads e respostas</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex gap-3 text-[11px] text-ink-400">
+                <div className="flex gap-3 text-[11px]" style={{ color: FAINT }}>
                   <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: NEON }} />Enviadas</span>
                   <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: CYAN }} />Leads</span>
-                  <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-secondary" />Respostas</span>
+                  <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: VIOLET }} />Respostas</span>
                 </div>
-                <div className="flex gap-1 bg-white/[0.03] border border-white/10 rounded-lg p-0.5">
+                <div className="flex gap-1 rounded-lg p-0.5" style={{ background: "#F4F6F8", border: "1px solid #E9ECF1" }}>
                   {[7, 14, 30].map((r) => (
                     <button key={r} onClick={() => setRange(r)}
-                      className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${range === r ? "text-bg font-semibold" : "text-ink-400 hover:text-ink-100"}`}
-                      style={range === r ? { background: NEON } : undefined}>
+                      className="text-[11px] px-2.5 py-1 rounded-md font-semibold transition-colors"
+                      style={range === r ? { background: NEON, color: "#FFFFFF" } : { color: FAINT, background: "transparent" }}>
                       {r}d
                     </button>
                   ))}
@@ -575,25 +587,25 @@ export default function DashboardHome() {
                 <AreaChart data={chart} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gN" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={NEON} stopOpacity={0.25} />
+                      <stop offset="5%" stopColor={NEON} stopOpacity={0.22} />
                       <stop offset="95%" stopColor={NEON} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CYAN} stopOpacity={0.22} />
+                      <stop offset="5%" stopColor={CYAN} stopOpacity={0.18} />
                       <stop offset="95%" stopColor={CYAN} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gP" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.22} />
-                      <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
+                      <stop offset="5%" stopColor={VIOLET} stopOpacity={0.18} />
+                      <stop offset="95%" stopColor={VIOLET} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "#64748B", fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} />
-                  <YAxis tick={{ fill: "#64748B", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#EEF1F4" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: FAINT2, fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} />
+                  <YAxis tick={{ fill: FAINT2, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CHART_TOOLTIP />} />
                   <Area type="monotone" dataKey="enviadas" name="Enviadas" stroke={NEON} strokeWidth={2.5} fill="url(#gN)" dot={false} />
                   <Area type="monotone" dataKey="leads" name="Leads" stroke={CYAN} strokeWidth={2.5} fill="url(#gC)" dot={false} />
-                  <Area type="monotone" dataKey="respostas" name="Respostas" stroke="#7C3AED" strokeWidth={2.5} fill="url(#gP)" dot={false} />
+                  <Area type="monotone" dataKey="respostas" name="Respostas" stroke={VIOLET} strokeWidth={2.5} fill="url(#gP)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -602,8 +614,7 @@ export default function DashboardHome() {
           {/* Atividade ao vivo (SSE real) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}
-            className="rounded-2xl border border-white/[0.06] p-5 flex flex-col"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}
+            className="dash-card !p-5 flex flex-col"
           >
             <div className="flex items-center justify-between mb-4 shrink-0">
               <div className="flex items-center gap-2">
@@ -611,9 +622,9 @@ export default function DashboardHome() {
                   <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${pulse ? "animate-ping" : ""}`} style={{ background: NEON }} />
                   <span className="relative inline-flex rounded-full size-2" style={{ background: NEON }} />
                 </span>
-                <h3 className="font-semibold text-sm">Atividade em Tempo Real</h3>
+                <h3 className="font-semibold text-sm" style={{ color: INK }}>Atividade em Tempo Real</h3>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${NEON}1a`, color: NEON }}>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#EAFBF1", color: "#0B7239" }}>
                 AO VIVO
               </span>
             </div>
@@ -627,8 +638,8 @@ export default function DashboardHome() {
                 ))
               ) : activity.length === 0 ? (
                 <div className="py-12 text-center">
-                  <Radio className="size-8 text-ink-600 mx-auto mb-2" />
-                  <p className="text-ink-400 text-sm">Aguardando eventos…</p>
+                  <Radio className="size-8 mx-auto mb-2" style={{ color: "#C7CDD8" }} />
+                  <p className="text-sm" style={{ color: FAINT }}>Aguardando eventos…</p>
                 </div>
               ) : (
                 <AnimatePresence initial={false}>
@@ -642,15 +653,18 @@ export default function DashboardHome() {
                         initial={{ opacity: 0, x: 16 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
-                        className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.03] transition-colors"
+                        className="flex items-center gap-3 p-2.5 rounded-xl transition-colors"
+                        style={{}}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "#FBFCFD"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                       >
                         <div className="size-8 rounded-lg flex items-center justify-center shrink-0 border"
-                          style={{ background: `${meta.color}16`, borderColor: `${meta.color}30` }}>
+                          style={{ background: `${meta.color}14`, borderColor: `${meta.color}30` }}>
                           <Icon className="size-3.5" style={{ color: meta.color }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-ink-200 truncate leading-snug">{a.text}</p>
-                          <p className="text-[10px] text-ink-500 mt-0.5">{timeAgo(a.time)}</p>
+                          <p className="text-xs truncate leading-snug" style={{ color: INK2 }}>{a.text}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: FAINT2 }}>{timeAgo(a.time)}</p>
                         </div>
                         <span className="size-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
                       </motion.div>
@@ -666,26 +680,25 @@ export default function DashboardHome() {
         <div className="grid lg:grid-cols-2 gap-5">
           <motion.div
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-            className="rounded-2xl border border-white/[0.06] p-5"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}
+            className="dash-card !p-5"
           >
-            <h3 className="font-semibold text-sm">Funil de Conversão</h3>
-            <p className="text-xs text-ink-500 mt-0.5 mb-4">Com base nos dados reais</p>
+            <h3 className="font-semibold text-sm" style={{ color: INK }}>Funil de Conversão</h3>
+            <p className="text-xs mt-0.5 mb-4" style={{ color: FAINT2 }}>Com base nos dados reais</p>
             <div className="space-y-3">
               {funnel.map((f) => (
                 <div key={f.label}>
                   <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-ink-300">{f.label}</span>
+                    <span style={{ color: MUTED }}>{f.label}</span>
                     <span className="font-semibold tabular-nums" style={{ color: f.color }}>
                       {f.value.toLocaleString("pt-BR")}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden">
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: "#EEF1F4" }}>
                     <motion.div
                       initial={{ width: 0 }} animate={{ width: `${f.pct}%` }}
                       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
                       className="h-full rounded-full"
-                      style={{ background: `linear-gradient(90deg, ${f.color}, ${f.color}88)`, boxShadow: `0 0 12px -2px ${f.color}` }}
+                      style={{ background: `linear-gradient(90deg, ${f.color}, ${f.color}CC)` }}
                     />
                   </div>
                 </div>
@@ -695,31 +708,33 @@ export default function DashboardHome() {
 
           <motion.div
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}
-            className="rounded-2xl border border-white/[0.06] p-5"
-            style={{ background: "linear-gradient(160deg, #0B1120, #0F172A)" }}
+            className="dash-card !p-5"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sm">Campanhas Recentes</h3>
+              <h3 className="font-semibold text-sm" style={{ color: INK }}>Campanhas Recentes</h3>
               <Link href="/dashboard/campanhas" className="text-[11px] hover:underline flex items-center gap-0.5" style={{ color: NEON }}>
                 Ver todas <ChevronRight className="size-3" />
               </Link>
             </div>
             {dispatches.length === 0 ? (
-              <div className="border border-dashed border-white/10 rounded-xl py-8 text-center">
-                <Send className="size-6 text-ink-600 mx-auto mb-2" />
-                <p className="text-ink-500 text-xs">Nenhuma campanha</p>
+              <div className="border border-dashed rounded-xl py-8 text-center" style={{ borderColor: "#E1E5EB" }}>
+                <Send className="size-6 mx-auto mb-2" style={{ color: "#C7CDD8" }} />
+                <p className="text-xs" style={{ color: FAINT }}>Nenhuma campanha</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {dispatches.slice(0, 4).map((d) => {
                   const pct = d.total ? Math.min(100, Math.round(((d.sent || 0) / d.total) * 100)) : 0;
                   return (
-                    <div key={d.id} className="p-3 rounded-xl border border-white/[0.06] hover:border-white/[0.12] transition-colors">
+                    <div key={d.id} className="p-3 rounded-xl border transition-colors"
+                      style={{ borderColor: "#EDEFF3" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#C7EBD8"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#EDEFF3"; }}>
                       <div className="flex items-center justify-between mb-2 gap-2">
-                        <p className="text-xs font-semibold truncate">{d.message_title || "Campanha"}</p>
-                        <span className="text-[10px] text-ink-500 font-mono shrink-0">{d.sent || 0}/{d.total || 0}</span>
+                        <p className="text-xs font-semibold truncate" style={{ color: INK }}>{d.message_title || "Campanha"}</p>
+                        <span className="text-[10px] font-mono shrink-0" style={{ color: FAINT2 }}>{d.sent || 0}/{d.total || 0}</span>
                       </div>
-                      <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#EEF1F4" }}>
                         <div className="h-full rounded-full transition-all duration-700"
                           style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${NEON}, ${CYAN})` }} />
                       </div>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthShell from "../../components/auth/AuthShell";
-import { Field, Input, Button } from "../../components/ui/Field";
+import { AuthField, AuthInput, AuthButton } from "../../components/auth/AuthField";
 import { api, setAuth } from "../../lib/api";
 import GoogleButton from "../../components/auth/GoogleButton";
 
@@ -36,37 +36,46 @@ export default function Login() {
 
   return (
     <AuthShell
+      mode="login"
       title="Entrar no Wayvo"
       subtitle="Acesse seu painel e veja suas vendas chegando"
       footer={
         <>
           Ainda não tem conta?{" "}
-          <Link href="/register" className="text-primary hover:underline font-medium">
-            Testar 7 dias
+          <Link href="/register" className="text-[#0E8A47] hover:text-[#0B7239] font-semibold">
+            Testar 7 dias →
           </Link>
         </>
       }
     >
       <form onSubmit={onSubmit} className="space-y-4">
-        <Field label="E-mail">
-          <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
-        </Field>
-        <Field label="Senha">
-          <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-        </Field>
-        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-          <div
-            onClick={() => setRemember(v => !v)}
-            className={`size-4 rounded flex items-center justify-center border transition-all ${remember ? "bg-primary border-primary" : "border-white/20 bg-white/[0.04]"}`}
+        <AuthField label="E-mail">
+          <AuthInput type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
+        </AuthField>
+        <AuthField label="Senha">
+          <AuthInput type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+        </AuthField>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <div
+              onClick={() => setRemember(v => !v)}
+              className={`size-[19px] rounded-[6px] flex items-center justify-center border transition-all ${remember ? "bg-[#0E8A47] border-[#0E8A47]" : "border-[#D5DAE1] bg-white"}`}
+            >
+              {remember && <svg className="size-2.5 text-white" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+            <span className="text-sm text-[#4B5565]">Lembrar de mim</span>
+          </label>
+          <a
+            href="mailto:suporte@wayvo.app.br?subject=Esqueci%20minha%20senha"
+            className="text-sm font-medium text-[#0E8A47] hover:text-[#0B7239]"
           >
-            {remember && <svg className="size-2.5 text-bg" viewBox="0 0 10 8" fill="none"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          </div>
-          <span className="text-sm text-ink-300">Lembrar de mim</span>
-        </label>
-        {err && <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{err}</div>}
-        <Button type="submit" loading={loading} className="w-full">Entrar →</Button>
+            Esqueci a senha
+          </a>
+        </div>
+        {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{err}</div>}
+        <AuthButton type="submit" loading={loading}>Entrar →</AuthButton>
       </form>
-      <div className="mt-4"><GoogleButton /></div>
+      <div className="mt-6"><GoogleButton /></div>
     </AuthShell>
   );
 }
