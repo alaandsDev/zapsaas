@@ -103,7 +103,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       if (error) console.error('[stripe] Erro ao atualizar plano:', error.message);
       else console.log(`[stripe] ✅ Plano ${planId} ativo até ${expires} para user ${userId}`);
       // Renovação recarrega a base de SMS para 1000 (não acumula)
-      await supabase.rpc('reset_sms_base', { p_user_id: userId, p_amount: SMS_BASE_GRANT }).catch(() => {});
+      try { await supabase.rpc('reset_sms_base', { p_user_id: userId, p_amount: SMS_BASE_GRANT }); } catch {}
     };
 
     // Deriva o plano a partir do price da subscription — os handlers de
@@ -2066,10 +2066,7 @@ app.post('/api/wpp-cloud/sync', requireAuth, async (req, res) => {
     if (templatesR.status === 'fulfilled' && templatesR.value) synced.push('templates');
     if (qualityR.status === 'fulfilled') synced.push('quality');
 
-    await supabase.from('wpp_cloud_logs').insert({
-      user_id: uid(req), action: 'sync', result: 'ok',
-      details: { synced, total: synced.length }
-    }).catch(() => {});
+    try { await supabase.from('wpp_cloud_logs').insert({ user_id: uid(req), action: 'sync', result: 'ok', details: { synced, total: synced.length } }); } catch {}
 
     res.json({
       verify:    verifyR.status    === 'fulfilled' ? verifyR.value    : null,
