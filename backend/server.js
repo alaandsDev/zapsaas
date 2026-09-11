@@ -1971,17 +1971,9 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
       { name, language: language || 'pt_BR', category, components }
     );
     res.json(r);
-    // Log criação de template
-    await supabase.from('wpp_cloud_logs').insert({
-      user_id: uid(req), action: 'template_created',
-      result: 'ok', details: { name, category, language: language || 'pt_BR' }
-    }).catch(() => {});
+    try { await supabase.from('wpp_cloud_logs').insert({ user_id: uid(req), action: 'template_created', result: 'ok', details: { name, category, language: language || 'pt_BR' } }); } catch {}
   } catch (e) {
-    // Log erro de template
-    await supabase.from('wpp_cloud_logs').insert({
-      user_id: (await getCloudConfig(req.user?.id).catch(() => null))?.user_id || req.user?.id,
-      action: 'template_created', result: 'error', error_msg: e.message
-    }).catch(() => {});
+    try { await supabase.from('wpp_cloud_logs').insert({ user_id: uid(req), action: 'template_created', result: 'error', error_msg: e.message }); } catch {}
     res.status(400).json({ error: e.message });
   }
 });
