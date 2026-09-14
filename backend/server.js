@@ -1978,6 +1978,100 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   }
 });
 
+// ── Disparo em massa por template (com variáveis por contato) ──────────────
+async function executeCloudTemplateDispatch(dispatchId, userId) {
+  const { data: dispatch } = await supabase.from('dispatches').select('*').eq('id', dispatchId).single();
+  if (!dispatch) return;
+  if (['completed', 'cancelled'].includes(dispatch.status)) return;
+
+  const c = await getCloudConfig(userId);
+  if (!c?.access_token || !c?.phone_number_id) {
+    await supabase.from('dispatches').update({ status: 'failed' }).eq('id', dispatchId);
+    return;
+  }
+  await supabase.from('dispatches').update({ status: 'sending' }).eq('id', dispatchId);
+
+  const creds = { token: c.access_token, phoneNumberId: c.phone_number_id };
+  const items = [...(dispatch.items || [])];
+  const lang = dispatch.template_language || 'pt_BR';
+  const delayMs = dispatch.delay_ms || 1200;
+  let sent = 0, failed = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const { data: cur } = await supabase.from('dispatches').select('status').eq('id', dispatchId).single();
+    if (cur?.status === 'paused' || cur?.status === 'cancelled') return;
+    if (items[i]?.status === 'sent') { sent++; continue; }
+
+    const item = items[i];
+    try {
+      await wppCloud.sendTemplate(creds, item.contactPhone, dispatch.template_name, lang, item.vars || []);
+      items[i] = { ...item, status: 'sent', sentAt: new Date().toISOString() };
+      sent++;
+    } catch (e) {
+      items[i] = { ...item, status: 'failed', error: e.message };
+      failed++;
+      console.error(`[cloud-tpl] ❌ ${item.contactPhone}: ${e.message}`);
+    }
+    await supabase.from('dispatches').update({ sent, failed, items }).eq('id', dispatchId);
+    if (i < items.length - 1) await new Promise(r => setTimeout(r, delayMs));
+  }
+
+  await supabase.from('dispatches').update({
+    sent, failed, status: 'completed', items,
+    completed_at: new Date().toISOString(),
+  }).eq('id', dispatchId);
+  console.log(`[cloud-tpl] Dispatch ${dispatchId} concluído — ${sent} enviados / ${failed} falhas`);
+}
+
+// Cria disparo em massa via template Meta Cloud API
+app.post('/api/wpp-cloud/bulk-template', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(uid(req));
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
+
+    const { template_name, template_language = 'pt_BR', contacts, delay_ms = 1200, scheduled_at } = req.body;
+    if (!template_name) return res.status(400).json({ error: 'template_name obrigatório' });
+    if (!Array.isArray(contacts) || !contacts.length) return res.status(400).json({ error: 'contacts obrigatório (array)' });
+
+    const items = contacts.map(ct => ({
+      contactName: ct.name || '',
+      contactPhone: ct.phone,
+      vars: Array.isArray(ct.vars) ? ct.vars : [],
+      status: 'pending',
+    }));
+
+    const { data: dispatch, error } = await supabase.from('dispatches').insert({
+      message_id: null,
+      message_title: `Template: ${template_name}`,
+      message_content: '',
+      template_name,
+      template_language,
+      total: contacts.length,
+      sent: 0, failed: 0,
+      status: scheduled_at ? 'scheduled' : 'pending',
+      items,
+      user_id: uid(req),
+      delay_ms,
+      scheduled_at: scheduled_at || null,
+      channel: 'cloud_template',
+    }).select().single();
+    if (error) throw error;
+
+    res.json({ dispatchId: dispatch.id, total: contacts.length, message: scheduled_at ? 'Disparo agendado!' : 'Disparo iniciado!' });
+
+    if (!scheduled_at) {
+      const _userId = uid(req);
+      (async () => {
+        try { await executeCloudTemplateDispatch(dispatch.id, _userId); }
+        catch (e) { console.error('[cloud-tpl] erro geral:', e.message); }
+      })();
+    }
+  } catch (e) {
+    console.error('[wpp-cloud/bulk-template]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Conta WABA — verificação empresarial (com fallback se token não tem business_management)
 app.get('/api/wpp-cloud/account', requireAuth, async (req, res) => {
   try {

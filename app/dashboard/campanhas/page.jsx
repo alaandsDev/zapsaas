@@ -8,6 +8,7 @@ import {
   Zap, Trash2, Search, X, BookmarkPlus, AlertTriangle, RefreshCw,
   Image as ImageIcon, Video, Music, FileText, Smartphone, Cloud,
   Repeat2, Megaphone, Info, Pause, Play, XCircle, FileDown,
+  Layout, ArrowRight, Eye, Variable, MapPin,
 } from "lucide-react";
 import Topbar from "../../../components/dashboard/Topbar";
 import { DashButton, DashIconButton, DashBadge, DashEmptyState, DashModal } from "../../../components/dashboard/DashUI";
@@ -357,10 +358,43 @@ export default function CampanhasPage() {
     </div>
   );
 
+  const [activeTab, setActiveTab] = useState("whatsapp"); // "whatsapp" | "api"
+
   return (
     <>
       <Topbar title="Disparos" subtitle="Crie e acompanhe suas campanhas" />
       <div ref={topRef} className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-16">
+
+        {/* Tab switcher */}
+        <div className="flex items-center gap-2 p-1 rounded-xl bg-dash-subtle border border-dash-border w-fit">
+          <button
+            onClick={() => setActiveTab("whatsapp")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "whatsapp"
+                ? "bg-white shadow-sm text-dash-ink border border-dash-border"
+                : "text-dash-faint hover:text-dash-ink"
+            }`}
+          >
+            <Smartphone className="size-4" /> WhatsApp Conectado
+          </button>
+          <button
+            onClick={() => setActiveTab("api")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "api"
+                ? "bg-white shadow-sm text-dash-green border border-dash-green/25"
+                : "text-dash-faint hover:text-dash-ink"
+            }`}
+          >
+            <Cloud className="size-4" /> API Meta (templates)
+            {hasCloudCfg && <span className="size-2 rounded-full bg-dash-green inline-block" />}
+          </button>
+        </div>
+
+        {activeTab === "api" && (
+          <CloudTemplateCampaign cloudConfig={cloudConfig} lists={lists} leads={leads} onRefresh={loadAll} />
+        )}
+
+        {activeTab !== "api" && <>
 
         <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-start">
           <div className="dash-card">
@@ -439,7 +473,7 @@ export default function CampanhasPage() {
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden mb-3"
                           >
-                            <div className="rounded-xl p-4" style={{ border: `1px solid ${DASH_ACCENT.violet}33`, background: `${DASH_ACCENT.violet}0a` }}>
+                            <div className="rounded-xl p-4 overflow-x-hidden" style={{ border: `1px solid ${DASH_ACCENT.violet}33`, background: `${DASH_ACCENT.violet}0a` }}>
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
                                   <Zap className="size-4" style={{ color: DASH_ACCENT.violet }} />
@@ -503,13 +537,13 @@ export default function CampanhasPage() {
                                     : "Nenhum template encontrado"}
                                 </div>
                               ) : (
-                                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden pr-1">
                                   {filteredTemplates.map(tpl => (
                                     <div key={tpl.id} className="group flex items-start gap-2 p-3 rounded-lg border border-dash-border bg-white hover:bg-dash-subtle transition-all"
                                       style={{ borderColor: undefined }}>
-                                      <div className="flex-1 min-w-0">
+                                      <div className="flex-1 min-w-0 overflow-hidden">
                                         <p className="text-xs font-semibold text-dash-ink2 mb-0.5 truncate">{tpl.name}</p>
-                                        <p className="text-xs text-dash-faint line-clamp-2 whitespace-pre-wrap">{tpl.text}</p>
+                                        <p className="text-xs text-dash-faint line-clamp-2 break-words">{tpl.text}</p>
                                       </div>
                                       <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {messages.length > 1 ? (
@@ -912,10 +946,436 @@ export default function CampanhasPage() {
             </div>
           )}
         </div>
+        </>}
+
       </div>
 
       <DispatchDetailModal dispatch={detailOpen} onClose={() => setDetailOpen(null)} onRefresh={loadAll} />
     </>
+  );
+}
+
+// ── Extrai variáveis {{N}} do corpo/header do template ──────
+function extractVars(components = []) {
+  const vars = new Set();
+  for (const comp of components) {
+    const text = comp.text || "";
+    const matches = text.match(/\{\{(\d+)\}\}/g) || [];
+    for (const m of matches) vars.add(parseInt(m.replace(/\{\{|\}\}/g, "")));
+  }
+  return [...vars].sort((a, b) => a - b);
+}
+
+// ── Disparo via API Meta (templates aprovados) ──────────────
+function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
+  const [step, setStep] = useState(1);
+  const [metaTemplates, setMetaTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [listSel, setListSel] = useState("");
+  const [contacts, setContacts] = useState([]);
+  const [varMap, setVarMap] = useState({}); // { 1: "coluna_nome", 2: "coluna_cidade" }
+  const [schedule, setSchedule] = useState("");
+  const [delayMs, setDelayMs] = useState(1200);
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  const hasCloudCfg = !!(cloudConfig?.has_token && cloudConfig?.enabled);
+
+  useEffect(() => {
+    if (!hasCloudCfg) return;
+    setLoadingTemplates(true);
+    api("/api/wpp-cloud/templates")
+      .then(data => setMetaTemplates((data || []).filter(t => t.status === "APPROVED")))
+      .catch(() => {})
+      .finally(() => setLoadingTemplates(false));
+  }, [hasCloudCfg]);
+
+  useEffect(() => {
+    (async () => {
+      if (!listSel) { setContacts([]); return; }
+      if (listSel === "leads") {
+        setContacts(leads.map(l => ({ phone: l.phone, name: l.name })));
+      } else if (listSel.startsWith("list:")) {
+        try {
+          const list = await api(`/api/lists/${listSel.replace("list:", "")}`);
+          setContacts((list.contacts || []).map(c => ({
+            phone: c.NUMERO || c.numero || c.phone || "",
+            name: c.NOME || c.nome || c.name || "",
+            ...c,
+          })));
+        } catch { setContacts([]); }
+      }
+    })();
+  }, [listSel, leads]);
+
+  // Colunas disponíveis no primeiro contato da lista
+  const availableColumns = contacts.length > 0
+    ? Object.keys(contacts[0]).filter(k => k !== "__rowNum__")
+    : ["phone", "name"];
+
+  // Variáveis necessárias pelo template selecionado
+  const tplComponents = selectedTemplate?.components || [];
+  const bodyComp = tplComponents.find(c => c.type === "BODY");
+  const headerComp = tplComponents.find(c => c.type === "HEADER");
+  const bodyVarCount = (bodyComp?.text?.match(/\{\{\d+\}\}/g) || []).length;
+  const varIndexes = Array.from({ length: bodyVarCount }, (_, i) => i + 1);
+
+  function resolveVar(contact, col) {
+    if (!col) return "";
+    return String(contact[col] || contact[col?.toLowerCase()] || "");
+  }
+
+  function buildVarsForContact(contact) {
+    return varIndexes.map(i => resolveVar(contact, varMap[i] || ""));
+  }
+
+  const sampleContact = contacts[0];
+  const sampleVars = sampleContact ? buildVarsForContact(sampleContact) : [];
+  const previewBody = bodyComp?.text
+    ? varIndexes.reduce((t, i) => t.replace(`{{${i}}}`, sampleVars[i - 1] || `{{${i}}}`), bodyComp.text)
+    : "";
+
+  async function sendCampaign() {
+    setErr(""); setOk("");
+    if (!selectedTemplate) { setErr("Selecione um template"); return; }
+    if (!contacts.length) { setErr("Selecione uma lista com contatos"); return; }
+
+    const payload = contacts.map(c => ({
+      phone: c.phone,
+      name: c.name || "",
+      vars: buildVarsForContact(c),
+    })).filter(c => c.phone);
+
+    if (!payload.length) { setErr("Nenhum contato com número de telefone válido"); return; }
+
+    setSending(true);
+    try {
+      await api("/api/wpp-cloud/bulk-template", {
+        method: "POST",
+        body: {
+          template_name: selectedTemplate.name,
+          template_language: selectedTemplate.language,
+          contacts: payload,
+          delay_ms: parseInt(delayMs) || 1200,
+          scheduled_at: schedule ? new Date(schedule).toISOString() : undefined,
+        },
+      });
+      setOk(`${schedule ? "Agendado!" : "Disparo iniciado!"} ${payload.length} contato(s) via API Meta.`);
+      setStep(1);
+      setSelectedTemplate(null);
+      setListSel("");
+      setContacts([]);
+      setVarMap({});
+      setSchedule("");
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      setErr(e.message || "Erro ao iniciar disparo");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const STEPS_API = [
+    { n: 1, label: "Template", Icon: Layout },
+    { n: 2, label: "Contatos", Icon: Users },
+    { n: 3, label: "Variáveis", Icon: Variable },
+    { n: 4, label: "Revisão", Icon: ClipboardCheck },
+  ];
+
+  const canNext = step === 1 ? !!selectedTemplate
+    : step === 2 ? contacts.length > 0
+    : step === 3 ? varIndexes.every(i => varMap[i])
+    : true;
+
+  if (!hasCloudCfg) {
+    return (
+      <div className="dash-card flex flex-col items-center py-12 gap-4 text-center">
+        <Cloud className="size-10 text-dash-faint" />
+        <div className="text-dash-ink font-semibold">API Meta não configurada</div>
+        <p className="text-sm text-dash-faint max-w-xs">Configure suas credenciais Meta (token, Phone Number ID, WABA ID) no Canal Oficial para usar este recurso.</p>
+        <a href="/dashboard/canal-oficial" className="text-sm text-dash-green underline font-medium">Ir para Canal Oficial →</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
+      <div className="dash-card">
+        {/* Stepper */}
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+          {STEPS_API.map((s, i) => {
+            const done = step > s.n;
+            const active = step === s.n;
+            const SIcon = s.Icon;
+            return (
+              <div key={s.n} className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => s.n < step && setStep(s.n)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm transition-all ${
+                    active ? "border-dash-green/40 bg-dash-green/10 text-dash-green"
+                    : done ? "border-dash-green/20 text-dash-green/80 hover:bg-dash-green/5"
+                    : "border-dash-border text-dash-faint"
+                  }`}
+                >
+                  <span className={`size-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                    done ? "bg-dash-green text-white" : active ? "bg-dash-green/20 text-dash-green" : "bg-dash-border2 text-dash-faint"
+                  }`}>
+                    {done ? <Check className="size-3" /> : s.n}
+                  </span>
+                  <span className="hidden sm:flex items-center gap-1.5"><SIcon className="size-3.5" />{s.label}</span>
+                </button>
+                {i < STEPS_API.length - 1 && <div className={`w-6 h-px ${done ? "bg-dash-green/40" : "bg-dash-border"}`} />}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Step 1: Selecionar template */}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="text-sm font-medium text-dash-ink mb-1">Templates aprovados pela Meta</div>
+            {loadingTemplates ? (
+              <div className="flex items-center gap-2 text-sm text-dash-faint py-8 justify-center">
+                <span className="size-4 border-2 border-dash-green border-t-transparent rounded-full animate-spin" />
+                Carregando templates...
+              </div>
+            ) : metaTemplates.length === 0 ? (
+              <div className="rounded-xl border border-dash-border p-6 text-center space-y-2">
+                <Layout className="size-8 text-dash-faint mx-auto" />
+                <div className="text-sm text-dash-faint">Nenhum template aprovado encontrado.</div>
+                <a href="/dashboard/canal-oficial" className="text-xs text-dash-green underline">Criar template no Canal Oficial →</a>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                {metaTemplates.map(tpl => {
+                  const body = tpl.components?.find(c => c.type === "BODY");
+                  const header = tpl.components?.find(c => c.type === "HEADER");
+                  const buttons = tpl.components?.find(c => c.type === "BUTTONS");
+                  const varCount = (body?.text?.match(/\{\{\d+\}\}/g) || []).length;
+                  const isActive = selectedTemplate?.id === tpl.id;
+                  return (
+                    <button key={tpl.id} type="button" onClick={() => setSelectedTemplate(tpl)}
+                      className={`w-full text-left rounded-xl border p-4 transition-all ${
+                        isActive ? "border-dash-green/50 bg-dash-green/5" : "border-dash-border bg-white hover:border-dash-faint"
+                      }`}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="font-mono text-sm font-semibold text-dash-ink">{tpl.name}</span>
+                        <div className="flex items-center gap-1.5">
+                          {varCount > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                              style={{ background: `${DASH_ACCENT.violet}14`, color: DASH_ACCENT.violet, border: `1px solid ${DASH_ACCENT.violet}33` }}>
+                              {varCount} variável{varCount > 1 ? "is" : ""}
+                            </span>
+                          )}
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-dash-green/10 border border-dash-green/30 text-dash-green font-semibold">APROVADO</span>
+                          {isActive && <Check className="size-4 text-dash-green" />}
+                        </div>
+                      </div>
+                      {header?.text && <div className="text-xs font-semibold text-dash-ink2 mb-1">{header.text}</div>}
+                      {body?.text && <div className="text-xs text-dash-muted line-clamp-2 whitespace-pre-wrap">{body.text}</div>}
+                      {buttons?.buttons?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {buttons.buttons.map((b, bi) => (
+                            <span key={bi} className="text-[10px] px-2 py-0.5 rounded border border-dash-border text-dash-faint">{b.text}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="text-[10px] text-dash-faint mt-1">{tpl.category} · {tpl.language}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 2: Selecionar lista */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <div className="text-sm font-medium text-dash-ink">Lista de contatos</div>
+            <select value={listSel} onChange={e => setListSel(e.target.value)} className="dash-input w-full">
+              <option value="">— Selecione —</option>
+              <option value="leads">Leads do sistema ({leads.length})</option>
+              {lists.map(l => (
+                <option key={l.id} value={`list:${l.id}`}>{l.name} ({l.total || l.contacts_count || 0} contatos)</option>
+              ))}
+            </select>
+            {contacts.length > 0 && (
+              <div className="rounded-xl border border-dash-border overflow-hidden">
+                <div className="px-3 py-2 bg-dash-subtle border-b border-dash-border text-xs text-dash-faint">
+                  {contacts.length} contatos · colunas disponíveis: {availableColumns.join(", ")}
+                </div>
+                <div className="max-h-48 overflow-y-auto divide-y divide-dash-border2">
+                  {contacts.slice(0, 5).map((c, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+                      <span className="text-dash-faint w-4 text-xs">{i + 1}</span>
+                      <span className="font-medium text-dash-ink">{c.name || "—"}</span>
+                      <span className="text-dash-faint font-mono text-xs ml-auto">{c.phone}</span>
+                    </div>
+                  ))}
+                  {contacts.length > 5 && (
+                    <div className="px-3 py-2 text-xs text-dash-faint text-center">+ {contacts.length - 5} outros contatos</div>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="flex items-start gap-1.5 text-xs text-dash-faint">
+              <Info className="size-3.5 shrink-0 mt-0.5" />
+              O número precisa estar no formato internacional: 5511999887766 (sem + ou espaços)
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Mapear variáveis */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <div className="text-sm font-medium text-dash-ink">Mapear variáveis do template</div>
+            {varIndexes.length === 0 ? (
+              <div className="rounded-xl border border-dash-green/25 bg-dash-green/5 px-4 py-3 text-sm text-dash-green">
+                Este template não tem variáveis no corpo — será enviado igual para todos.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {varIndexes.map(i => (
+                  <div key={i} className="rounded-xl border border-dash-border p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: `${DASH_ACCENT.violet}14`, color: DASH_ACCENT.violet, border: `1px solid ${DASH_ACCENT.violet}33` }}>
+                        {`{{${i}}}`}
+                      </span>
+                      <span className="text-xs text-dash-faint">
+                        no template: <em className="text-dash-ink2">{bodyComp?.text?.match(new RegExp(`.{0,20}\\{\\{${i}\\}\\}.{0,20}`))?.[0] || ""}</em>
+                      </span>
+                    </div>
+                    <select
+                      value={varMap[i] || ""}
+                      onChange={e => setVarMap(m => ({ ...m, [i]: e.target.value }))}
+                      className="dash-input w-full"
+                    >
+                      <option value="">— Selecione a coluna —</option>
+                      {availableColumns.map(col => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                    {varMap[i] && sampleContact && (
+                      <div className="text-xs text-dash-faint">
+                        Exemplo (1º contato): <strong className="text-dash-ink">{resolveVar(sampleContact, varMap[i])}</strong>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Revisão + envio */}
+        {step === 4 && (
+          <div className="space-y-4">
+            <div className="text-sm font-semibold text-dash-ink mb-1">Revisar disparo</div>
+            {[
+              ["Template", selectedTemplate?.name],
+              ["Idioma", selectedTemplate?.language],
+              ["Categoria", selectedTemplate?.category],
+              ["Contatos", `${contacts.length}`],
+              ["Lista", listSel === "leads" ? "Leads do sistema" : lists.find(l => `list:${l.id}` === listSel)?.name || "—"],
+              ["Quando", schedule ? new Date(schedule).toLocaleString("pt-BR") : "Imediatamente"],
+              ["Delay entre envios", `${delayMs}ms`],
+            ].map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-3 text-sm border-b border-dash-border2 pb-2">
+                <span className="text-dash-faint">{k}</span>
+                <span className="text-dash-ink font-medium text-right font-mono text-xs">{v}</span>
+              </div>
+            ))}
+
+            {varIndexes.length > 0 && (
+              <div className="rounded-xl border border-dash-border p-3 space-y-1">
+                <div className="text-xs font-semibold text-dash-muted uppercase tracking-wide mb-2">Mapeamento de variáveis</div>
+                {varIndexes.map(i => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-dash-violet">{`{{${i}}}`}</span>
+                    <ArrowRight className="size-3 text-dash-faint" />
+                    <span className="text-dash-ink font-medium">{varMap[i] || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-dash-ink">Agendamento <span className="text-dash-faint font-normal text-xs">(opcional)</span></label>
+              <input type="datetime-local" value={schedule} onChange={e => setSchedule(e.target.value)} className="dash-input w-full" />
+              <label className="block text-sm font-medium text-dash-ink">Delay entre envios (ms)</label>
+              <input type="number" min={500} max={10000} step={100} value={delayMs} onChange={e => setDelayMs(e.target.value)} className="dash-input w-full" />
+              <div className="flex items-start gap-1.5 text-xs text-dash-faint">
+                <Info className="size-3.5 shrink-0 mt-0.5" />
+                Meta limita ~80 msg/s. Mínimo recomendado: 1200ms (1,2s) entre envios.
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs px-3 py-2.5 rounded-xl border border-dash-green/20 bg-dash-green/[0.04]">
+              <ShieldCheck className="size-4 text-dash-green shrink-0" />
+              Templates aprovados pela Meta garantem entrega fora da janela 24h.
+            </div>
+          </div>
+        )}
+
+        {err && <div className="text-sm text-dash-red bg-dash-red/10 border border-dash-red/25 rounded-xl px-4 py-3 mt-4">{err}</div>}
+        {ok && <div className="text-sm text-dash-green bg-dash-green/10 border border-dash-green/25 rounded-xl px-4 py-3 mt-4">{ok}</div>}
+
+        <div className="flex items-center justify-between gap-2 mt-6 pt-4 border-t border-dash-border2">
+          <DashButton variant="ghost" onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} className="!py-2.5">
+            <ChevronLeft className="size-4" /> Voltar
+          </DashButton>
+          {step < 4 ? (
+            <DashButton onClick={() => { if (canNext) setStep(s => s + 1); }} disabled={!canNext} className="!py-2.5">
+              Continuar <ChevronRight className="size-4" />
+            </DashButton>
+          ) : (
+            <DashButton onClick={sendCampaign} loading={sending} className="!py-2.5">
+              <Send className="size-4" /> {schedule ? "Agendar disparo" : "Enviar agora"}
+            </DashButton>
+          )}
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div className="dash-card lg:sticky lg:top-4 space-y-4">
+        <div className="text-sm font-semibold text-dash-ink">Pré-visualização</div>
+        {selectedTemplate ? (
+          <div className="rounded-2xl border border-dash-border bg-[#0b141a] p-3 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="size-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600" />
+              <div className="text-xs">
+                <div className="font-semibold text-white">{selectedTemplate.name}</div>
+                <div className="text-[10px] text-emerald-400">Template oficial</div>
+              </div>
+            </div>
+            {headerComp?.text && (
+              <div className="bg-[#202c33] rounded-lg px-3 py-2 text-[12px] font-semibold text-white">{headerComp.text}</div>
+            )}
+            <div className="bg-[#202c33] rounded-xl rounded-tl-sm px-3 py-2 text-[13px] text-[#e9edef] whitespace-pre-wrap break-words">
+              {previewBody || bodyComp?.text || <span className="text-white/40 italic">Selecione um template</span>}
+            </div>
+            {selectedTemplate.components?.find(c => c.type === "BUTTONS")?.buttons?.map((b, i) => (
+              <div key={i} className="bg-[#202c33] rounded-lg px-3 py-2 text-[12px] text-center text-emerald-400 border border-emerald-900/40">{b.text}</div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dash-border bg-dash-subtle p-6 text-center text-dash-faint text-sm">
+            <Eye className="size-6 mx-auto mb-2 opacity-40" />
+            Selecione um template para ver o preview
+          </div>
+        )}
+        <div className="space-y-2 text-xs">
+          <div className="flex justify-between"><span className="text-dash-faint">Template</span><span className="font-mono text-dash-ink font-medium">{selectedTemplate?.name || "—"}</span></div>
+          <div className="flex justify-between"><span className="text-dash-faint">Contatos</span><span className="font-semibold text-dash-ink">{contacts.length}</span></div>
+          <div className="flex justify-between"><span className="text-dash-faint">Variáveis</span><span className="text-dash-muted">{varIndexes.length > 0 ? varIndexes.map(i => `{{${i}}}`).join(", ") : "nenhuma"}</span></div>
+          <div className="flex justify-between"><span className="text-dash-faint">Canal</span><span className="text-dash-green font-medium">API Meta</span></div>
+        </div>
+      </div>
+    </div>
   );
 }
 
