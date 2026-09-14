@@ -283,10 +283,11 @@ export default function LeadsPage() {
       const result = await api("/api/lists/sync-all", { method: "POST" }).catch(() => null);
       if (result) {
         setSyncResult(result);
-        // Recarrega após 2s para garantir dados frescos do banco
+        // Mantém syncing=true até o reload para bloquear cliques extras
         setTimeout(() => window.location.reload(), 2000);
+        return; // não chama setSyncing(false) — botão fica desabilitado
       }
-    } finally {
+    } catch {
       setSyncing(false);
     }
   }

@@ -4780,7 +4780,11 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
 
       const BATCH = 500;
       for (let i = 0; i < newLeads.length; i += BATCH) {
-        await supabase.from('leads').insert(newLeads.slice(i, i + BATCH));
+        // ignoreDuplicates: evita erro se mesmo phone inserido em chamadas paralelas
+        await supabase.from('leads').upsert(newLeads.slice(i, i + BATCH), {
+          onConflict: 'user_id,phone',
+          ignoreDuplicates: true,
+        });
       }
       totalSynced += newLeads.length;
     }
