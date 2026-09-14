@@ -382,6 +382,13 @@ export default function CanalOficialPage() {
       .catch((e) => setQuality({ _error: e.message || "Erro ao consultar qualidade" }));
   }, [config]);
 
+  const loadVerify = useCallback(() => {
+    if (!config?.has_token) return;
+    api("/api/wpp-cloud/verify")
+      .then((r) => setVerify(r))
+      .catch(() => setVerify({ ok: false }));
+  }, [config]);
+
   const loadLogs = useCallback(() => {
     api("/api/wpp-cloud/logs").then(setLogs).catch(() => setLogs([]));
   }, []);
@@ -391,8 +398,9 @@ export default function CanalOficialPage() {
     loadTemplates();
     loadAccount();
     loadQuality();
+    loadVerify();
     loadLogs();
-  }, [config, loadTemplates, loadAccount, loadQuality, loadLogs]);
+  }, [config, loadTemplates, loadAccount, loadQuality, loadVerify, loadLogs]);
 
   /* ── Sync global paralelo ── */
   async function syncAll() {
