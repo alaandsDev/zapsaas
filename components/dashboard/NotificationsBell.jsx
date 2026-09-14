@@ -60,7 +60,7 @@ export default function NotificationsBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="size-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-ink-300 hover:text-ink-100 transition-colors relative"
+        className="size-9 rounded-full bg-dash-subtle hover:bg-dash-border border border-dash-border flex items-center justify-center text-dash-muted hover:text-dash-ink transition-colors relative"
         aria-label="Notificações"
         title="Novidades"
       >
@@ -68,27 +68,27 @@ export default function NotificationsBell() {
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unread > 0 && (
-          <span className="absolute top-1 right-1 size-2 rounded-full bg-primary ring-2 ring-bg animate-pulse" />
+          <span className="absolute top-1 right-1 size-2 rounded-full bg-dash-green ring-2 ring-white animate-pulse" />
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 w-[340px] max-w-[90vw] card overflow-hidden shadow-2xl shadow-black/40 z-50">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+        <div className="absolute right-0 top-12 w-[340px] max-w-[90vw] rounded-2xl bg-dash-card border border-dash-border overflow-hidden shadow-dash-modal z-50">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-dash-border">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm">Novidades</span>
+              <span className="font-semibold text-sm text-dash-ink">Novidades</span>
               {unread > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-bg">{unread}</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-white">{unread}</span>
               )}
             </div>
             {unread > 0 && (
-              <button onClick={markAllRead} className="text-xs text-primary hover:underline">
+              <button onClick={markAllRead} className="text-xs text-dash-green hover:underline">
                 Marcar tudo como lido
               </button>
             )}
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto divide-y divide-white/[0.04]">
+          <div className="max-h-[420px] overflow-y-auto divide-y divide-dash-border2">
             {NOTIFS.map((n) => {
               const isUnread = !readSet.has(n.id);
               return (
@@ -96,18 +96,18 @@ export default function NotificationsBell() {
                   key={n.id}
                   href={n.href}
                   onClick={() => { markRead(n.id); setOpen(false); }}
-                  className={`flex items-start gap-3 p-3 hover:bg-white/[0.03] transition-colors ${isUnread ? "bg-primary/[0.02]" : ""}`}
+                  className={`flex items-start gap-3 p-3 hover:bg-dash-subtle transition-colors ${isUnread ? "bg-dash-green-soft/40" : ""}`}
                 >
-                  <div className="size-9 shrink-0 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-base">
+                  <div className="size-9 shrink-0 rounded-lg bg-dash-subtle border border-dash-border flex items-center justify-center text-base">
                     {n.icon}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-semibold truncate ${isUnread ? "text-ink-100" : "text-ink-300"}`}>{n.title}</span>
-                      {isUnread && <span className="size-1.5 rounded-full bg-primary shrink-0" />}
+                      <span className={`text-sm font-semibold truncate ${isUnread ? "text-dash-ink" : "text-dash-muted"}`}>{n.title}</span>
+                      {isUnread && <span className="size-1.5 rounded-full bg-dash-green shrink-0" />}
                     </div>
-                    <p className="text-xs text-ink-400 mt-0.5 leading-snug">{n.desc}</p>
-                    <p className="text-[10px] text-ink-500 mt-1">{fmtRel(n.date)}</p>
+                    <p className="text-xs text-dash-faint mt-0.5 leading-snug">{n.desc}</p>
+                    <p className="text-[10px] text-dash-faint2 mt-1">{fmtRel(n.date)}</p>
                   </div>
                 </Link>
               );
@@ -117,7 +117,7 @@ export default function NotificationsBell() {
           <Link
             href="/changelog"
             onClick={() => setOpen(false)}
-            className="block px-4 py-3 text-center text-sm text-primary border-t border-white/[0.06] hover:bg-primary/[0.05]"
+            className="block px-4 py-3 text-center text-sm text-dash-green border-t border-dash-border hover:bg-dash-subtle"
           >
             Ver changelog completo →
           </Link>
