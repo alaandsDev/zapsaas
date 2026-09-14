@@ -666,7 +666,13 @@ app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
       });
 
     if (error?.message === 'timeout') return res.status(503).json({ error: 'Servidor temporariamente lento, tente novamente em instantes' });
-    if (error || !user) return res.status(401).json({ error: 'Email ou senha inválidos' });
+    // PGRST116 = nenhuma linha encontrada (.single()); outros erros = falha de banco
+    if (error) {
+      if (error.code === 'PGRST116' || !user) return res.status(401).json({ error: 'Email ou senha inválidos' });
+      console.error('[login] DB error ao buscar usuário:', error.message);
+      return res.status(503).json({ error: 'Servidor temporariamente indisponível, tente novamente' });
+    }
+    if (!user) return res.status(401).json({ error: 'Email ou senha inválidos' });
 
     const valid = await verifyPassword(password, user.password);
     if (!valid) return res.status(401).json({ error: 'Email ou senha inválidos' });
@@ -685,14 +691,24 @@ app.post('/api/auth/login', rateLimit(15 * 60 * 1000, 10), async (req, res) => {
       workspace_role: user.workspace_role || null,
     };
 
-    const { error: sessionError } = await supabase.from('sessions').insert({
-      token,
-      user_id: user.id,
-      user_data: userData,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    });
+    // Tenta inserir sessão com 1 retry em caso de falha transitória
+    let sessionError;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { error: se } = await supabase.from('sessions').insert({
+        token,
+        user_id: user.id,
+        user_data: userData,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      });
+      sessionError = se;
+      if (!se) break;
+      if (attempt === 0) await new Promise(r => setTimeout(r, 400));
+    }
 
-    if (sessionError) return res.status(500).json({ error: 'Erro ao criar sessão' });
+    if (sessionError) {
+      console.error('[login] Falha ao criar sessão:', sessionError.message);
+      return res.status(500).json({ error: 'Erro ao criar sessão, tente novamente' });
+    }
 
     // Limpa sessões antigas em background — não bloqueia o login
     supabase.from('sessions')
