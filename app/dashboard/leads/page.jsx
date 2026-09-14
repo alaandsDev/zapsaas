@@ -283,7 +283,8 @@ export default function LeadsPage() {
       const result = await api("/api/lists/sync-all", { method: "POST" }).catch(() => null);
       if (result) {
         setSyncResult(result);
-        await load();
+        // Recarrega após 2s para garantir dados frescos do banco
+        setTimeout(() => window.location.reload(), 2000);
       }
     } finally {
       setSyncing(false);
@@ -301,8 +302,8 @@ export default function LeadsPage() {
     setLoading(true);
     try {
       const [l, ls] = await Promise.all([
-        api("/api/leads").catch(() => []),
-        api("/api/lists").catch(() => []),
+        api("/api/leads").catch((e) => { console.error("[leads] falha ao buscar leads:", e); return []; }),
+        api("/api/lists").catch((e) => { console.error("[leads] falha ao buscar listas:", e); return []; }),
       ]);
       setLeads(Array.isArray(l) ? l : l?.data || []);
       setLists(Array.isArray(ls) ? ls : ls?.data || []);
