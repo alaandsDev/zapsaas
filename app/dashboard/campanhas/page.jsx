@@ -965,69 +965,77 @@ export default function CampanhasPage() {
           </div>
         </div>
 
-        {/* ── Histórico / monitor de campanhas (preservado) ── */}
-        <div className="dash-card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-dash-ink m-0">Campanhas</h3>
-              <p className="text-xs text-dash-faint m-0">Acompanhe, pause ou cancele disparos em andamento</p>
-            </div>
-            <DashIconButton onClick={loadAll} title="Atualizar"><RefreshCw className="size-3.5" /></DashIconButton>
-          </div>
-          {dispatches.length === 0 ? (
-            <DashEmptyState
-              icon={Megaphone}
-              accent={ACCENT}
-              title="Nenhuma campanha ainda"
-              desc="Configure sua mensagem e destinatários acima para criar o primeiro disparo."
-              cta={{ label: "Nova campanha", icon: Send, onClick: () => { setStep(1); topRef.current?.scrollIntoView({ behavior: "smooth" }); } }}
-            />
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {dispatches.slice().reverse().map((d) => {
-                const total = d.total || d.recipients_count || 0;
-                const sent = d.sent || 0;
-                const failed = d.failed || 0;
-                const pct = total ? Math.round(((sent + failed) / total) * 100) : 0;
-                const delivered = sent + failed;
-                const okRate = delivered ? sent / delivered : (total ? 1 : 0);
-                const hScore = Math.round(okRate * 100);
-                const hColor = hScore >= 85 ? DASH_ACCENT.emerald : hScore >= 60 ? DASH_ACCENT.amber : DASH_ACCENT.red;
-                const hLabel = hScore >= 85 ? "Saudável" : hScore >= 60 ? "Atenção" : "Crítico";
-                const s = STATUS[d.status] || { label: d.status || "—", color: DASH_ACCENT.slate };
-                const barColor = d.status === "failed" ? DASH_ACCENT.red : d.status === "completed" ? DASH_ACCENT.green : DASH_ACCENT.amber;
-                return (
-                  <button key={d.id} onClick={() => setDetailOpen(d)}
-                    className="text-left rounded-2xl border border-dash-border bg-white p-4 hover:border-dash-amber/40 hover:bg-dash-subtle transition-colors">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-medium truncate text-dash-ink">{d.message_title || d.messageTitle || "Campanha"}</div>
-                      <DashBadge color={s.color} dot={false} className="shrink-0">{s.label}</DashBadge>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      {total > 0 && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-                          title={`Health score ${hScore}`}
-                          style={{ background: `${hColor}1a`, color: hColor, border: `1px solid ${hColor}40` }}>
-                          {hLabel} · {hScore}
-                        </span>
-                      )}
-                      <span className="text-[11px] text-dash-faint">{fmtDate(d.created_at || d.createdAt)} · {total} contatos</span>
-                    </div>
-                    <div className="mt-2 h-1.5 rounded-full bg-[#F1F3F6] overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
-                    </div>
-                    <div className="flex gap-3 mt-1.5 text-[11px] text-dash-muted">
-                      <span style={{ color: DASH_ACCENT.emerald }}>{sent} enviados</span>
-                      <span style={{ color: DASH_ACCENT.red }}>{failed} falhas</span>
-                      <span className="ml-auto text-dash-green font-medium">Ver relatório →</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
         </>}
+
+        {/* ── Histórico / monitor de campanhas — sempre visível em ambas as abas ── */}
+        {(() => {
+          const tabDispatches = activeTab === "api"
+            ? dispatches.filter(d => d.channel === "cloud_template")
+            : dispatches.filter(d => d.channel !== "cloud_template");
+          return (
+            <div className="dash-card">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold text-dash-ink m-0">Campanhas</h3>
+                  <p className="text-xs text-dash-faint m-0">Acompanhe, pause ou cancele disparos em andamento</p>
+                </div>
+                <DashIconButton onClick={loadAll} title="Atualizar"><RefreshCw className="size-3.5" /></DashIconButton>
+              </div>
+              {tabDispatches.length === 0 ? (
+                <DashEmptyState
+                  icon={Megaphone}
+                  accent={ACCENT}
+                  title="Nenhuma campanha ainda"
+                  desc="Configure sua mensagem e destinatários acima para criar o primeiro disparo."
+                  cta={activeTab !== "api" ? { label: "Nova campanha", icon: Send, onClick: () => { setStep(1); topRef.current?.scrollIntoView({ behavior: "smooth" }); } } : undefined}
+                />
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {tabDispatches.slice().reverse().map((d) => {
+                    const total = d.total || d.recipients_count || 0;
+                    const sent = d.sent || 0;
+                    const failed = d.failed || 0;
+                    const pct = total ? Math.round(((sent + failed) / total) * 100) : 0;
+                    const delivered = sent + failed;
+                    const okRate = delivered ? sent / delivered : (total ? 1 : 0);
+                    const hScore = Math.round(okRate * 100);
+                    const hColor = hScore >= 85 ? DASH_ACCENT.emerald : hScore >= 60 ? DASH_ACCENT.amber : DASH_ACCENT.red;
+                    const hLabel = hScore >= 85 ? "Saudável" : hScore >= 60 ? "Atenção" : "Crítico";
+                    const s = STATUS[d.status] || { label: d.status || "—", color: DASH_ACCENT.slate };
+                    const barColor = d.status === "failed" ? DASH_ACCENT.red : d.status === "completed" ? DASH_ACCENT.green : DASH_ACCENT.amber;
+                    return (
+                      <button key={d.id} onClick={() => setDetailOpen(d)}
+                        className="text-left rounded-2xl border border-dash-border bg-white p-4 hover:border-dash-amber/40 hover:bg-dash-subtle transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-sm font-medium truncate text-dash-ink">{d.message_title || d.messageTitle || "Campanha"}</div>
+                          <DashBadge color={s.color} dot={false} className="shrink-0">{s.label}</DashBadge>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          {total > 0 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                              title={`Health score ${hScore}`}
+                              style={{ background: `${hColor}1a`, color: hColor, border: `1px solid ${hColor}40` }}>
+                              {hLabel} · {hScore}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-dash-faint">{fmtDate(d.created_at || d.createdAt)} · {total} contatos</span>
+                        </div>
+                        <div className="mt-2 h-1.5 rounded-full bg-[#F1F3F6] overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
+                        </div>
+                        <div className="flex gap-3 mt-1.5 text-[11px] text-dash-muted">
+                          <span style={{ color: DASH_ACCENT.emerald }}>{sent} enviados</span>
+                          <span style={{ color: DASH_ACCENT.red }}>{failed} falhas</span>
+                          <span className="ml-auto text-dash-green font-medium">Ver relatório →</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       </div>
 
