@@ -60,8 +60,11 @@ export default function CampanhasPage() {
   const [usage, setUsage] = useState(null);
   const [messages, setMessages] = useState([{ id: Date.now(), text: "" }]);
   const [listSel, setListSel] = useState("");
+  const [contactsMode, setContactsMode] = useState("list"); // "list" | "file" | "manual"
   const [contacts, setContacts] = useState([]);
   const [selected, setSelected] = useState(new Set());
+  const [manualName, setManualName] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
   const [delay, setDelay] = useState(3);
   const [pauseEvery, setPauseEvery] = useState(25);
   const [pauseDuration, setPauseDuration] = useState(5);
@@ -473,7 +476,7 @@ export default function CampanhasPage() {
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden mb-3"
                           >
-                            <div className="rounded-xl p-4 overflow-x-hidden" style={{ border: `1px solid ${DASH_ACCENT.violet}33`, background: `${DASH_ACCENT.violet}0a` }}>
+                            <div className="rounded-xl p-4 w-full overflow-hidden" style={{ border: `1px solid ${DASH_ACCENT.violet}33`, background: `${DASH_ACCENT.violet}0a` }}>
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
                                   <Zap className="size-4" style={{ color: DASH_ACCENT.violet }} />
@@ -537,13 +540,14 @@ export default function CampanhasPage() {
                                     : "Nenhum template encontrado"}
                                 </div>
                               ) : (
-                                <div className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden pr-1">
+                                <div className="overflow-x-hidden w-full">
+                                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                                   {filteredTemplates.map(tpl => (
-                                    <div key={tpl.id} className="group flex items-start gap-2 p-3 rounded-lg border border-dash-border bg-white hover:bg-dash-subtle transition-all"
+                                    <div key={tpl.id} className="group w-full flex items-start gap-2 p-3 rounded-lg border border-dash-border bg-white hover:bg-dash-subtle transition-all"
                                       style={{ borderColor: undefined }}>
                                       <div className="flex-1 min-w-0 overflow-hidden">
                                         <p className="text-xs font-semibold text-dash-ink2 mb-0.5 truncate">{tpl.name}</p>
-                                        <p className="text-xs text-dash-faint line-clamp-2 break-words">{tpl.text}</p>
+                                        <p className="text-xs text-dash-faint line-clamp-2 break-words whitespace-pre-wrap">{tpl.text}</p>
                                       </div>
                                       <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {messages.length > 1 ? (
@@ -581,6 +585,7 @@ export default function CampanhasPage() {
                                       </div>
                                     </div>
                                   ))}
+                                </div>
                                 </div>
                               )}
                             </div>
@@ -664,21 +669,95 @@ export default function CampanhasPage() {
                 {/* ── STEP 2: DESTINATÁRIOS ── */}
                 {step === 2 && (
                   <>
-                    <LightField label="Lista de Contatos">
-                      <select value={listSel} onChange={(e) => setListSel(e.target.value)} className="dash-input">
-                        <option value="">— Selecione uma lista —</option>
-                        <option value="leads">Leads do sistema ({leads.length})</option>
-                        {lists.map(l => (
-                          <option key={l.id} value={`list:${l.id}`}>{l.name} ({l.total || l.contacts_count || 0} contatos)</option>
-                        ))}
-                      </select>
-                    </LightField>
+                    {/* Seletor de fonte */}
+                    <div className="flex items-center gap-1 p-1 rounded-xl bg-dash-subtle border border-dash-border w-full mb-1">
+                      {[
+                        { v: "list", label: "Lista salva" },
+                        { v: "file", label: "Importar arquivo" },
+                        { v: "manual", label: "Adicionar manual" },
+                      ].map(opt => (
+                        <button key={opt.v} type="button"
+                          onClick={() => { setContactsMode(opt.v); setContacts([]); setSelected(new Set()); setListSel(""); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            contactsMode === opt.v ? "bg-white shadow-sm text-dash-ink border border-dash-border" : "text-dash-faint hover:text-dash-ink"
+                          }`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Modo: lista salva */}
+                    {contactsMode === "list" && (
+                      <LightField label="Lista de Contatos">
+                        <select value={listSel} onChange={(e) => setListSel(e.target.value)} className="dash-input">
+                          <option value="">— Selecione uma lista —</option>
+                          <option value="leads">Leads do sistema ({leads.length})</option>
+                          {lists.map(l => (
+                            <option key={l.id} value={`list:${l.id}`}>{l.name} ({l.total || l.contacts_count || 0} contatos)</option>
+                          ))}
+                        </select>
+                      </LightField>
+                    )}
+
+                    {/* Modo: importar arquivo */}
+                    {contactsMode === "file" && (
+                      <ContactFileImport onContacts={(arr) => { setContacts(arr); setSelected(new Set(arr.map(c => c.phone))); }} />
+                    )}
+
+                    {/* Modo: manual */}
+                    {contactsMode === "manual" && (
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <input
+                            type="text" value={manualName} onChange={e => setManualName(e.target.value)}
+                            placeholder="Nome" className="dash-input flex-1"
+                          />
+                          <input
+                            type="text" value={manualPhone} onChange={e => setManualPhone(e.target.value)}
+                            placeholder="Número (ex: 5511999887766)" className="dash-input flex-1"
+                            onKeyDown={e => {
+                              if (e.key === "Enter") {
+                                const phone = manualPhone.replace(/\D/g, "");
+                                if (phone.length >= 10) {
+                                  const c = { name: manualName.trim() || phone, phone };
+                                  setContacts(prev => [...prev, c]);
+                                  setSelected(prev => new Set([...prev, phone]));
+                                  setManualName(""); setManualPhone("");
+                                }
+                              }
+                            }}
+                          />
+                          <button type="button"
+                            onClick={() => {
+                              const phone = manualPhone.replace(/\D/g, "");
+                              if (phone.length >= 10) {
+                                const c = { name: manualName.trim() || phone, phone };
+                                setContacts(prev => [...prev, c]);
+                                setSelected(prev => new Set([...prev, phone]));
+                                setManualName(""); setManualPhone("");
+                              }
+                            }}
+                            className="px-3 py-2 rounded-lg bg-dash-green text-white text-sm font-medium hover:bg-dash-green/90 whitespace-nowrap">
+                            + Adicionar
+                          </button>
+                        </div>
+                        <div className="text-xs text-dash-faint">Pressione Enter ou clique + Adicionar após cada contato</div>
+                      </div>
+                    )}
+
+                    {/* Lista de contatos selecionados */}
                     {contacts.length > 0 ? (
                       <div className="rounded-xl border border-dash-border p-3">
                         <div className="flex items-center gap-3 text-xs mb-2">
                           <button onClick={selectAll} className="text-dash-green font-medium">Selecionar todos</button>
                           <span className="text-dash-border">|</span>
                           <button onClick={deselectAll} className="text-dash-muted">Desmarcar todos</button>
+                          {contactsMode === "manual" && (
+                            <>
+                              <span className="text-dash-border">|</span>
+                              <button onClick={() => { setContacts([]); setSelected(new Set()); }} className="text-dash-red">Limpar</button>
+                            </>
+                          )}
                           <span className="ml-auto text-dash-faint">{selected.size} selecionados</span>
                         </div>
                         <div className="max-h-64 overflow-y-auto space-y-1">
@@ -692,9 +771,11 @@ export default function CampanhasPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="dash-empty py-8">
-                        <p className="text-sm text-dash-faint m-0">Selecione uma lista para escolher os destinatários</p>
-                      </div>
+                      contactsMode === "list" && (
+                        <div className="dash-empty py-8">
+                          <p className="text-sm text-dash-faint m-0">Selecione uma lista para escolher os destinatários</p>
+                        </div>
+                      )
                     )}
                   </>
                 )}
@@ -955,6 +1036,95 @@ export default function CampanhasPage() {
   );
 }
 
+// ── Importação de contatos via arquivo (CSV/XLSX) ────────────
+function ContactFileImport({ onContacts }) {
+  const [info, setInfo] = useState("");
+  const [err, setErr] = useState("");
+  const [stats, setStats] = useState(null);
+  const fileRef = useRef(null);
+
+  async function readFile(file) {
+    if (!file) return;
+    setErr(""); setInfo("Lendo arquivo..."); setStats(null);
+    try {
+      const ext = file.name.split(".").pop().toLowerCase();
+      let parsed = [];
+      if (ext === "csv") {
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (!lines.length) throw new Error("Arquivo vazio");
+        const sep = lines[0].includes(";") ? ";" : ",";
+        const headers = lines[0].split(sep).map(h => h.trim().replace(/"/g, "").toUpperCase());
+        const ni = headers.findIndex(h => h.includes("NOME") || h.includes("NAME"));
+        const pi = headers.findIndex(h => h.includes("NUMERO") || h.includes("NUMBER") || h.includes("TELEFONE") || h.includes("PHONE"));
+        if (pi === -1) throw new Error("Coluna NUMERO/TELEFONE não encontrada");
+        parsed = lines.slice(1).map(l => {
+          const c = l.split(sep).map(x => x.trim().replace(/"/g, ""));
+          const phone = (c[pi] || "").replace(/\D/g, "");
+          return { name: ni >= 0 ? (c[ni] || "") : "", phone };
+        }).filter(r => r.phone.length >= 10);
+      } else {
+        if (!window.XLSX) {
+          await new Promise((res, rej) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+            s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
+          });
+        }
+        const buf = await file.arrayBuffer();
+        const wb = window.XLSX.read(buf, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = window.XLSX.utils.sheet_to_json(ws, { header: 1 });
+        if (!raw.length) throw new Error("Planilha vazia");
+        const headers = raw[0].map(h => String(h || "").trim().toUpperCase());
+        const ni = headers.findIndex(h => h.includes("NOME") || h.includes("NAME"));
+        const pi = headers.findIndex(h => h.includes("NUMERO") || h.includes("NUMBER") || h.includes("TELEFONE") || h.includes("PHONE"));
+        if (pi === -1) throw new Error("Coluna NUMERO/TELEFONE não encontrada");
+        parsed = raw.slice(1).filter(r => r[pi]).map(r => ({
+          name: ni >= 0 ? String(r[ni] || "").trim() : "",
+          phone: String(r[pi] || "").replace(/\D/g, ""),
+        })).filter(r => r.phone.length >= 10);
+      }
+      const seen = new Set();
+      const valid = parsed.filter(r => { if (seen.has(r.phone)) return false; seen.add(r.phone); return true; });
+      if (!valid.length) throw new Error("Nenhum contato válido. Verifique se os números têm DDD (11 dígitos com 55).");
+      setStats({ total: parsed.length, valid: valid.length, dupes: parsed.length - valid.length });
+      setInfo("");
+      onContacts(valid.map(r => ({ name: r.name || r.phone, phone: r.phone })));
+    } catch (e) {
+      setErr(e.message); setInfo(""); setStats(null);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div
+        onClick={() => fileRef.current?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); readFile(e.dataTransfer.files?.[0]); }}
+        className="rounded-xl border-2 border-dashed border-dash-border hover:border-dash-green/40 hover:bg-dash-green/[0.02] transition-all p-6 text-center cursor-pointer"
+      >
+        <FileText className="size-7 text-dash-faint mx-auto mb-2" />
+        <div className="text-sm font-medium text-dash-ink">Clique ou arraste o arquivo</div>
+        <div className="text-xs text-dash-faint mt-1">Excel (.xlsx) ou CSV (.csv)</div>
+        <div className="text-xs text-dash-faint">Coluna obrigatória: <strong>NUMERO</strong> · Opcional: <strong>NOME</strong></div>
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+          onChange={e => readFile(e.target.files?.[0])} />
+      </div>
+      {info && <div className="text-xs text-dash-faint">{info}</div>}
+      {err && <div className="text-sm text-dash-red bg-dash-red/10 border border-dash-red/25 rounded-xl px-3 py-2">{err}</div>}
+      {stats && (
+        <div className="flex items-center gap-3 text-xs px-3 py-2 rounded-xl bg-dash-green/5 border border-dash-green/25">
+          <Check className="size-3.5 text-dash-green shrink-0" />
+          <span className="text-dash-green font-medium">{stats.valid} contatos importados</span>
+          {stats.dupes > 0 && <span className="text-dash-faint">· {stats.dupes} duplicados removidos</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Extrai variáveis {{N}} do corpo/header do template ──────
 function extractVars(components = []) {
   const vars = new Set();
@@ -973,7 +1143,10 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [listSel, setListSel] = useState("");
+  const [contactsMode2, setContactsMode2] = useState("list");
   const [contacts, setContacts] = useState([]);
+  const [manualName2, setManualName2] = useState("");
+  const [manualPhone2, setManualPhone2] = useState("");
   const [varMap, setVarMap] = useState({}); // { 1: "coluna_nome", 2: "coluna_cidade" }
   const [schedule, setSchedule] = useState("");
   const [delayMs, setDelayMs] = useState(1200);
@@ -1194,18 +1367,78 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
         {/* Step 2: Selecionar lista */}
         {step === 2 && (
           <div className="space-y-4">
-            <div className="text-sm font-medium text-dash-ink">Lista de contatos</div>
-            <select value={listSel} onChange={e => setListSel(e.target.value)} className="dash-input w-full">
-              <option value="">— Selecione —</option>
-              <option value="leads">Leads do sistema ({leads.length})</option>
-              {lists.map(l => (
-                <option key={l.id} value={`list:${l.id}`}>{l.name} ({l.total || l.contacts_count || 0} contatos)</option>
+            <div className="text-sm font-medium text-dash-ink">Contatos</div>
+
+            {/* Seletor de fonte */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-dash-subtle border border-dash-border w-full">
+              {[
+                { v: "list", label: "Lista salva" },
+                { v: "file", label: "Importar arquivo" },
+                { v: "manual", label: "Adicionar manual" },
+              ].map(opt => (
+                <button key={opt.v} type="button"
+                  onClick={() => { setContactsMode2(opt.v); setContacts([]); setListSel(""); }}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    contactsMode2 === opt.v ? "bg-white shadow-sm text-dash-ink border border-dash-border" : "text-dash-faint hover:text-dash-ink"
+                  }`}>
+                  {opt.label}
+                </button>
               ))}
-            </select>
+            </div>
+
+            {contactsMode2 === "list" && (
+              <select value={listSel} onChange={e => setListSel(e.target.value)} className="dash-input w-full">
+                <option value="">— Selecione —</option>
+                <option value="leads">Leads do sistema ({leads.length})</option>
+                {lists.map(l => (
+                  <option key={l.id} value={`list:${l.id}`}>{l.name} ({l.total || l.contacts_count || 0} contatos)</option>
+                ))}
+              </select>
+            )}
+
+            {contactsMode2 === "file" && (
+              <ContactFileImport onContacts={(arr) => setContacts(arr)} />
+            )}
+
+            {contactsMode2 === "manual" && (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input type="text" value={manualName2} onChange={e => setManualName2(e.target.value)}
+                    placeholder="Nome" className="dash-input flex-1" />
+                  <input type="text" value={manualPhone2} onChange={e => setManualPhone2(e.target.value)}
+                    placeholder="5511999887766" className="dash-input flex-1"
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        const phone = manualPhone2.replace(/\D/g, "");
+                        if (phone.length >= 10) {
+                          setContacts(prev => [...prev, { name: manualName2.trim() || phone, phone, [manualName2.trim() || "nome"]: manualName2.trim() || phone }]);
+                          setManualName2(""); setManualPhone2("");
+                        }
+                      }
+                    }} />
+                  <button type="button"
+                    onClick={() => {
+                      const phone = manualPhone2.replace(/\D/g, "");
+                      if (phone.length >= 10) {
+                        setContacts(prev => [...prev, { name: manualName2.trim() || phone, phone, [manualName2.trim() || "nome"]: manualName2.trim() || phone }]);
+                        setManualName2(""); setManualPhone2("");
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg bg-dash-green text-white text-sm font-medium hover:bg-dash-green/90">
+                    + Add
+                  </button>
+                </div>
+                <div className="text-xs text-dash-faint">Enter para adicionar</div>
+              </div>
+            )}
+
             {contacts.length > 0 && (
               <div className="rounded-xl border border-dash-border overflow-hidden">
-                <div className="px-3 py-2 bg-dash-subtle border-b border-dash-border text-xs text-dash-faint">
-                  {contacts.length} contatos · colunas disponíveis: {availableColumns.join(", ")}
+                <div className="px-3 py-2 bg-dash-subtle border-b border-dash-border text-xs text-dash-faint flex items-center justify-between">
+                  <span>{contacts.length} contatos · colunas: {availableColumns.slice(0, 4).join(", ")}{availableColumns.length > 4 ? "..." : ""}</span>
+                  {contactsMode2 === "manual" && (
+                    <button onClick={() => setContacts([])} className="text-dash-red text-xs">Limpar</button>
+                  )}
                 </div>
                 <div className="max-h-48 overflow-y-auto divide-y divide-dash-border2">
                   {contacts.slice(0, 5).map((c, i) => (
@@ -1221,9 +1454,10 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
                 </div>
               </div>
             )}
+
             <div className="flex items-start gap-1.5 text-xs text-dash-faint">
               <Info className="size-3.5 shrink-0 mt-0.5" />
-              O número precisa estar no formato internacional: 5511999887766 (sem + ou espaços)
+              Número no formato internacional: 5511999887766 (código país + DDD + número)
             </div>
           </div>
         )}
