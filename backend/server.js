@@ -4741,14 +4741,40 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
   try {
     const userId = uid(req);
 
-    // Busca todas as listas do usuário
+    // 1. Remove duplicatas existentes — mantém o registro mais antigo por phone
+    const { data: allLeads } = await supabase
+      .from('leads')
+      .select('id, phone')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    let duplicatesRemoved = 0;
+    if (allLeads && allLeads.length > 0) {
+      const seenPhones = new Map(); // phone → id do primeiro (mais antigo)
+      const toDelete = [];
+      for (const lead of allLeads) {
+        if (!lead.phone) continue;
+        if (seenPhones.has(lead.phone)) {
+          toDelete.push(lead.id); // este é duplicata — remove
+        } else {
+          seenPhones.set(lead.phone, lead.id);
+        }
+      }
+      const DEL_BATCH = 500;
+      for (let i = 0; i < toDelete.length; i += DEL_BATCH) {
+        await supabase.from('leads').delete().in('id', toDelete.slice(i, i + DEL_BATCH));
+      }
+      duplicatesRemoved = toDelete.length;
+    }
+
+    // 2. Busca todas as listas do usuário
     const { data: lists, error: listErr } = await supabase
       .from('contact_lists')
       .select('id, name, contacts')
       .eq('user_id', userId);
     if (listErr) throw listErr;
 
-    // Busca todos os telefones já existentes como lead
+    // 3. Busca phones que já existem após limpeza
     const { data: existingLeads } = await supabase
       .from('leads')
       .select('phone')
@@ -4767,7 +4793,7 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
         })
         .filter(c => c.phone && !existingPhones.has(c.phone))
         .map(c => {
-          existingPhones.add(c.phone); // evita duplicata entre listas
+          existingPhones.add(c.phone);
           return {
             name: c.name,
             phone: c.phone,
@@ -4780,7 +4806,6 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
 
       const BATCH = 500;
       for (let i = 0; i < newLeads.length; i += BATCH) {
-        // ignoreDuplicates: evita erro se mesmo phone inserido em chamadas paralelas
         await supabase.from('leads').upsert(newLeads.slice(i, i + BATCH), {
           onConflict: 'user_id,phone',
           ignoreDuplicates: true,
@@ -4789,7 +4814,7 @@ app.post('/api/lists/sync-all', requireAuth, async (req, res) => {
       totalSynced += newLeads.length;
     }
 
-    res.json({ success: true, lists_processed: (lists || []).length, leads_synced: totalSynced });
+    res.json({ success: true, lists_processed: (lists || []).length, leads_synced: totalSynced, duplicates_removed: duplicatesRemoved });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

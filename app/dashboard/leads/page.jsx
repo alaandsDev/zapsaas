@@ -454,7 +454,7 @@ export default function LeadsPage() {
             <span>
               {syncResult._pics
                 ? <>🖼️ Fotos sincronizadas — <strong>{syncResult.leads_synced}</strong> lead{syncResult.leads_synced !== 1 ? "s" : ""} atualizado{syncResult.leads_synced !== 1 ? "s" : ""} com foto do WhatsApp.</>
-                : <>✅ Sincronização concluída — <strong>{syncResult.leads_synced}</strong> novo{syncResult.leads_synced !== 1 ? "s lead" : " lead"}{syncResult.leads_synced !== 1 ? "s" : ""} importado{syncResult.leads_synced !== 1 ? "s" : ""} de {syncResult.lists_processed} lista{syncResult.lists_processed !== 1 ? "s" : ""}.</>
+                : <>✅ Sincronização concluída — <strong>{syncResult.leads_synced}</strong> novo{syncResult.leads_synced !== 1 ? "s lead" : " lead"}{syncResult.leads_synced !== 1 ? "s" : ""} importado{syncResult.leads_synced !== 1 ? "s" : ""} de {syncResult.lists_processed} lista{syncResult.lists_processed !== 1 ? "s" : ""}{syncResult.duplicates_removed > 0 ? <>, <strong>{syncResult.duplicates_removed}</strong> duplicata{syncResult.duplicates_removed !== 1 ? "s" : ""} removida{syncResult.duplicates_removed !== 1 ? "s" : ""}</> : null}.</>
               }
             </span>
             <button onClick={() => setSyncResult(null)} className="opacity-60 hover:opacity-100 transition-opacity">✕</button>
