@@ -197,11 +197,14 @@ export default function CampanhasPage() {
 
     const connectedSessions = sessions.filter(s => s.status === "connected");
     const selectedSourceSlot = sourceSessionSlot ? parseInt(sourceSessionSlot) : null;
-    if (selectedSourceSlot && !connectedSessions.some(s => s.slot === selectedSourceSlot)) {
-      setErr("Selecione um número conectado para disparar");
-      return;
+
+    if (channel !== "cloud") {
+      if (selectedSourceSlot && !connectedSessions.some(s => s.slot === selectedSourceSlot)) {
+        setErr("Selecione um número conectado para disparar");
+        return;
+      }
+      if (!connectedSessions.length) { setErr("Conecte o WhatsApp em Conexões antes de disparar"); return; }
     }
-    if (!connectedSessions.length) { setErr("Conecte o WhatsApp em Conexões antes de disparar"); return; }
 
     if (dualChip && connectedSessions.length < 2) {
       setErr("Modo 2 Chips requer 2 números conectados. Vá em Conexões e conecte o segundo número.");
@@ -306,6 +309,8 @@ export default function CampanhasPage() {
   const used = usage?.dispatches?.used ?? 0;
   const limit = usage?.dispatches?.limit ?? 3;
   const wppConnected = wpp?.status === "connected" || sessions.some(s => s.status === "connected");
+  const hasCloudCfg = !!(cloudConfig?.has_token && cloudConfig?.enabled);
+  const hasAnyChannel = wppConnected || hasCloudCfg;
 
   const msgCount = messages.filter(m => m.text.trim()).length;
   const canContinue = step === 1 ? msgCount > 0 : step === 2 ? selected.size > 0 : true;
@@ -368,11 +373,21 @@ export default function CampanhasPage() {
                 {used >= limit && <Link href="/dashboard/workspace" className="ml-3 text-dash-green font-semibold">Upgrade →</Link>}
               </div>
             )}
-            {!wppConnected && (
+            {!hasAnyChannel && (
               <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl mb-4"
                 style={{ background: `${DASH_ACCENT.amber}14`, border: `1px solid ${DASH_ACCENT.amber}33`, color: DASH_ACCENT.amber }}>
                 <AlertTriangle className="size-4 shrink-0" />
-                Nenhuma conexão ativa — <Link href="/dashboard/canais" className="underline font-semibold">conecte em Conexões</Link>
+                Nenhuma conexão ativa —{" "}
+                <Link href="/dashboard/canais" className="underline font-semibold">conecte em Conexões</Link>
+                {" "}ou configure a{" "}
+                <Link href="/dashboard/canal-oficial" className="underline font-semibold">API Meta</Link>
+              </div>
+            )}
+            {!wppConnected && hasCloudCfg && (
+              <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl mb-4"
+                style={{ background: `${DASH_ACCENT.emerald}0d`, border: `1px solid ${DASH_ACCENT.emerald}33`, color: DASH_ACCENT.emerald }}>
+                <Cloud className="size-3.5 shrink-0" />
+                API Meta configurada — selecione <strong>API Meta</strong> no passo 3 para disparar sem WhatsApp conectado
               </div>
             )}
 
@@ -679,7 +694,6 @@ export default function CampanhasPage() {
                       const hasAny = connectedSessions.length > 0;
                       const hasTwo = connectedSessions.length >= 2;
                       const selectedSource = sourceSessionSlot ? connectedSessions.find(s => String(s.slot) === sourceSessionSlot) : null;
-                      const hasCloudCfg = !!(cloudConfig?.has_token && cloudConfig?.enabled);
                       return (
                         <div className="rounded-xl border border-dash-border bg-dash-subtle p-4 space-y-3">
                           <div className="dash-section-label !mb-0">Conexões de saída</div>
