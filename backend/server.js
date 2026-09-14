@@ -4980,6 +4980,12 @@ cron.schedule('*/3 * * * *', async () => {
         executeCloudDispatch(dispatch.id, dispatch.user_id);
         continue;
       }
+      // Cloud Template dispatches (campanhas com templates aprovados)
+      if (dispatch.channel === 'cloud_template') {
+        console.log(`[cron] Executando disparo Template Meta ${dispatch.id}`);
+        executeCloudTemplateDispatch(dispatch.id, dispatch.user_id);
+        continue;
+      }
       const cronSessions = getConnectedSessions(dispatch.user_id);
       if (cronSessions.length > 0) {
         console.log(`[cron] Executando disparo real ${dispatch.id} (${cronSessions.length} sessão(ões))`);
