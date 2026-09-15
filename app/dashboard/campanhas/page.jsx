@@ -1200,8 +1200,9 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
   const tplComponents = selectedTemplate?.components || [];
   const bodyComp = tplComponents.find(c => c.type === "BODY");
   const headerComp = tplComponents.find(c => c.type === "HEADER");
-  const bodyVarCount = (bodyComp?.text?.match(/\{\{\d+\}\}/g) || []).length;
-  const varIndexes = Array.from({ length: bodyVarCount }, (_, i) => i + 1);
+  // Detecta qualquer {{variavel}} — tanto numéricas ({{1}}) quanto nomeadas ({{customer_name}})
+  const bodyVarMatches = [...(bodyComp?.text || "").matchAll(/\{\{([^}]+)\}\}/g)];
+  const varKeys = [...new Set(bodyVarMatches.map(m => m[1].trim()))]; // únicos, na ordem
 
   function resolveVar(contact, col) {
     if (!col) return "";
@@ -1209,13 +1210,13 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
   }
 
   function buildVarsForContact(contact) {
-    return varIndexes.map(i => resolveVar(contact, varMap[i] || ""));
+    return varKeys.map(k => resolveVar(contact, varMap[k] || ""));
   }
 
   const sampleContact = contacts[0];
   const sampleVars = sampleContact ? buildVarsForContact(sampleContact) : [];
   const previewBody = bodyComp?.text
-    ? varIndexes.reduce((t, i) => t.replace(`{{${i}}}`, sampleVars[i - 1] || `{{${i}}}`), bodyComp.text)
+    ? varKeys.reduce((t, k, idx) => t.replace(`{{${k}}}`, sampleVars[idx] || `{{${k}}}`), bodyComp.text)
     : "";
 
   async function sendCampaign() {
@@ -1267,7 +1268,7 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
 
   const canNext = step === 1 ? !!selectedTemplate
     : step === 2 ? contacts.length > 0
-    : step === 3 ? varIndexes.every(i => varMap[i])
+    : step === 3 ? varKeys.every(k => varMap[k])
     : true;
 
   if (!hasCloudCfg) {
@@ -1474,26 +1475,26 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
         {step === 3 && (
           <div className="space-y-4">
             <div className="text-sm font-medium text-dash-ink">Mapear variáveis do template</div>
-            {varIndexes.length === 0 ? (
+            {varKeys.length === 0 ? (
               <div className="rounded-xl border border-dash-green/25 bg-dash-green/5 px-4 py-3 text-sm text-dash-green">
                 Este template não tem variáveis no corpo — será enviado igual para todos.
               </div>
             ) : (
               <div className="space-y-3">
-                {varIndexes.map(i => (
-                  <div key={i} className="rounded-xl border border-dash-border p-4 space-y-2">
+                {varKeys.map(k => (
+                  <div key={k} className="rounded-xl border border-dash-border p-4 space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full"
                         style={{ background: `${DASH_ACCENT.violet}14`, color: DASH_ACCENT.violet, border: `1px solid ${DASH_ACCENT.violet}33` }}>
-                        {`{{${i}}}`}
+                        {`{{${k}}}`}
                       </span>
                       <span className="text-xs text-dash-faint">
-                        no template: <em className="text-dash-ink2">{bodyComp?.text?.match(new RegExp(`.{0,20}\\{\\{${i}\\}\\}.{0,20}`))?.[0] || ""}</em>
+                        qual coluna da sua lista usar aqui?
                       </span>
                     </div>
                     <select
-                      value={varMap[i] || ""}
-                      onChange={e => setVarMap(m => ({ ...m, [i]: e.target.value }))}
+                      value={varMap[k] || ""}
+                      onChange={e => setVarMap(m => ({ ...m, [k]: e.target.value }))}
                       className="dash-input w-full"
                     >
                       <option value="">— Selecione a coluna —</option>
@@ -1501,9 +1502,9 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
                         <option key={col} value={col}>{col}</option>
                       ))}
                     </select>
-                    {varMap[i] && sampleContact && (
+                    {varMap[k] && sampleContact && (
                       <div className="text-xs text-dash-faint">
-                        Exemplo (1º contato): <strong className="text-dash-ink">{resolveVar(sampleContact, varMap[i])}</strong>
+                        Exemplo (1º contato): <strong className="text-dash-ink">{resolveVar(sampleContact, varMap[k])}</strong>
                       </div>
                     )}
                   </div>
