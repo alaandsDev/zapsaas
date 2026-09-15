@@ -1533,14 +1533,14 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
               </div>
             ))}
 
-            {varIndexes.length > 0 && (
+            {varKeys.length > 0 && (
               <div className="rounded-xl border border-dash-border p-3 space-y-1">
                 <div className="text-xs font-semibold text-dash-muted uppercase tracking-wide mb-2">Mapeamento de variáveis</div>
-                {varIndexes.map(i => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="font-mono text-dash-violet">{`{{${i}}}`}</span>
+                {varKeys.map(k => (
+                  <div key={k} className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-dash-violet">{`{{${k}}}`}</span>
                     <ArrowRight className="size-3 text-dash-faint" />
-                    <span className="text-dash-ink font-medium">{varMap[i] || "—"}</span>
+                    <span className="text-dash-ink font-medium">{varMap[k] || "—"}</span>
                   </div>
                 ))}
               </div>
@@ -1614,7 +1614,7 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
         <div className="space-y-2 text-xs">
           <div className="flex justify-between"><span className="text-dash-faint">Template</span><span className="font-mono text-dash-ink font-medium">{selectedTemplate?.name || "—"}</span></div>
           <div className="flex justify-between"><span className="text-dash-faint">Contatos</span><span className="font-semibold text-dash-ink">{contacts.length}</span></div>
-          <div className="flex justify-between"><span className="text-dash-faint">Variáveis</span><span className="text-dash-muted">{varIndexes.length > 0 ? varIndexes.map(i => `{{${i}}}`).join(", ") : "nenhuma"}</span></div>
+          <div className="flex justify-between"><span className="text-dash-faint">Variáveis</span><span className="text-dash-muted">{varKeys.length > 0 ? varKeys.map(k => `{{${k}}}`).join(", ") : "nenhuma"}</span></div>
           <div className="flex justify-between"><span className="text-dash-faint">Canal</span><span className="text-dash-green font-medium">API Meta</span></div>
         </div>
       </div>
