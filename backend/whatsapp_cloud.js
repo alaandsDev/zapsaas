@@ -69,7 +69,7 @@ async function verify({ token, phoneNumberId }) {
 // Lista templates da WABA (paginação automática, até 1000 templates)
 async function listTemplates({ token, businessAccountId }) {
   const all = [];
-  let path = `/${businessAccountId}/message_templates?limit=100`;
+  let path = `/${businessAccountId}/message_templates?limit=100&fields=name,status,language,category,components`;
   while (path) {
     const page = await call(token, path);
     if (Array.isArray(page.data)) all.push(...page.data);
