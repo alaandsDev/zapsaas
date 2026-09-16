@@ -32,12 +32,20 @@ async function call(token, path, opts = {}) {
 }
 
 // Envia mensagem de TEMPLATE (única forma fora da janela de 24h)
-async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = []) {
+// varNames: nomes das variáveis na ordem de variables (ex: ["customer_name"])
+// Meta exige parameter_name para templates com variáveis nomeadas ({{customer_name}})
+async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = [], varNames = []) {
   // Meta rejects empty-string parameters — replace with space as fallback
   const safeVars = variables.map(v => String(v).trim() || ' ');
   const components = safeVars.length > 0 ? [{
     type: 'body',
-    parameters: safeVars.map((v) => ({ type: 'text', text: v }))
+    parameters: safeVars.map((v, i) => {
+      const param = { type: 'text', text: v };
+      const name = varNames[i];
+      // Include parameter_name only for named (non-numeric) variables
+      if (name && !/^\d+$/.test(String(name))) param.parameter_name = String(name);
+      return param;
+    })
   }] : [];
   const body = {
     messaging_product: 'whatsapp',

@@ -1239,6 +1239,7 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
         body: {
           template_name: selectedTemplate.name,
           template_language: selectedTemplate.language,
+          var_names: varKeys,
           contacts: payload,
           delay_ms: parseInt(delayMs) || 1200,
           scheduled_at: schedule ? new Date(schedule).toISOString() : undefined,
