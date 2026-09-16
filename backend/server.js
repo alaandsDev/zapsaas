@@ -2024,9 +2024,10 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
       items[i] = { ...item, status: 'sent', sentAt: new Date().toISOString() };
       sent++;
     } catch (e) {
-      items[i] = { ...item, status: 'failed', error: e.message };
+      const errDetail = e.details ? ` [subcode:${e.details.error_subcode || e.details.code}] ${e.details.error_data || ''}`.trim() : '';
+      items[i] = { ...item, status: 'failed', error: `${e.message}${errDetail}` };
       failed++;
-      console.error(`[cloud-tpl] ❌ ${item.contactPhone}: ${e.message}`);
+      console.error(`[cloud-tpl] ❌ ${item.contactPhone}: ${e.message}${errDetail}`);
     }
     await supabase.from('dispatches').update({ sent, failed, items }).eq('id', dispatchId);
     if (i < items.length - 1) await new Promise(r => setTimeout(r, delayMs));

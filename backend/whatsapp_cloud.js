@@ -33,9 +33,11 @@ async function call(token, path, opts = {}) {
 
 // Envia mensagem de TEMPLATE (única forma fora da janela de 24h)
 async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = []) {
-  const components = variables.length > 0 ? [{
+  // Meta rejects empty-string parameters — replace with non-breaking space as fallback
+  const safeVars = variables.map(v => String(v).trim() || ' ');
+  const components = safeVars.length > 0 ? [{
     type: 'body',
-    parameters: variables.map((v) => ({ type: 'text', text: String(v) }))
+    parameters: safeVars.map((v) => ({ type: 'text', text: v }))
   }] : [];
   return call(token, `/${phoneNumberId}/messages`, {
     method: 'POST',
