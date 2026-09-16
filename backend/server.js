@@ -2024,7 +2024,7 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
       items[i] = { ...item, status: 'sent', sentAt: new Date().toISOString() };
       sent++;
     } catch (e) {
-      const errDetail = e.details ? ` [subcode:${e.details.error_subcode || e.details.code}] ${e.details.error_data || ''}`.trim() : '';
+      const errDetail = e.details ? ` | ${JSON.stringify(e.details)}` : '';
       items[i] = { ...item, status: 'failed', error: `${e.message}${errDetail}` };
       failed++;
       console.error(`[cloud-tpl] ❌ ${item.contactPhone}: ${e.message}${errDetail}`);

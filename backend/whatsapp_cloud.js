@@ -33,21 +33,20 @@ async function call(token, path, opts = {}) {
 
 // Envia mensagem de TEMPLATE (única forma fora da janela de 24h)
 async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = []) {
-  // Meta rejects empty-string parameters — replace with non-breaking space as fallback
-  const safeVars = variables.map(v => String(v).trim() || ' ');
+  // Meta rejects empty-string parameters — replace with space as fallback
+  const safeVars = variables.map(v => String(v).trim() || ' ');
   const components = safeVars.length > 0 ? [{
     type: 'body',
     parameters: safeVars.map((v) => ({ type: 'text', text: v }))
   }] : [];
-  return call(token, `/${phoneNumberId}/messages`, {
-    method: 'POST',
-    body: {
-      messaging_product: 'whatsapp',
-      to: clean(to),
-      type: 'template',
-      template: { name: templateName, language: { code: language }, components }
-    }
-  });
+  const body = {
+    messaging_product: 'whatsapp',
+    to: clean(to),
+    type: 'template',
+    template: { name: templateName, language: { code: language }, components }
+  };
+  console.log('[sendTemplate] payload:', JSON.stringify(body));
+  return call(token, `/${phoneNumberId}/messages`, { method: 'POST', body });
 }
 
 // Mensagem de texto livre (só dentro da janela de 24h após contato responder)
