@@ -2011,8 +2011,10 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
   const items = [...(dispatch.items || [])];
   const lang = dispatch.template_language || 'pt_BR';
   const delayMs = dispatch.delay_ms || 1200;
-  // varNames stored in first item (same for all contacts in this dispatch)
+  // varNames and headerMedia stored in first item (same for all contacts in this dispatch)
   const varNames = items[0]?.varNames || [];
+  const headerMediaUrl = items[0]?.headerMediaUrl || null;
+  const headerMediaType = items[0]?.headerMediaType || null;
   let sent = 0, failed = 0;
 
   for (let i = 0; i < items.length; i++) {
@@ -2022,7 +2024,7 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
 
     const item = items[i];
     try {
-      await wppCloud.sendTemplate(creds, item.contactPhone, dispatch.template_name, lang, item.vars || [], varNames);
+      await wppCloud.sendTemplate(creds, item.contactPhone, dispatch.template_name, lang, item.vars || [], varNames, headerMediaUrl, headerMediaType);
       items[i] = { ...item, status: 'sent', sentAt: new Date().toISOString() };
       sent++;
     } catch (e) {
@@ -2048,7 +2050,7 @@ app.post('/api/wpp-cloud/bulk-template', requireAuth, async (req, res) => {
     const c = await getCloudConfig(uid(req));
     { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
 
-    const { template_name, template_language = 'pt_BR', var_names = [], contacts, delay_ms = 1200, scheduled_at } = req.body;
+    const { template_name, template_language = 'pt_BR', var_names = [], header_media_url, header_media_type, contacts, delay_ms = 1200, scheduled_at } = req.body;
     if (!template_name) return res.status(400).json({ error: 'template_name obrigatório' });
     if (!Array.isArray(contacts) || !contacts.length) return res.status(400).json({ error: 'contacts obrigatório (array)' });
 
@@ -2057,6 +2059,8 @@ app.post('/api/wpp-cloud/bulk-template', requireAuth, async (req, res) => {
       contactPhone: ct.phone,
       vars: Array.isArray(ct.vars) ? ct.vars : [],
       varNames: Array.isArray(var_names) ? var_names : [],
+      headerMediaUrl: header_media_url || null,
+      headerMediaType: header_media_type || null,
       status: 'pending',
     }));
 

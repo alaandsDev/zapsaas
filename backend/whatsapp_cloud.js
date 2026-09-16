@@ -32,21 +32,36 @@ async function call(token, path, opts = {}) {
 }
 
 // Envia mensagem de TEMPLATE (única forma fora da janela de 24h)
-// varNames: nomes das variáveis na ordem de variables (ex: ["customer_name"])
-// Meta exige parameter_name para templates com variáveis nomeadas ({{customer_name}})
-async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = [], varNames = []) {
-  // Meta rejects empty-string parameters — replace with space as fallback
-  const safeVars = variables.map(v => String(v).trim() || ' ');
-  const components = safeVars.length > 0 ? [{
-    type: 'body',
-    parameters: safeVars.map((v, i) => {
-      const param = { type: 'text', text: v };
-      const name = varNames[i];
-      // Include parameter_name only for named (non-numeric) variables
-      if (name && !/^\d+$/.test(String(name))) param.parameter_name = String(name);
-      return param;
-    })
-  }] : [];
+// varNames: nomes das variáveis do body na ordem de variables (ex: ["customer_name"])
+// headerMediaUrl: URL pública da mídia para templates com HEADER IMAGE/VIDEO/DOCUMENT
+// headerMediaType: "image" | "video" | "document"
+async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = [], varNames = [], headerMediaUrl = null, headerMediaType = null) {
+  const components = [];
+
+  // HEADER component (required when template has IMAGE/VIDEO/DOCUMENT header)
+  if (headerMediaUrl && headerMediaType) {
+    const mediaKey = headerMediaType; // "image", "video", "document"
+    const mediaParam = { type: mediaKey, [mediaKey]: { link: headerMediaUrl } };
+    if (headerMediaType === 'document') mediaParam[mediaKey].filename = 'arquivo';
+    components.push({ type: 'header', parameters: [mediaParam] });
+  }
+
+  // BODY component with text parameters
+  if (variables.length > 0) {
+    // Meta rejects empty-string parameters — replace with space as fallback
+    const safeVars = variables.map(v => String(v).trim() || ' ');
+    components.push({
+      type: 'body',
+      parameters: safeVars.map((v, i) => {
+        const param = { type: 'text', text: v };
+        const name = varNames[i];
+        // Include parameter_name only for named (non-numeric) variables
+        if (name && !/^\d+$/.test(String(name))) param.parameter_name = String(name);
+        return param;
+      })
+    });
+  }
+
   const body = {
     messaging_product: 'whatsapp',
     to: clean(to),

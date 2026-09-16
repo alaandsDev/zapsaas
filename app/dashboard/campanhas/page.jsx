@@ -1155,7 +1155,8 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
   const [contacts, setContacts] = useState([]);
   const [manualName2, setManualName2] = useState("");
   const [manualPhone2, setManualPhone2] = useState("");
-  const [varMap, setVarMap] = useState({}); // { 1: "coluna_nome", 2: "coluna_cidade" }
+  const [varMap, setVarMap] = useState({});
+  const [headerMediaUrl, setHeaderMediaUrl] = useState("");
   const [schedule, setSchedule] = useState("");
   const [delayMs, setDelayMs] = useState(1200);
   const [sending, setSending] = useState(false);
@@ -1200,6 +1201,9 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
   const tplComponents = selectedTemplate?.components || [];
   const bodyComp = tplComponents.find(c => c.type === "BODY");
   const headerComp = tplComponents.find(c => c.type === "HEADER");
+  // Header de mídia (IMAGE, VIDEO, DOCUMENT) exige URL ao enviar
+  const headerMediaType = headerComp?.format; // "IMAGE" | "VIDEO" | "DOCUMENT" | "TEXT" | undefined
+  const needsHeaderMedia = headerMediaType === "IMAGE" || headerMediaType === "VIDEO" || headerMediaType === "DOCUMENT";
   // Detecta qualquer {{variavel}} — tanto numéricas ({{1}}) quanto nomeadas ({{customer_name}})
   const bodyVarMatches = [...(bodyComp?.text || "").matchAll(/\{\{([^}]+)\}\}/g)];
   const varKeys = [...new Set(bodyVarMatches.map(m => m[1].trim()))]; // únicos, na ordem
@@ -1240,6 +1244,8 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
           template_name: selectedTemplate.name,
           template_language: selectedTemplate.language,
           var_names: varKeys,
+          header_media_url: needsHeaderMedia ? headerMediaUrl : undefined,
+          header_media_type: needsHeaderMedia ? headerMediaType.toLowerCase() : undefined,
           contacts: payload,
           delay_ms: parseInt(delayMs) || 1200,
           scheduled_at: schedule ? new Date(schedule).toISOString() : undefined,
@@ -1251,6 +1257,7 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
       setListSel("");
       setContacts([]);
       setVarMap({});
+      setHeaderMediaUrl("");
       setSchedule("");
       if (onRefresh) onRefresh();
     } catch (e) {
@@ -1339,7 +1346,14 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
                   const varCount = (body?.text?.match(/\{\{\d+\}\}/g) || []).length;
                   const isActive = selectedTemplate?.id === tpl.id;
                   return (
-                    <button key={tpl.id} type="button" onClick={() => setSelectedTemplate(tpl)}
+                    <button key={tpl.id} type="button" onClick={() => {
+                      setSelectedTemplate(tpl);
+                      setVarMap({});
+                      // Pre-fill header media URL from template example if available
+                      const hdr = tpl.components?.find(c => c.type === "HEADER");
+                      const exUrl = hdr?.example?.header_url?.[0] || hdr?.example?.header_handle?.[0] || "";
+                      setHeaderMediaUrl(exUrl);
+                    }}
                       className={`w-full text-left rounded-xl border p-4 transition-all ${
                         isActive ? "border-dash-green/50 bg-dash-green/5" : "border-dash-border bg-white hover:border-dash-faint"
                       }`}>
@@ -1544,6 +1558,25 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
                     <span className="text-dash-ink font-medium">{varMap[k] || "—"}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {needsHeaderMedia && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-dash-ink">
+                  URL da imagem do header{" "}
+                  <span className="text-dash-red text-xs font-normal">* obrigatório</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  value={headerMediaUrl}
+                  onChange={e => setHeaderMediaUrl(e.target.value)}
+                  className="dash-input w-full"
+                />
+                <p className="text-xs text-dash-faint">
+                  Este template tem um {headerMediaType?.toLowerCase()} no header. A Meta exige a URL pública da mídia ao enviar.
+                </p>
               </div>
             )}
 
