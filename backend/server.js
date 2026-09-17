@@ -2011,10 +2011,39 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
   const items = [...(dispatch.items || [])];
   const lang = dispatch.template_language || 'pt_BR';
   const delayMs = dispatch.delay_ms || 1200;
-  // varNames and headerMedia stored in first item (same for all contacts in this dispatch)
-  const varNames = items[0]?.varNames || [];
-  const headerMediaUrl = items[0]?.headerMediaUrl || null;
-  const headerMediaType = items[0]?.headerMediaType || null;
+
+  // varNames and headerMedia stored in first item (same for all contacts in this dispatch).
+  // If missing (old dispatch or stale browser cache), re-fetch template from Meta to extract names.
+  let varNames = items[0]?.varNames || [];
+  let headerMediaUrl = items[0]?.headerMediaUrl || null;
+  let headerMediaType = items[0]?.headerMediaType || null;
+
+  const needsVarNames = varNames.length === 0 && (items[0]?.vars || []).length > 0;
+  const needsHeaderInfo = !headerMediaUrl;
+  if (needsVarNames || needsHeaderInfo) {
+    try {
+      const tplList = await wppCloud.listTemplates({ token: c.access_token, businessAccountId: c.business_account_id });
+      const tpl = (tplList.data || []).find(t => t.name === dispatch.template_name);
+      if (tpl) {
+        if (needsVarNames) {
+          const bodyComp = tpl.components?.find(comp => comp.type === 'BODY');
+          const matches = [...(bodyComp?.text || '').matchAll(/\{\{([^}]+)\}\}/g)];
+          varNames = [...new Set(matches.map(m => m[1].trim()))];
+          console.log(`[cloud-tpl] varNames derivados do template: ${JSON.stringify(varNames)}`);
+        }
+        if (needsHeaderInfo) {
+          const hdr = tpl.components?.find(comp => comp.type === 'HEADER');
+          if (hdr && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(hdr.format)) {
+            headerMediaUrl = hdr.example?.header_url?.[0] || null;
+            headerMediaType = hdr.format?.toLowerCase() || null;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[cloud-tpl] Não foi possível buscar template para derivar varNames:', e.message);
+    }
+  }
+
   let sent = 0, failed = 0;
 
   for (let i = 0; i < items.length; i++) {
