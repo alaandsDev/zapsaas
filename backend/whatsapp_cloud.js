@@ -31,19 +31,46 @@ async function call(token, path, opts = {}) {
   return json;
 }
 
+// Faz download de uma URL e faz upload para a API de mídia da Meta.
+// Retorna o media_id para uso em sendTemplate com { id } ao invés de { link }.
+async function uploadMediaFromUrl({ token, phoneNumberId }, mediaUrl, mediaType) {
+  const dlRes = await fetch(mediaUrl);
+  if (!dlRes.ok) throw new Error(`Download da mídia falhou: ${dlRes.status}`);
+  const buffer = await dlRes.arrayBuffer();
+  const contentType = dlRes.headers.get('content-type') || `${mediaType}/jpeg`;
+
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  const ext = contentType.split('/')[1]?.split(';')[0] || 'jpg';
+  form.append('file', new Blob([buffer], { type: contentType }), `media.${ext}`);
+
+  const upRes = await fetch(`${GRAPH}/${phoneNumberId}/media`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const json = await upRes.json().catch(() => ({}));
+  if (!upRes.ok) {
+    const msg = json?.error?.message || `Upload falhou: ${upRes.status}`;
+    throw new Error(msg);
+  }
+  return json.id; // media_id estável
+}
+
 // Envia mensagem de TEMPLATE (única forma fora da janela de 24h)
 // varNames: nomes das variáveis do body na ordem de variables (ex: ["customer_name"])
-// headerMediaUrl: URL pública da mídia para templates com HEADER IMAGE/VIDEO/DOCUMENT
+// headerMediaUrl: URL da mídia para templates com HEADER IMAGE/VIDEO/DOCUMENT
 // headerMediaType: "image" | "video" | "document"
-async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = [], varNames = [], headerMediaUrl = null, headerMediaType = null) {
+// headerMediaId: media_id pré-uploadado (preferido sobre headerMediaUrl)
+async function sendTemplate({ token, phoneNumberId }, to, templateName, language = 'pt_BR', variables = [], varNames = [], headerMediaUrl = null, headerMediaType = null, headerMediaId = null) {
   const components = [];
 
   // HEADER component (required when template has IMAGE/VIDEO/DOCUMENT header)
-  if (headerMediaUrl && headerMediaType) {
+  if (headerMediaType && (headerMediaId || headerMediaUrl)) {
     const mediaKey = headerMediaType; // "image", "video", "document"
-    const mediaParam = { type: mediaKey, [mediaKey]: { link: headerMediaUrl } };
-    if (headerMediaType === 'document') mediaParam[mediaKey].filename = 'arquivo';
-    components.push({ type: 'header', parameters: [mediaParam] });
+    const mediaValue = headerMediaId ? { id: headerMediaId } : { link: headerMediaUrl };
+    if (!headerMediaId && headerMediaType === 'document') mediaValue.filename = 'arquivo';
+    components.push({ type: 'header', parameters: [{ type: mediaKey, [mediaKey]: mediaValue }] });
   }
 
   // BODY component with text parameters
@@ -137,4 +164,5 @@ function verifyWebhookSignature(rawBody, signatureHeader, appSecret) {
 module.exports = {
   sendTemplate, sendText, verify, listTemplates, createTemplate,
   verifyWebhookSignature, clean, getAccount, getAccountBasic, getQuality,
+  uploadMediaFromUrl,
 };

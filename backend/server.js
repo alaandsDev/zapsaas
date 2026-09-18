@@ -2044,6 +2044,17 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
     }
   }
 
+  // Faz upload da mídia uma vez para obter media_id estável (evita URL CDN temporária)
+  let headerMediaId = null;
+  if (headerMediaUrl && headerMediaType) {
+    try {
+      headerMediaId = await wppCloud.uploadMediaFromUrl(creds, headerMediaUrl, headerMediaType);
+      console.log(`[cloud-tpl] Mídia uploadada, media_id: ${headerMediaId}`);
+    } catch (e) {
+      console.warn(`[cloud-tpl] Upload de mídia falhou, usando link direto: ${e.message}`);
+    }
+  }
+
   let sent = 0, failed = 0;
 
   for (let i = 0; i < items.length; i++) {
@@ -2053,7 +2064,7 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
 
     const item = items[i];
     try {
-      await wppCloud.sendTemplate(creds, item.contactPhone, dispatch.template_name, lang, item.vars || [], varNames, headerMediaUrl, headerMediaType);
+      await wppCloud.sendTemplate(creds, item.contactPhone, dispatch.template_name, lang, item.vars || [], varNames, headerMediaUrl, headerMediaType, headerMediaId);
       items[i] = { ...item, status: 'sent', sentAt: new Date().toISOString() };
       sent++;
     } catch (e) {
