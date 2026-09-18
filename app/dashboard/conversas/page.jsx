@@ -456,6 +456,20 @@ export default function Conversas() {
     return () => window.removeEventListener("wayvo:message-status", handler);
   }, []);
 
+  // ── Abre chat ao clicar no popup de nova mensagem ────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const { chatId } = e.detail || {};
+        if (!chatId) return;
+        const chat = allChats.find((c) => c.id === chatId);
+        if (chat) selectChat(chat);
+      } catch {}
+    };
+    window.addEventListener("wayvo:open-chat", handler);
+    return () => window.removeEventListener("wayvo:open-chat", handler);
+  }, [allChats]);
+
   // ── Atualiza foto de perfil em tempo real via SSE ────────────────────────────
   useEffect(() => {
     const handler = (e) => {

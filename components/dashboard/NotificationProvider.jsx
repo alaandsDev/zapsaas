@@ -73,6 +73,7 @@ export default function NotificationProvider() {
   const esRef = useRef(null);
   const [permission, setPermission] = useState("default");
   const [showBanner, setShowBanner] = useState(false);
+  const [msgToasts, setMsgToasts] = useState([]); // [{ id, phone, name, text, chatId }]
   const focusedRef = useRef(true);
 
   /* track tab focus */
@@ -109,23 +110,32 @@ export default function NotificationProvider() {
     try { localStorage.setItem(BANNER_DISMISSED_KEY, "1"); } catch {}
   }, []);
 
+  const dismissToast = useCallback((id) => {
+    setMsgToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   /* fire notification + sound */
-  const notify = useCallback((phone, text) => {
+  const notify = useCallback((phone, text, name, chatId) => {
     playBeep();
     bumpTitle();
+    // Popup in-app (sempre visível)
+    const id = `${Date.now()}_${Math.random()}`;
+    setMsgToasts((prev) => [...prev.slice(-2), { id, phone, name, text, chatId }]);
+    setTimeout(() => dismissToast(id), 6000);
+    // Notificação do browser (só quando aba desfocada)
     if (permission === "granted" && !focusedRef.current) {
       try {
         const n = new Notification("Nova mensagem — Wayvo", {
-          body: text ? `${phone}: ${text.slice(0, 80)}` : `Mensagem de ${phone}`,
+          body: text ? `${name || phone}: ${text.slice(0, 80)}` : `Mensagem de ${name || phone}`,
           icon: "/icon-192.png",
           tag: `wayvo-msg-${phone}`,
           renotify: true,
-          silent: true, // já tocamos o beep manualmente
+          silent: true,
         });
         n.onclick = () => { window.focus(); n.close(); };
       } catch {}
     }
-  }, [permission]);
+  }, [permission, dismissToast]);
 
   /* SSE global — 1 conexão para o app inteiro */
   useEffect(() => {
@@ -145,7 +155,7 @@ export default function NotificationProvider() {
         // ou eventos de sistema (type = 'profile_pic'|'chat_unread'|'lead_stage')
         if (data.chatId) {
           // Mensagem de chat — notifica e atualiza sidebar
-          if (data.direction === "in") notify(data.phone || "cliente", data.text || "");
+          if (data.direction === "in") notify(data.phone || "cliente", data.text || "", data.name || null, data.chatId);
           window.dispatchEvent(new CustomEvent("wayvo:new-message", { detail: data }));
         } else if (data.type === "profile_pic") {
           window.dispatchEvent(new CustomEvent("wayvo:profile-pic", { detail: data }));
@@ -191,6 +201,42 @@ export default function NotificationProvider() {
           <PermissionBanner onAllow={requestPermission} onDismiss={dismissBanner} />
         )}
       </AnimatePresence>
+
+      {/* Popups de nova mensagem — sobem do canto inferior direito */}
+      <div className="fixed bottom-6 right-6 z-[9998] flex flex-col-reverse gap-2 pointer-events-none">
+        <AnimatePresence>
+          {msgToasts.map((t) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: 40, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.92 }}
+              transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              className="pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-2xl border border-white/10 shadow-2xl w-80 cursor-pointer"
+              style={{ background: "rgba(11,17,32,0.97)", backdropFilter: "blur(20px)" }}
+              onClick={() => {
+                dismissToast(t.id);
+                if (t.chatId) window.dispatchEvent(new CustomEvent("wayvo:open-chat", { detail: { chatId: t.chatId } }));
+              }}
+            >
+              <div className="size-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold text-white"
+                style={{ background: "linear-gradient(135deg,#00FF88,#00D1FF)" }}>
+                {(t.name || t.phone || "?")[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{t.name || t.phone}</p>
+                <p className="text-[11px] text-white/60 mt-0.5 line-clamp-2 break-words">{t.text || "Nova mensagem"}</p>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); dismissToast(t.id); }}
+                className="text-white/30 hover:text-white/70 shrink-0 mt-0.5"
+              >
+                <X className="size-3.5" />
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
       {/* Indicador de status de notificação (canto inferior direito, sutil) */}
       <AnimatePresence>
