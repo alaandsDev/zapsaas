@@ -371,12 +371,13 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           }
 
           if (chatId) {
-            await supabase.from('chat_messages').insert({
+            const { error: insErr } = await supabase.from('chat_messages').upsert({
               chat_id: chatId, user_id: config.user_id,
               direction: 'in', type: msgType, text: msgText,
               media_url: mediaUrl, status: 'received', timestamp: ts,
-              external_id: msg.id,
-            });
+              wa_id: msg.id,
+            }, { onConflict: 'chat_id,wa_id', ignoreDuplicates: true });
+            if (insErr) console.warn('[wpp-cloud] chat_messages insert error:', insErr.message, insErr.code);
             sseSend(config.user_id, 'message', {
               chatId, slot: CLOUD_SLOT, phone, direction: 'in',
               type: msgType, text: msgText, media_url: mediaUrl, timestamp: ts,
