@@ -277,10 +277,18 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
             : status === 'failed' ? 'failed' : null;
           if (field) {
             const { data: d } = await supabase.from('cloud_dispatches')
-              .select(field).eq('id', row.dispatch_id).single();
+              .select('id,sent,delivered,read,failed,dispatch_id').eq('id', row.dispatch_id).single();
+            const newVal = ((d?.[field]) || 0) + 1;
             await supabase.from('cloud_dispatches')
-              .update({ [field]: ((d?.[field]) || 0) + 1 })
+              .update({ [field]: newVal })
               .eq('id', row.dispatch_id);
+            if (d?.dispatch_id) {
+              sseSend(config.user_id, 'dispatch_status_update', {
+                dispatch_id: d.dispatch_id,
+                cloud_dispatch_id: row.dispatch_id,
+                [field]: newVal,
+              });
+            }
           }
         }
       }
@@ -2119,6 +2127,7 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
       console.error(`[cloud-tpl] ❌ ${item.contactPhone}: ${e.message}${errDetail}`);
     }
     await supabase.from('dispatches').update({ sent, failed, items }).eq('id', dispatchId);
+    sseSend(userId, 'dispatch_update', { id: dispatchId, sent, failed, total: items.length, status: 'sending' });
     if (i < items.length - 1) await new Promise(r => setTimeout(r, delayMs));
   }
 
@@ -2126,6 +2135,7 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
     sent, failed, status: 'completed', items,
     completed_at: new Date().toISOString(),
   }).eq('id', dispatchId);
+  sseSend(userId, 'dispatch_update', { id: dispatchId, sent, failed, total: items.length, status: 'completed' });
   console.log(`[cloud-tpl] Dispatch ${dispatchId} concluído — ${sent} enviados / ${failed} falhas`);
 }
 

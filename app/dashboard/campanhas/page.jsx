@@ -140,6 +140,42 @@ export default function CampanhasPage() {
   }
   useEffect(() => { loadAll(); }, []);
 
+  // SSE — atualiza contadores de dispatch em tempo real
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    const es = new EventSource(`${API_URL}/api/chats/stream?token=${encodeURIComponent(token)}`);
+    const onDispatchUpdate = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        setDispatches(prev => prev.map(dp =>
+          dp.id === d.id
+            ? { ...dp, sent: d.sent ?? dp.sent, failed: d.failed ?? dp.failed, status: d.status ?? dp.status }
+            : dp
+        ));
+      } catch {}
+    };
+    const onDispatchStatusUpdate = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        setDispatches(prev => prev.map(dp => {
+          if (dp.id !== d.dispatch_id) return dp;
+          const cloud = Array.isArray(dp.cloud_dispatches)
+            ? dp.cloud_dispatches.map(cd =>
+                cd.id === d.cloud_dispatch_id
+                  ? { ...cd, delivered: d.delivered ?? cd.delivered, read: d.read ?? cd.read, failed: d.failed ?? cd.failed }
+                  : cd
+              )
+            : dp.cloud_dispatches;
+          return { ...dp, cloud_dispatches: cloud };
+        }));
+      } catch {}
+    };
+    es.addEventListener('dispatch_update', onDispatchUpdate);
+    es.addEventListener('dispatch_status_update', onDispatchStatusUpdate);
+    return () => es.close();
+  }, []);
+
   useEffect(() => {
     (async () => {
       if (!listSel) { setContacts([]); setSelected(new Set()); return; }
