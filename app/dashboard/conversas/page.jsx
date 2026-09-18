@@ -604,6 +604,7 @@ export default function Conversas() {
   }
 
   function selectChat(chat) {
+    setMsgs([]);  // limpa imediatamente para não mostrar mensagens do chat anterior
     setActiveChat(chat);
     if (chat.unread > 0) {
       setAllChats((prev) => prev.map((c) => c.id === chat.id ? { ...c, unread: 0 } : c));
