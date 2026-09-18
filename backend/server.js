@@ -304,8 +304,20 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           else if (msg.type === 'audio')    { msgType = 'audio'; }
           else if (msg.type === 'document') { msgText = msg.document?.filename || null; msgType = 'document'; }
           else if (msg.type === 'sticker')  { msgType = 'sticker'; }
+          else if (msg.type === 'interactive') {
+            const ir = msg.interactive;
+            msgType = 'text';
+            if (ir?.type === 'button_reply') msgText = ir.button_reply?.title || 'Botão clicado';
+            else if (ir?.type === 'list_reply') msgText = ir.list_reply?.title || 'Opção selecionada';
+            else msgText = 'Interação recebida';
+          }
+          else if (msg.type === 'button') {
+            // quick-reply clicado em template
+            msgType = 'text';
+            msgText = msg.button?.text || 'Botão clicado';
+          }
 
-          const preview = msgText || { image: '📷 Foto', video: '🎬 Vídeo', audio: '🎵 Áudio', document: '📄 Documento', sticker: '🌟 Figurinha' }[msgType] || '';
+          const preview = msgText || { image: '📷 Foto', video: '🎬 Vídeo', audio: '🎵 Áudio', document: '📄 Documento', sticker: '🌟 Figurinha' }[msgType] || '(mensagem)';
 
           // Upsert chat (slot 0 = Canal Oficial)
           const CLOUD_SLOT = 0;
