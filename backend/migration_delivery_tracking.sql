@@ -6,3 +6,8 @@ ALTER TABLE cloud_message_status
 CREATE INDEX IF NOT EXISTS idx_cloud_msg_status_parent_dispatch
   ON cloud_message_status(parent_dispatch_id)
   WHERE parent_dispatch_id IS NOT NULL;
+
+-- Contadores de entrega/leitura na tabela de disparos
+ALTER TABLE dispatches
+  ADD COLUMN IF NOT EXISTS delivered INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS read INTEGER NOT NULL DEFAULT 0;

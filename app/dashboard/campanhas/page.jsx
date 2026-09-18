@@ -160,8 +160,9 @@ export default function CampanhasPage() {
         const d = JSON.parse(e.data);
         setDispatches(prev => prev.map(dp => {
           if (dp.id !== d.dispatch_id) return dp;
-          // Atualiza contador de falha e marca delivery_failed no item
           const update = {};
+          if (d.field === 'delivered') update.delivered = d.delivered;
+          if (d.field === 'read') update.read = d.read;
           if (d.field === 'failed') {
             update.failed = d.failed ?? dp.failed;
             if (d.failed_wamid && Array.isArray(dp.items)) {
@@ -1771,6 +1772,9 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
   const failed = counts.failed || 0;
   const pending = (counts.pending || 0) + (counts.sending || 0);
   const deliveryFailed = items.filter((i) => i.delivery_failed).length;
+  // Contadores de entrega vindos direto do dispatch (atualizados via webhook SSE)
+  const delivered = dispatch.delivered || 0;
+  const readCount = dispatch.read || 0;
 
   const filtered = items.filter((i) => {
     if (filter === "all") return true;
@@ -1881,12 +1885,16 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
         </>
       }
     >
-      <div className="grid grid-cols-5 gap-2 mb-5">
+      <div className="grid grid-cols-4 gap-2 mb-2">
         <Stat label="Total" value={items.length} tone="neutral" />
-        <Stat label="Enviados" value={sent} tone="success" />
-        <Stat label="Falha API" value={failed} tone="danger" />
-        <Stat label="Pendentes" value={pending} tone="warn" />
-        <Stat label="Falha entrega" value={deliveryFailed} tone={deliveryFailed > 0 ? "danger" : "neutral"} />
+        <Stat label="Enviados API" value={sent} tone="success" />
+        <Stat label="Falha API" value={failed} tone={failed > 0 ? "danger" : "neutral"} />
+        <Stat label="Pendentes" value={pending} tone={pending > 0 ? "warn" : "neutral"} />
+      </div>
+      <div className="grid grid-cols-3 gap-2 mb-5">
+        <Stat label="✓✓ Entregue" value={delivered} tone={delivered > 0 ? "success" : "neutral"} hint={sent > 0 ? `${Math.round(delivered / sent * 100)}%` : null} />
+        <Stat label="✓✓ Lido" value={readCount} tone={readCount > 0 ? "success" : "neutral"} hint={sent > 0 ? `${Math.round(readCount / sent * 100)}%` : null} />
+        <Stat label="✗ Falha entrega" value={deliveryFailed} tone={deliveryFailed > 0 ? "danger" : "neutral"} />
       </div>
       {deliveryFailed > 0 && (
         <div className="mb-4 rounded-xl border border-dash-red/40 bg-dash-red/[0.06] px-4 py-3 flex items-start gap-3">
@@ -1959,7 +1967,7 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
   );
 }
 
-function Stat({ label, value, tone = "neutral" }) {
+function Stat({ label, value, tone = "neutral", hint = null }) {
   const tones = {
     neutral: { bg: "bg-dash-subtle", border: "border-dash-border", text: "text-dash-ink" },
     success: { bg: "bg-dash-green/[0.08]", border: "border-dash-green/30", text: "text-dash-green" },
@@ -1970,7 +1978,10 @@ function Stat({ label, value, tone = "neutral" }) {
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${t.bg} ${t.border} ${t.text}`}>
       <div className="text-[10px] uppercase tracking-wider opacity-70 font-semibold">{label}</div>
-      <div className="text-2xl font-bold tabular-nums leading-tight mt-0.5">{value.toLocaleString("pt-BR")}</div>
+      <div className="flex items-baseline gap-1.5 mt-0.5">
+        <span className="text-2xl font-bold tabular-nums leading-tight">{value.toLocaleString("pt-BR")}</span>
+        {hint && <span className="text-xs opacity-60 font-medium">{hint}</span>}
+      </div>
     </div>
   );
 }

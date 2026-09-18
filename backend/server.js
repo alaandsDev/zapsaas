@@ -268,7 +268,7 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           updated_at: new Date().toISOString()
         }, { onConflict: 'wamid' });
 
-        // Atualiza contadores e items no dispatch (dispatch_id aponta para dispatches.id)
+        // Atualiza contadores e items no dispatch (parent_dispatch_id aponta para dispatches.id)
         const { data: row } = await supabase.from('cloud_message_status')
           .select('parent_dispatch_id,phone').eq('wamid', wamid).single();
         if (row?.parent_dispatch_id) {
@@ -279,34 +279,25 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           if (field) {
             // Lê contadores e items atuais
             const { data: disp } = await supabase.from('dispatches')
-              .select('failed,items').eq('id', dispatchId).single();
+              .select('delivered,read,failed,items').eq('id', dispatchId).single();
             if (disp) {
-              // Se falha de entrega: atualiza items marcando delivery_failed
+              const newVal = ((disp[field]) || 0) + 1;
+              const update = { [field]: newVal };
+              // Para falha de entrega: também marca o item em items[]
               if (status === 'failed' && Array.isArray(disp.items)) {
-                const updatedItems = disp.items.map(it =>
+                update.items = disp.items.map(it =>
                   it.wamid === wamid
                     ? { ...it, delivery_failed: true, delivery_error: st.errors?.[0]?.message || 'delivery failed' }
                     : it
                 );
-                // Incrementa contador de failed (coluna já existe) e atualiza items
-                const newFailed = ((disp.failed) || 0) + 1;
-                await supabase.from('dispatches')
-                  .update({ failed: newFailed, items: updatedItems })
-                  .eq('id', dispatchId);
-                sseSend(config.user_id, 'dispatch_status_update', {
-                  dispatch_id: dispatchId,
-                  field: 'failed',
-                  failed: newFailed,
-                  failed_phone: row.phone,
-                  failed_wamid: wamid,
-                });
-              } else if (field !== 'failed') {
-                // delivered / read: tenta atualizar contador (best-effort, coluna pode não existir)
-                supabase.from('dispatches')
-                  .update({ [field]: 1 }) // sem read-modify-write para simplificar
-                  .eq('id', dispatchId)
-                  .catch(() => {});
               }
+              await supabase.from('dispatches').update(update).eq('id', dispatchId);
+              sseSend(config.user_id, 'dispatch_status_update', {
+                dispatch_id: dispatchId,
+                field,
+                [field]: newVal,
+                ...(status === 'failed' ? { failed_phone: row.phone, failed_wamid: wamid } : {}),
+              });
             }
           }
         }
