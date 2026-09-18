@@ -298,11 +298,43 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           let msgType = msg.type || 'text';
           let msgText = null;
           let mediaUrl = null;
+
+          // Baixa mídia do Meta e sobe no Supabase Storage para URL permanente
+          async function resolveMedia(mediaId, fallbackMime) {
+            try {
+              const info = await wppCloud.getMediaInfo({ token: config.access_token }, mediaId);
+              const dlRes = await fetch(info.url, { headers: { Authorization: `Bearer ${config.access_token}` } });
+              if (!dlRes.ok) throw new Error(`Download ${dlRes.status}`);
+              const buf = Buffer.from(await dlRes.arrayBuffer());
+              const mime = info.mime_type || fallbackMime || 'application/octet-stream';
+              const ext = mime.split('/')[1]?.split(';')[0] || 'bin';
+              const filename = `incoming/${config.user_id}/${Date.now()}-${mediaId}.${ext}`;
+              const { error: upErr } = await supabase.storage.from('media').upload(filename, buf, { contentType: mime, upsert: false });
+              if (upErr) throw new Error(upErr.message);
+              return supabase.storage.from('media').getPublicUrl(filename).data.publicUrl;
+            } catch (e) {
+              console.warn('[wpp-cloud] resolveMedia falhou:', e.message);
+              return null;
+            }
+          }
+
           if (msg.type === 'text') { msgText = msg.text?.body || ''; }
-          else if (msg.type === 'image')    { msgText = msg.image?.caption || null; msgType = 'image'; }
-          else if (msg.type === 'video')    { msgText = msg.video?.caption || null; msgType = 'video'; }
-          else if (msg.type === 'audio')    { msgType = 'audio'; }
-          else if (msg.type === 'document') { msgText = msg.document?.filename || null; msgType = 'document'; }
+          else if (msg.type === 'image') {
+            msgText = msg.image?.caption || null; msgType = 'image';
+            if (msg.image?.id) mediaUrl = await resolveMedia(msg.image.id, 'image/jpeg');
+          }
+          else if (msg.type === 'video') {
+            msgText = msg.video?.caption || null; msgType = 'video';
+            if (msg.video?.id) mediaUrl = await resolveMedia(msg.video.id, 'video/mp4');
+          }
+          else if (msg.type === 'audio') {
+            msgType = 'audio';
+            if (msg.audio?.id) mediaUrl = await resolveMedia(msg.audio.id, 'audio/ogg');
+          }
+          else if (msg.type === 'document') {
+            msgText = msg.document?.filename || null; msgType = 'document';
+            if (msg.document?.id) mediaUrl = await resolveMedia(msg.document.id, 'application/octet-stream');
+          }
           else if (msg.type === 'sticker')  { msgType = 'sticker'; }
           else if (msg.type === 'interactive') {
             const ir = msg.interactive;

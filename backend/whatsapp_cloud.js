@@ -161,8 +161,13 @@ function verifyWebhookSignature(rawBody, signatureHeader, appSecret) {
   try { return crypto.timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expected)); } catch { return false; }
 }
 
+// Busca metadados de uma mídia recebida (URL temporária de download + mime_type)
+async function getMediaInfo({ token }, mediaId) {
+  return call(token, `/${mediaId}`);
+}
+
 module.exports = {
   sendTemplate, sendText, verify, listTemplates, createTemplate,
   verifyWebhookSignature, clean, getAccount, getAccountBasic, getQuality,
-  uploadMediaFromUrl,
+  uploadMediaFromUrl, getMediaInfo,
 };
