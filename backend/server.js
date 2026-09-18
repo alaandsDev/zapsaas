@@ -3949,16 +3949,18 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
     if (useSlot === 0) {
       const cleanedPhone = String(phone).replace(/\D/g, '');
 
-      // Preferência: YCloud (BSP) se o usuário tiver número cadastrado + key
+      // Preferência: YCloud (BSP) — SÓ se o chat foi originado por um número YCloud
       const ycloudKey = process.env.YCLOUD_API_KEY;
-      // Número de saída: o da conversa (via_number) se houver; senão o primeiro cadastrado
       const { data: existingChat } = await supabase.from('chats')
         .select('via_number').eq('user_id', uid(req)).eq('session_slot', 0).eq('phone', cleanedPhone).maybeSingle();
-      let fromNumber = existingChat?.via_number || null;
-      if (!fromNumber) {
+      const viaNumber = existingChat?.via_number || null;
+
+      // Verifica se via_number pertence a um número YCloud cadastrado para este usuário
+      let fromNumber = null;
+      if (ycloudKey && viaNumber) {
         const { data: ycNum } = await supabase.from('ycloud_numbers')
-          .select('phone').eq('user_id', uid(req)).order('created_at').limit(1).maybeSingle();
-        fromNumber = ycNum?.phone || null;
+          .select('phone').eq('user_id', uid(req)).eq('phone', viaNumber).maybeSingle();
+        if (ycNum) fromNumber = ycNum.phone;
       }
 
       if (ycloudKey && fromNumber) {
