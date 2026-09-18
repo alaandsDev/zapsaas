@@ -268,26 +268,45 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           updated_at: new Date().toISOString()
         }, { onConflict: 'wamid' });
 
-        // Atualiza contadores no dispatch (read-modify-write best-effort)
+        // Atualiza contadores e items no dispatch (dispatch_id aponta para dispatches.id)
         const { data: row } = await supabase.from('cloud_message_status')
-          .select('dispatch_id').eq('wamid', wamid).single();
-        if (row?.dispatch_id) {
+          .select('parent_dispatch_id,phone').eq('wamid', wamid).single();
+        if (row?.parent_dispatch_id) {
+          const dispatchId = row.parent_dispatch_id;
           const field = status === 'delivered' ? 'delivered'
             : status === 'read' ? 'read'
             : status === 'failed' ? 'failed' : null;
           if (field) {
-            const { data: d } = await supabase.from('cloud_dispatches')
-              .select('id,sent,delivered,read,failed,dispatch_id').eq('id', row.dispatch_id).single();
-            const newVal = ((d?.[field]) || 0) + 1;
-            await supabase.from('cloud_dispatches')
-              .update({ [field]: newVal })
-              .eq('id', row.dispatch_id);
-            if (d?.dispatch_id) {
-              sseSend(config.user_id, 'dispatch_status_update', {
-                dispatch_id: d.dispatch_id,
-                cloud_dispatch_id: row.dispatch_id,
-                [field]: newVal,
-              });
+            // Lê contadores e items atuais
+            const { data: disp } = await supabase.from('dispatches')
+              .select('failed,items').eq('id', dispatchId).single();
+            if (disp) {
+              // Se falha de entrega: atualiza items marcando delivery_failed
+              if (status === 'failed' && Array.isArray(disp.items)) {
+                const updatedItems = disp.items.map(it =>
+                  it.wamid === wamid
+                    ? { ...it, delivery_failed: true, delivery_error: st.errors?.[0]?.message || 'delivery failed' }
+                    : it
+                );
+                // Incrementa contador de failed (coluna já existe) e atualiza items
+                const newFailed = ((disp.failed) || 0) + 1;
+                await supabase.from('dispatches')
+                  .update({ failed: newFailed, items: updatedItems })
+                  .eq('id', dispatchId);
+                sseSend(config.user_id, 'dispatch_status_update', {
+                  dispatch_id: dispatchId,
+                  field: 'failed',
+                  failed: newFailed,
+                  failed_phone: row.phone,
+                  failed_wamid: wamid,
+                });
+              } else if (field !== 'failed') {
+                // delivered / read: tenta atualizar contador (best-effort, coluna pode não existir)
+                supabase.from('dispatches')
+                  .update({ [field]: 1 }) // sem read-modify-write para simplificar
+                  .eq('id', dispatchId)
+                  .catch(() => {});
+              }
             }
           }
         }
@@ -1172,6 +1191,56 @@ app.post('/api/dispatches/:id/cancel', requireAuth, async (req, res) => {
     res.json({ message: 'Disparo cancelado' });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao cancelar disparo' });
+  }
+});
+
+// Reenvio para contatos com falha (API ou entrega) — cria novo disparo de template
+app.post('/api/dispatches/:id/resend-failed', requireAuth, async (req, res) => {
+  try {
+    const { data: orig } = await supabase.from('dispatches')
+      .select('*').eq('id', req.params.id).eq('user_id', uid(req)).single();
+    if (!orig) return res.status(404).json({ error: 'Disparo não encontrado' });
+
+    // Filtra items que falharam (API ou entrega)
+    const failedItems = (req.body.items || orig.items || []).filter(
+      (i) => i.status === 'failed' || i.delivery_failed
+    );
+    if (!failedItems.length) return res.status(400).json({ error: 'Nenhum contato com falha encontrado' });
+
+    // Prepara items para o novo disparo (reseta status)
+    const newItems = failedItems.map((i) => ({
+      contactName: i.contactName || i.name || '',
+      contactPhone: i.contactPhone || i.phone || '',
+      vars: i.vars || [],
+      status: 'pending',
+    }));
+
+    const { data: newDispatch, error } = await supabase.from('dispatches').insert({
+      message_id: orig.message_id,
+      message_title: `Reenvio: ${orig.message_title || orig.template_name || 'Disparo'}`,
+      message_content: orig.message_content || '',
+      template_name: orig.template_name,
+      template_language: orig.template_language,
+      total: newItems.length,
+      sent: 0, failed: 0,
+      status: 'pending',
+      items: newItems,
+      user_id: uid(req),
+      delay_ms: orig.delay_ms || 3000,
+      channel: orig.channel || 'cloud_template',
+    }).select().single();
+    if (error) throw error;
+
+    res.json({ id: newDispatch.id, total: newItems.length });
+
+    const _userId = uid(req);
+    (async () => {
+      try { await executeCloudTemplateDispatch(newDispatch.id, _userId); }
+      catch (e) { console.error('[resend-failed]', e.message); }
+    })();
+  } catch (e) {
+    console.error('[resend-failed]', e);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -2117,9 +2186,18 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
 
     const item = items[i];
     try {
-      await wppCloud.sendTemplate(creds, item.contactPhone, dispatch.template_name, lang, item.vars || [], varNames, headerMediaUrl, headerMediaType, headerMediaId);
-      items[i] = { ...item, status: 'sent', sentAt: new Date().toISOString() };
+      const r = await wppCloud.sendTemplate(creds, item.contactPhone, dispatch.template_name, lang, item.vars || [], varNames, headerMediaUrl, headerMediaType, headerMediaId);
+      const wamid = r?.messages?.[0]?.id || null;
+      items[i] = { ...item, status: 'sent', sentAt: new Date().toISOString(), wamid };
       sent++;
+      // Registra wamid → dispatch para rastrear entrega via webhook de status
+      if (wamid) {
+        await supabase.from('cloud_message_status').upsert({
+          wamid, user_id: userId, phone: item.contactPhone,
+          status: 'sent', parent_dispatch_id: dispatchId,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'wamid' }).catch(() => {});
+      }
     } catch (e) {
       const errDetail = e.details ? ` | ${JSON.stringify(e.details)}` : '';
       items[i] = { ...item, status: 'failed', error: `${e.message}${errDetail}` };

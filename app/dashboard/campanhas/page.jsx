@@ -160,14 +160,19 @@ export default function CampanhasPage() {
         const d = JSON.parse(e.data);
         setDispatches(prev => prev.map(dp => {
           if (dp.id !== d.dispatch_id) return dp;
-          const cloud = Array.isArray(dp.cloud_dispatches)
-            ? dp.cloud_dispatches.map(cd =>
-                cd.id === d.cloud_dispatch_id
-                  ? { ...cd, delivered: d.delivered ?? cd.delivered, read: d.read ?? cd.read, failed: d.failed ?? cd.failed }
-                  : cd
-              )
-            : dp.cloud_dispatches;
-          return { ...dp, cloud_dispatches: cloud };
+          // Atualiza contador de falha e marca delivery_failed no item
+          const update = {};
+          if (d.field === 'failed') {
+            update.failed = d.failed ?? dp.failed;
+            if (d.failed_wamid && Array.isArray(dp.items)) {
+              update.items = dp.items.map(it =>
+                it.wamid === d.failed_wamid
+                  ? { ...it, delivery_failed: true, delivery_error: 'delivery failed' }
+                  : it
+              );
+            }
+          }
+          return { ...dp, ...update };
         }));
       } catch {}
     };
@@ -1707,6 +1712,7 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
   const [filter, setFilter] = useState("all");
   const [exporting, setExporting] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  const [resendsLoading, setResendsLoading] = useState(false);
 
   if (!dispatch) return null;
 
@@ -1731,6 +1737,30 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
     }
   }
 
+  async function handleResendFailed() {
+    const failedItems = items.filter((i) => i.delivery_failed || i.status === "failed");
+    if (!failedItems.length) return;
+    if (!confirm(`Reenviar para ${failedItems.length} contato(s) com falha?`)) return;
+    setResendsLoading(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "";
+      const res = await fetch(`${API}/api/dispatches/${dispatch.id}/resend-failed`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ items: failedItems }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      alert(`Novo disparo criado! ID: ${data.id}`);
+      onClose();
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      alert("Erro ao reenviar: " + e.message);
+    } finally {
+      setResendsLoading(false);
+    }
+  }
+
   const items = Array.isArray(dispatch.items) ? dispatch.items : [];
   const counts = items.reduce((acc, i) => {
     const k = (i.status || "pending").toLowerCase();
@@ -1740,11 +1770,13 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
   const sent = counts.sent || 0;
   const failed = counts.failed || 0;
   const pending = (counts.pending || 0) + (counts.sending || 0);
+  const deliveryFailed = items.filter((i) => i.delivery_failed).length;
 
   const filtered = items.filter((i) => {
     if (filter === "all") return true;
-    if (filter === "sent") return i.status === "sent";
+    if (filter === "sent") return i.status === "sent" && !i.delivery_failed;
     if (filter === "failed") return i.status === "failed";
+    if (filter === "delivery_failed") return !!i.delivery_failed;
     if (filter === "pending") return !i.status || i.status === "pending" || i.status === "sending";
     return true;
   });
@@ -1767,9 +1799,9 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
       const rows = items.map((i) => ({
         Nome: i.contactName || i.name || "",
         Numero: i.contactPhone || i.phone || "",
-        Status: i.status === "sent" ? "Enviado" : i.status === "failed" ? "Falhou" : "Pendente",
+        Status: i.delivery_failed ? "Falha entrega" : i.status === "sent" ? "Enviado" : i.status === "failed" ? "Falhou" : "Pendente",
         EnviadoEm: i.sentAt ? new Date(i.sentAt).toLocaleString("pt-BR") : "",
-        Erro: i.error || "",
+        Erro: i.delivery_error || i.error || "",
       }));
 
       const wb = XLSX.utils.book_new();
@@ -1804,8 +1836,11 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
     failed: DASH_ACCENT.red,
     sending: DASH_ACCENT.amber,
     pending: DASH_ACCENT.slate,
+    delivery_failed: DASH_ACCENT.red,
   };
-  const statusBadge = (st) => {
+  const statusBadge = (item) => {
+    if (item.delivery_failed) return <DashBadge color={DASH_ACCENT.red}>Falha entrega</DashBadge>;
+    const st = item.status;
     const labels = { sent: "Enviado", failed: "Falhou", sending: "Enviando" };
     const key = labels[st] ? st : "pending";
     return <DashBadge color={STATUS_COLORS[key]}>{labels[st] || "Pendente"}</DashBadge>;
@@ -1835,18 +1870,33 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
               <XCircle className="size-4" /> Cancelar
             </DashButton>
           )}
+          {(deliveryFailed > 0 || failed > 0) && dispatch.status === "completed" && (
+            <DashButton variant="secondary" onClick={handleResendFailed} loading={resendsLoading}>
+              <Repeat2 className="size-4" /> Reenviar falhas ({deliveryFailed + failed})
+            </DashButton>
+          )}
           <DashButton onClick={exportXLSX} loading={exporting} disabled={!items.length}>
             <FileDown className="size-4" /> Exportar Excel
           </DashButton>
         </>
       }
     >
-      <div className="grid grid-cols-4 gap-2 mb-5">
+      <div className="grid grid-cols-5 gap-2 mb-5">
         <Stat label="Total" value={items.length} tone="neutral" />
         <Stat label="Enviados" value={sent} tone="success" />
-        <Stat label="Falhas" value={failed} tone="danger" />
+        <Stat label="Falha API" value={failed} tone="danger" />
         <Stat label="Pendentes" value={pending} tone="warn" />
+        <Stat label="Falha entrega" value={deliveryFailed} tone={deliveryFailed > 0 ? "danger" : "neutral"} />
       </div>
+      {deliveryFailed > 0 && (
+        <div className="mb-4 rounded-xl border border-dash-red/40 bg-dash-red/[0.06] px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="size-4 text-dash-red mt-0.5 shrink-0" />
+          <div className="flex-1 text-sm text-dash-ink2">
+            <span className="font-semibold text-dash-red">{deliveryFailed} mensagem(s) com falha de entrega</span>
+            {" "}— a Meta confirmou o envio mas a entrega falhou (limite diário ou erro de rede). Você pode reenviar amanhã.
+          </div>
+        </div>
+      )}
 
       {(dispatch.message_content || dispatch.messageContent) && (
         <div className="mb-5">
@@ -1857,18 +1907,21 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
         </div>
       )}
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-3">
         {[
-          { v: "all",     label: `Todos (${items.length})` },
-          { v: "sent",    label: `Enviados (${sent})` },
-          { v: "failed",  label: `Falhas (${failed})` },
-          { v: "pending", label: `Pendentes (${pending})` },
+          { v: "all",              label: `Todos (${items.length})` },
+          { v: "sent",             label: `Enviados (${sent - deliveryFailed})` },
+          { v: "failed",           label: `Falha API (${failed})` },
+          { v: "delivery_failed",  label: `Falha entrega (${deliveryFailed})`, warn: deliveryFailed > 0 },
+          { v: "pending",          label: `Pendentes (${pending})` },
         ].map((f) => (
           <button
             key={f.v}
             onClick={() => setFilter(f.v)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-              filter === f.v ? "bg-dash-green/10 text-dash-green border-dash-green/30" : "bg-dash-subtle text-dash-muted border-dash-border hover:border-dash-faint"
+              filter === f.v
+                ? f.warn ? "bg-dash-red/10 text-dash-red border-dash-red/30" : "bg-dash-green/10 text-dash-green border-dash-green/30"
+                : f.warn ? "bg-dash-red/[0.04] text-dash-red border-dash-red/20 hover:border-dash-red/40" : "bg-dash-subtle text-dash-muted border-dash-border hover:border-dash-faint"
             }`}
           >
             {f.label}
@@ -1891,12 +1944,12 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
             {filtered.length === 0 ? (
               <tr><td colSpan={5} className="px-3 py-6 text-center text-dash-faint">Nenhum item nesse filtro</td></tr>
             ) : filtered.map((i, idx) => (
-              <tr key={idx} className="hover:bg-dash-subtle">
+              <tr key={idx} className={`hover:bg-dash-subtle ${i.delivery_failed ? "bg-dash-red/[0.03]" : ""}`}>
                 <td className="px-3 py-2 font-medium text-dash-ink">{i.contactName || i.name || "—"}</td>
                 <td className="px-3 py-2 text-dash-muted font-mono text-xs">{i.contactPhone || i.phone || "—"}</td>
-                <td className="px-3 py-2">{statusBadge(i.status)}</td>
+                <td className="px-3 py-2">{statusBadge(i)}</td>
                 <td className="px-3 py-2 text-dash-faint text-xs hidden sm:table-cell">{i.sentAt ? new Date(i.sentAt).toLocaleString("pt-BR") : "—"}</td>
-                <td className="px-3 py-2 text-dash-red text-xs hidden md:table-cell max-w-xs truncate" title={i.error}>{i.error || "—"}</td>
+                <td className="px-3 py-2 text-dash-red text-xs hidden md:table-cell max-w-xs truncate" title={i.delivery_error || i.error}>{i.delivery_error || i.error || "—"}</td>
               </tr>
             ))}
           </tbody>
