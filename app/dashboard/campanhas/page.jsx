@@ -1174,6 +1174,16 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
       .finally(() => setLoadingTemplates(false));
   }, [hasCloudCfg]);
 
+  // Auto-popula URL do header quando o template tem exemplo de mídia
+  useEffect(() => {
+    if (!selectedTemplate) return;
+    const hdr = (selectedTemplate.components || []).find(c => c.type === "HEADER");
+    if (hdr && ["IMAGE", "VIDEO", "DOCUMENT"].includes(hdr.format)) {
+      const exampleUrl = hdr.example?.header_url?.[0] || "";
+      if (exampleUrl) setHeaderMediaUrl(exampleUrl);
+    }
+  }, [selectedTemplate]);
+
   useEffect(() => {
     (async () => {
       if (!listSel) { setContacts([]); return; }
