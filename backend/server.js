@@ -268,6 +268,24 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           updated_at: new Date().toISOString()
         }, { onConflict: 'wamid' });
 
+        // Atualiza status da mensagem no chat (chat_messages.status)
+        const chatMsgStatus = status === 'delivered' ? 'delivered'
+          : status === 'read' ? 'read'
+          : status === 'failed' ? 'failed' : null;
+        if (chatMsgStatus) {
+          const { data: chatMsg } = await supabase.from('chat_messages')
+            .select('id,chat_id').eq('wa_id', wamid).eq('user_id', config.user_id).maybeSingle();
+          if (chatMsg) {
+            await supabase.from('chat_messages').update({ status: chatMsgStatus }).eq('id', chatMsg.id);
+            sseSend(config.user_id, 'message_status', {
+              chatId: chatMsg.chat_id,
+              messageId: chatMsg.id,
+              wa_id: wamid,
+              status: chatMsgStatus,
+            });
+          }
+        }
+
         // Atualiza contadores e items no dispatch (parent_dispatch_id aponta para dispatches.id)
         const { data: row } = await supabase.from('cloud_message_status')
           .select('parent_dispatch_id,phone').eq('wamid', wamid).single();

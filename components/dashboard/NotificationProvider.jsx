@@ -154,6 +154,14 @@ export default function NotificationProvider() {
       } catch {}
     });
 
+    // Atualização de status de entrega de mensagem (✓ sent → ✓✓ delivered → ✓✓ read)
+    es.addEventListener("message_status", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        window.dispatchEvent(new CustomEvent("wayvo:message-status", { detail: data }));
+      } catch {}
+    });
+
     // Repassa eventos de status de conexão WhatsApp
     es.addEventListener("connection", (e) => {
       try {

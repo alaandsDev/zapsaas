@@ -437,6 +437,25 @@ export default function Conversas() {
     return () => window.removeEventListener("wayvo:chat-unread", handler);
   }, []);
 
+  // ── Atualiza status de entrega das mensagens (✓✓ delivered / ✓✓ read) ────────
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const { chatId, messageId, wa_id, status } = e.detail || {};
+        if (!chatId || !status) return;
+        const cur = activeChatRef.current;
+        if (cur?.id !== chatId) return;
+        setMsgs((prev) => prev.map((m) =>
+          (m.id === messageId || m.wa_id === wa_id)
+            ? { ...m, status }
+            : m
+        ));
+      } catch {}
+    };
+    window.addEventListener("wayvo:message-status", handler);
+    return () => window.removeEventListener("wayvo:message-status", handler);
+  }, []);
+
   // ── Atualiza foto de perfil em tempo real via SSE ────────────────────────────
   useEffect(() => {
     const handler = (e) => {
@@ -1197,15 +1216,16 @@ export default function Conversas() {
                         {!m.media_url && m.type !== "text" && m.type !== "other" && (
                           <div className="text-xs text-dash-faint italic">📎 {m.type} (sem prévia)</div>
                         )}
-                        {m.text && <div style={{ wordBreak: "break-word" }}>{m.text}</div>}
+                        {m.text && <div style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{m.text}</div>}
                         <div className="text-[10px] font-mono text-dash-faint mt-1 text-right flex items-center justify-end gap-1">
                           {fmtTime(m.timestamp)}
                           {out && (
-                            m.status === "failed"  ? <X className="size-3 text-dash-red" />
+                            m.status === "failed"    ? <X className="size-3 text-dash-red" />
                             : m.status === "pending" ? <Clock className="size-3" />
-                            : m.status === "read"    ? <CheckCheck className="size-3 text-dash-green" />
+                            : m.status === "read"    ? <CheckCheck className="size-3 text-blue-400" />
+                            : m.status === "delivered" ? <CheckCheck className="size-3" />
                             : m.status === "sent"    ? <Check className="size-3" />
-                            : <CheckCheck className="size-3" />
+                            : <Check className="size-3" />
                           )}
                         </div>
                       </motion.div>
