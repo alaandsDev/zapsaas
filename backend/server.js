@@ -2263,6 +2263,42 @@ app.get('/api/wpp-cloud/logs', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Inscreve a WABA para receber eventos de webhook desta app
+// Necessário para que mensagens recebidas cheguem via webhook POST
+app.post('/api/wpp-cloud/subscribe-waba', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(uid(req));
+    if (!c) return res.status(404).json({ error: 'Configuração não encontrada' });
+    const wabaId = c.business_account_id;
+    const token = c.access_token;
+    if (!wabaId || !token) return res.status(400).json({ error: 'WABA ID ou token ausente' });
+    const r = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: json?.error?.message || `HTTP ${r.status}`, details: json });
+    res.json({ success: true, result: json });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Verifica quais apps estão inscritas na WABA
+app.get('/api/wpp-cloud/subscribed-apps', requireAuth, async (req, res) => {
+  try {
+    const c = await getCloudConfig(uid(req));
+    if (!c) return res.status(404).json({ error: 'Configuração não encontrada' });
+    const wabaId = c.business_account_id;
+    const token = c.access_token;
+    if (!wabaId || !token) return res.status(400).json({ error: 'WABA ID ou token ausente' });
+    const r = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: json?.error?.message || `HTTP ${r.status}`, details: json });
+    res.json(json);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ═══════════════════════════════════════════════════════════════
 // AUTOMAÇÃO INTELIGENTE — Flows
 // ═══════════════════════════════════════════════════════════════
