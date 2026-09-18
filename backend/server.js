@@ -3942,6 +3942,8 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
     const { slot, phone, message, mediaUrl, mediaMimetype, mediaFilename } = req.body;
     if (!phone || (!message && !mediaUrl)) return res.status(400).json({ error: 'phone e message ou mediaUrl obrigatórios' });
     const useSlot = slot != null ? parseInt(slot) : 1;
+    console.log(`[chats/send] slot=${useSlot} phone=${phone} msg="${String(message || '').slice(0, 40)}"`);
+
 
     // ── Slot 0 = Canal Oficial ──────────────────────────────────────────────
     if (useSlot === 0) {

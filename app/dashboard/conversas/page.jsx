@@ -531,8 +531,9 @@ export default function Conversas() {
         body: { slot, phone: activeChat.phone, message: text },
       });
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "sent" } : msg));
-    } catch {
+    } catch (e) {
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
+      setToast({ msg: `Erro ao enviar: ${e.message}`, duration: 6000 });
     } finally { setSending(false); }
   }
 
