@@ -141,8 +141,11 @@ export default function NotificationProvider() {
     es.addEventListener("message", (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type === "message") {
-          notify(data.phone || "cliente", data.text || "");
+        // O evento SSE 'message' carrega mensagens de chat (type = 'text'|'image'|etc.)
+        // ou eventos de sistema (type = 'profile_pic'|'chat_unread'|'lead_stage')
+        if (data.chatId) {
+          // Mensagem de chat — notifica e atualiza sidebar
+          if (data.direction === "in") notify(data.phone || "cliente", data.text || "");
           window.dispatchEvent(new CustomEvent("wayvo:new-message", { detail: data }));
         } else if (data.type === "profile_pic") {
           window.dispatchEvent(new CustomEvent("wayvo:profile-pic", { detail: data }));
