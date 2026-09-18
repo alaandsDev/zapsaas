@@ -3913,6 +3913,7 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
       if (!c?.access_token) return res.status(400).json({ error: 'Canal Oficial não configurado' });
       if (mediaUrl) return res.status(400).json({ error: 'Envio de mídia via Canal Oficial ainda não suportado nesta interface. Use um template ou envie pelo painel Meta.' });
       const r = await wppCloud.sendText({ token: c.access_token, phoneNumberId: c.phone_number_id }, phone, message);
+      const wamid = r?.messages?.[0]?.id || null;
 
       const ts = new Date().toISOString();
       let { data: chat } = await supabase.from('chats').select('id')
@@ -3930,9 +3931,9 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
         const { error: insErr } = await supabase.from('chat_messages').insert({
           chat_id: chat.id, user_id: uid(req),
           direction: 'out', type: 'text', text: message,
-          status: 'sent', timestamp: ts,
+          wa_id: wamid, status: 'sent', timestamp: ts,
         });
-        if (insErr) console.error('[chats/send cloud] insert msg:', insErr.message);
+        if (insErr) console.error('[chats/send cloud] insert msg:', insErr.message, insErr.code);
         sseSend(req.user.id, 'message', {
           chatId: chat.id, slot: 0, phone: cleanedPhone,
           direction: 'out', type: 'text', text: message, timestamp: ts,
