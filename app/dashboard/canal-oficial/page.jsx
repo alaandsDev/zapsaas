@@ -1364,7 +1364,6 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
             >
               <span className="text-[12px] font-semibold text-dash-ink">{p.label}</span>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${p.tagColor}1a`, color: p.tagColor }}>{p.tag}</span>
-              <span className="text-[10px] text-dash-faint">{p.hint}</span>
             </button>
           ))}
         </div>
