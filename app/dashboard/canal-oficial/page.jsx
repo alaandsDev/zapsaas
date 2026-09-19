@@ -1160,6 +1160,7 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
   const [name, setName]         = useState("");
   const [category, setCategory] = useState("MARKETING");
   const [language, setLanguage] = useState("pt_BR");
+  const [headerType, setHeaderType] = useState("TEXT"); // TEXT | IMAGE | VIDEO | DOCUMENT | NONE
   const [header, setHeader]     = useState("");
   const [body, setBody]         = useState("");
   const [footer, setFooter]     = useState("");
@@ -1167,16 +1168,41 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
   const [busy, setBusy]         = useState(false);
   const [err, setErr]           = useState("");
   const [done, setDone]         = useState(false);
+  const [mediaFile, setMediaFile]   = useState(null);   // { file, previewUrl }
+  const [mediaHandle, setMediaHandle] = useState(null); // handle retornado pela Meta
+  const [uploading, setUploading]   = useState(false);
+  const mediaInputRef = useRef(null);
 
   function loadPreset(p) {
     setName(p.name);
     setCategory(p.category);
     setLanguage(p.language);
+    setHeaderType(p.header ? "TEXT" : "NONE");
     setHeader(p.header);
     setBody(p.body);
     setFooter(p.footer);
     setBtn(p.btn);
+    setMediaFile(null);
+    setMediaHandle(null);
     setErr("");
+  }
+
+  async function handleMediaSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMediaFile({ file, previewUrl: URL.createObjectURL(file) });
+    setMediaHandle(null);
+    setErr("");
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const r = await api("/api/wpp-cloud/upload-media", { method: "POST", body: form, rawBody: true });
+      setMediaHandle(r.handle);
+    } catch (e) {
+      setErr("Erro ao fazer upload da mídia: " + (e.message || "tente novamente"));
+      setMediaFile(null);
+    } finally { setUploading(false); }
   }
 
   async function submit() {
@@ -1184,8 +1210,15 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
     const safeName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
     if (!safeName)    return setErr("Informe um nome para o template");
     if (!body.trim()) return setErr("O corpo da mensagem é obrigatório");
+    if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && !mediaHandle) {
+      return setErr("Aguarde o upload da mídia ou remova o header de mídia");
+    }
     const components = [];
-    if (header.trim()) components.push({ type: "HEADER", format: "TEXT", text: header.trim() });
+    if (headerType === "TEXT" && header.trim()) {
+      components.push({ type: "HEADER", format: "TEXT", text: header.trim() });
+    } else if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && mediaHandle) {
+      components.push({ type: "HEADER", format: headerType, example: { header_handle: [mediaHandle] } });
+    }
     components.push({ type: "BODY", text: body.trim() });
     if (footer.trim()) components.push({ type: "FOOTER", text: footer.trim() });
     if (btn.trim())    components.push({ type: "BUTTONS", buttons: [{ type: "QUICK_REPLY", text: btn.trim() }] });
@@ -1199,7 +1232,6 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
       setTimeout(onCreated, 1200);
     } catch (e) {
       const msg = e.message || "Falha ao enviar para a Meta";
-      // Toast amigável se for erro de verificação
       if (/verification/i.test(msg)) {
         setErr("A Meta exige verificação empresarial para criar templates. Complete a verificação em business.facebook.com.");
       } else {
@@ -1268,7 +1300,63 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
             </Field>
           </div>
           <Field label="Cabeçalho (opcional)">
-            <Input value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial 🎉" />
+            <div className="space-y-2">
+              <div className="flex gap-1.5 flex-wrap">
+                {[
+                  { k: "NONE", label: "Sem header" },
+                  { k: "TEXT", label: "Texto" },
+                  { k: "IMAGE", label: "🖼 Imagem" },
+                  { k: "VIDEO", label: "🎬 Vídeo" },
+                  { k: "DOCUMENT", label: "📄 Documento" },
+                ].map(({ k, label }) => (
+                  <button key={k} type="button"
+                    onClick={() => { setHeaderType(k); setMediaFile(null); setMediaHandle(null); }}
+                    className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium border transition-colors ${
+                      headerType === k
+                        ? "border-dash-blue bg-dash-blue/8 text-dash-blue"
+                        : "border-dash-border text-dash-faint hover:text-dash-ink2"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {headerType === "TEXT" && (
+                <Input value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial 🎉" />
+              )}
+              {["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && (
+                <div>
+                  <input ref={mediaInputRef} type="file" className="hidden"
+                    accept={headerType === "IMAGE" ? "image/jpeg,image/png" : headerType === "VIDEO" ? "video/mp4" : "application/pdf"}
+                    onChange={handleMediaSelect}
+                  />
+                  {!mediaFile ? (
+                    <button type="button" onClick={() => mediaInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-dash-border rounded-[13px] py-4 text-[13px] text-dash-faint hover:text-dash-ink2 hover:border-dash-blue transition-colors">
+                      Clique para selecionar {headerType === "IMAGE" ? "imagem (JPG/PNG)" : headerType === "VIDEO" ? "vídeo (MP4)" : "documento (PDF)"}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3 p-3 rounded-[13px] border border-dash-border bg-dash-subtle">
+                      {headerType === "IMAGE" && mediaFile.previewUrl && (
+                        <img src={mediaFile.previewUrl} className="size-12 rounded-[9px] object-cover shrink-0" alt="" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12px] font-medium text-dash-ink truncate">{mediaFile.file.name}</div>
+                        {uploading
+                          ? <div className="text-[11px] text-dash-faint flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Enviando para Meta…</div>
+                          : mediaHandle
+                            ? <div className="text-[11px]" style={{ color: GREEN }}>✓ Upload concluído</div>
+                            : <div className="text-[11px]" style={{ color: RED }}>Falha no upload</div>
+                        }
+                      </div>
+                      <button type="button" onClick={() => { setMediaFile(null); setMediaHandle(null); }}
+                        className="size-6 rounded-full flex items-center justify-center hover:bg-dash-hover shrink-0">
+                        <X className="size-3.5 text-dash-faint" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </Field>
           <Field label="Corpo da mensagem *" hint="Use {{1}}, {{2}} para variáveis">
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4}
@@ -1290,8 +1378,18 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
         <div className="rounded-[16px] border border-dash-border bg-dash-subtle p-5 flex flex-col">
           <div className="dash-section-label !mb-3">Pré-visualização</div>
           <div className="flex-1 flex items-start">
-            <div className="max-w-[92%] rounded-[14px] rounded-tl-sm bg-white border border-dash-border px-3.5 py-2.5 shadow-[0_1px_3px_rgba(10,16,32,.07)]">
-              {header && <div className="text-[13px] font-bold mb-1 text-dash-ink">{renderVars(header)}</div>}
+            <div className="max-w-[92%] rounded-[14px] rounded-tl-sm bg-white border border-dash-border overflow-hidden shadow-[0_1px_3px_rgba(10,16,32,.07)]">
+              {headerType === "IMAGE" && mediaFile?.previewUrl && (
+                <img src={mediaFile.previewUrl} className="w-full max-h-40 object-cover" alt="" />
+              )}
+              {headerType === "VIDEO" && mediaFile && (
+                <div className="w-full h-20 bg-dash-subtle flex items-center justify-center text-dash-faint text-sm">🎬 {mediaFile.file.name}</div>
+              )}
+              {headerType === "DOCUMENT" && mediaFile && (
+                <div className="w-full h-16 bg-dash-subtle flex items-center justify-center text-dash-faint text-sm">📄 {mediaFile.file.name}</div>
+              )}
+              <div className="px-3.5 py-2.5">
+              {headerType === "TEXT" && header && <div className="text-[13px] font-bold mb-1 text-dash-ink">{renderVars(header)}</div>}
               <div className="text-[13px] leading-snug whitespace-pre-wrap break-words text-dash-ink2">
                 {body ? renderVars(body) : <span className="text-dash-placeholder italic">Corpo da mensagem aparece aqui…</span>}
               </div>
@@ -1302,6 +1400,7 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
                   {btn}
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>

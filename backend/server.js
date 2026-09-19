@@ -2125,6 +2125,48 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
   }
 });
 
+// Upload de mídia para header de template Meta (retorna handle para usar na criação)
+app.post('/api/wpp-cloud/upload-media', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    const c = await getCloudConfig(uid(req));
+    { const te = cloudTokenError(c); if (te) return res.status(400).json({ error: te }); }
+    if (!c.business_account_id) return res.status(400).json({ error: 'business_account_id não configurado' });
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+    const { buffer, mimetype, originalname, size } = req.file;
+
+    // 1. Cria sessão de upload na Meta
+    const sessionRes = await fetch(
+      `https://graph.facebook.com/v21.0/${c.business_account_id}/uploads?file_length=${size}&file_type=${encodeURIComponent(mimetype)}&file_name=${encodeURIComponent(originalname)}`,
+      { method: 'POST', headers: { Authorization: `Bearer ${c.access_token}` } }
+    );
+    const sessionData = await sessionRes.json();
+    if (!sessionRes.ok || !sessionData.id) {
+      return res.status(400).json({ error: sessionData.error?.message || 'Falha ao criar sessão de upload na Meta' });
+    }
+
+    // 2. Faz upload do arquivo binário
+    const uploadRes = await fetch(
+      `https://rupload.facebook.com/waba-image-upload/${sessionData.id}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${c.access_token}`,
+          file_offset: '0',
+          'Content-Type': 'application/octet-stream',
+        },
+        body: buffer,
+      }
+    );
+    const uploadData = await uploadRes.json();
+    if (!uploadRes.ok || !uploadData.h) {
+      return res.status(400).json({ error: uploadData.error?.message || 'Falha ao fazer upload do arquivo na Meta' });
+    }
+
+    res.json({ handle: uploadData.h, mimetype, filename: originalname });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Disparo em massa por template (com variáveis por contato) ──────────────
 async function executeCloudTemplateDispatch(dispatchId, userId) {
   const { data: dispatch } = await supabase.from('dispatches').select('*').eq('id', dispatchId).single();
