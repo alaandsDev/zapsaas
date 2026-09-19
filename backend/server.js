@@ -3749,6 +3749,66 @@ app.post('/api/chats/:id/read', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Respostas rápidas (quick replies) ────────────────────────────────────────
+
+app.get('/api/quick-replies', requireAuth, async (req, res) => {
+  try {
+    const { data } = await supabase.from('quick_replies')
+      .select('*').eq('user_id', uid(req)).order('shortcut');
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Upload de mídia vinculada a uma resposta rápida (antes de salvar o registro)
+app.post('/api/quick-replies/upload-media', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    const { originalname, mimetype, buffer } = req.file;
+    const userId = uid(req);
+    const ext = originalname.split('.').pop() || 'bin';
+    const storagePath = `quick_replies/${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('media').upload(storagePath, buffer, { contentType: mimetype, upsert: false });
+    if (upErr) throw new Error('Falha no upload: ' + upErr.message);
+    const { data: urlData } = supabase.storage.from('media').getPublicUrl(storagePath);
+    const mediaType = mimetype.startsWith('image/') ? 'image'
+      : mimetype.startsWith('audio/') ? 'audio'
+      : 'document';
+    res.json({ url: urlData.publicUrl, type: mediaType, mimetype });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/quick-replies', requireAuth, async (req, res) => {
+  try {
+    const { shortcut, text, media_url, media_type } = req.body;
+    if (!shortcut || !text) return res.status(400).json({ error: 'shortcut e text obrigatórios' });
+    const { data, error } = await supabase.from('quick_replies')
+      .insert({ user_id: uid(req), shortcut: shortcut.replace(/^\//, ''), text, media_url: media_url || null, media_type: media_type || null })
+      .select().single();
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/quick-replies/:id', requireAuth, async (req, res) => {
+  try {
+    const { shortcut, text, media_url, media_type } = req.body;
+    const { data, error } = await supabase.from('quick_replies')
+      .update({ shortcut: shortcut?.replace(/^\//, ''), text, media_url: media_url ?? null, media_type: media_type ?? null })
+      .eq('id', req.params.id).eq('user_id', uid(req)).select().single();
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/quick-replies/:id', requireAuth, async (req, res) => {
+  try {
+    await supabase.from('quick_replies').delete()
+      .eq('id', req.params.id).eq('user_id', uid(req));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Sugestão de resposta por IA — últimas mensagens da conversa
 app.post('/api/ai-suggest', requireAuth, rateLimit(60 * 1000, 20), async (req, res) => {
   try {

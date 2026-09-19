@@ -51,7 +51,7 @@ function PermissionBanner({ onAllow, onDismiss }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-ink-100 text-xs">Ativar notificações</p>
-        <p className="text-ink-400 text-[11px] mt-0.5">Avise quando chegar nova mensagem.</p>
+        <p className="text-ink-400 text-[11px] mt-0.5">Seja avisado quando chegar nova mensagem, mesmo em outra aba.</p>
       </div>
       <button
         onClick={onAllow}
@@ -67,12 +67,38 @@ function PermissionBanner({ onAllow, onDismiss }) {
   );
 }
 
-const BANNER_DISMISSED_KEY = "wayvo_notif_banner_dismissed";
+/* ── banner para quando está bloqueada ── */
+function BlockedBanner({ onDismiss }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -60 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -60 }}
+      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-4 py-3 rounded-2xl border border-amber-500/20 shadow-2xl text-sm max-w-md w-full"
+      style={{ background: "rgba(11,17,32,0.97)", backdropFilter: "blur(20px)" }}
+    >
+      <div className="size-8 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+        <BellOff className="size-4 text-amber-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-ink-100 text-xs">Notificações bloqueadas</p>
+        <p className="text-ink-400 text-[11px] mt-0.5">
+          Clique no <strong className="text-ink-200">🔒 cadeado</strong> na barra do navegador → <strong className="text-ink-200">Notificações → Permitir</strong>
+        </p>
+      </div>
+      <button onClick={onDismiss} className="text-ink-500 hover:text-ink-300 shrink-0">
+        <X className="size-4" />
+      </button>
+    </motion.div>
+  );
+}
 
 export default function NotificationProvider() {
   const esRef = useRef(null);
   const [permission, setPermission] = useState("default");
   const [showBanner, setShowBanner] = useState(false);
+  const [showBlockedBanner, setShowBlockedBanner] = useState(false);
   const [msgToasts, setMsgToasts] = useState([]); // [{ id, phone, name, text, chatId }]
   const focusedRef = useRef(true);
 
@@ -90,11 +116,10 @@ export default function NotificationProvider() {
     if (!("Notification" in window)) return;
     const perm = Notification.permission;
     setPermission(perm);
-    const dismissed = localStorage.getItem(BANNER_DISMISSED_KEY);
-    if (perm === "default" && !dismissed) {
-      // show banner after 4s so user has time to orient
-      const t = setTimeout(() => setShowBanner(true), 4000);
-      return () => clearTimeout(t);
+    if (perm === "default") {
+      setShowBanner(true);
+    } else if (perm === "denied") {
+      setShowBlockedBanner(true);
     }
   }, []);
 
@@ -103,11 +128,11 @@ export default function NotificationProvider() {
     if (!("Notification" in window)) return;
     const result = await Notification.requestPermission();
     setPermission(result);
+    if (result === "denied") setShowBlockedBanner(true);
   }, []);
 
   const dismissBanner = useCallback(() => {
     setShowBanner(false);
-    try { localStorage.setItem(BANNER_DISMISSED_KEY, "1"); } catch {}
   }, []);
 
   const dismissToast = useCallback((id) => {
@@ -193,12 +218,17 @@ export default function NotificationProvider() {
     };
   }, [notify]);
 
-  /* Expor indicador de som no header (pequeno ícone) */
   return (
     <>
       <AnimatePresence>
         {showBanner && (
           <PermissionBanner onAllow={requestPermission} onDismiss={dismissBanner} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showBlockedBanner && (
+          <BlockedBanner onDismiss={() => setShowBlockedBanner(false)} />
         )}
       </AnimatePresence>
 
@@ -237,22 +267,6 @@ export default function NotificationProvider() {
           ))}
         </AnimatePresence>
       </div>
-
-      {/* Indicador de status de notificação (canto inferior direito, sutil) */}
-      <AnimatePresence>
-        {permission === "denied" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-3 py-2 rounded-xl border border-white/[0.07] text-[11px] text-ink-500 pointer-events-none"
-            style={{ background: "rgba(11,17,32,0.7)", backdropFilter: "blur(12px)" }}
-          >
-            <BellOff className="size-3" />
-            Notificações bloqueadas
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   );
 }

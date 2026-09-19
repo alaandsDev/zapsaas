@@ -252,6 +252,18 @@ export default function Conversas() {
   const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
   const [aiLoading,    setAiLoading]      = useState(false);
 
+  // Respostas rápidas
+  const [quickReplies,   setQuickReplies]  = useState([]);
+  const [qrModalOpen,    setQrModalOpen]   = useState(false);
+  const [showQrPicker,   setShowQrPicker]  = useState(false);
+  const [qrPickerQ,      setQrPickerQ]     = useState("");
+  const [qrPickerIdx,    setQrPickerIdx]   = useState(0);
+  const [qrForm,         setQrForm]        = useState({ shortcut: "", text: "", media_url: null, media_type: null });
+  const [qrEditId,       setQrEditId]      = useState(null);
+  const [qrSaving,       setQrSaving]      = useState(false);
+  const [qrMediaUploading, setQrMediaUploading] = useState(false);
+  const qrFileRef = useRef(null);
+
   // Modal Nova Conversa
   const [newChatOpen,       setNewChatOpen]       = useState(false);
   const [newChatPhone,      setNewChatPhone]       = useState("");
@@ -291,6 +303,30 @@ export default function Conversas() {
     () => sessions.filter((s) => s.status === "connected"),
     [sessions]
   );
+
+  const filteredQR = useMemo(() => {
+    if (!showQrPicker) return [];
+    const q = qrPickerQ.toLowerCase();
+    return quickReplies.filter((r) =>
+      r.shortcut.toLowerCase().includes(q) || r.text.toLowerCase().includes(q)
+    );
+  }, [showQrPicker, qrPickerQ, quickReplies]);
+
+  async function applyQR(qr) {
+    setShowQrPicker(false);
+    setDraft(qr.text || "");
+    if (qr.media_url) {
+      try {
+        const resp = await fetch(qr.media_url);
+        const blob = await resp.blob();
+        const filename = qr.media_url.split("/").pop() || "media";
+        const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+        setPendingFile({ file, previewUrl: URL.createObjectURL(file) });
+      } catch {
+        setToast({ msg: "Erro ao carregar mídia da resposta rápida", duration: 3000 });
+      }
+    }
+  }
 
   // ── Carrega sessões (Baileys + Canal Oficial slot 0) ──────────────────────
   const loadSessions = useCallback(async () => {
@@ -358,6 +394,7 @@ export default function Conversas() {
       await loadAllChats(conn);
       setLoading(false);
     })();
+    api("/api/quick-replies").then((d) => setQuickReplies(d || [])).catch(() => {});
   }, []);
 
   useEffect(() => { if (activeChat?.id) loadMsgs(); }, [activeChat?.id, loadMsgs]);
@@ -1283,23 +1320,79 @@ export default function Conversas() {
                       <span className="text-[15px] leading-none">😊</span>
                     </button>
                     <button
-                      onClick={suggestAI}
-                      disabled={aiLoading}
-                      className="flex items-center gap-1 px-2 h-8 rounded-lg text-[11px] font-semibold text-dash-blue hover:bg-dash-blue/10 transition-colors disabled:opacity-40"
-                      title="Sugestão de resposta por IA">
-                      {aiLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />} IA
+                      onClick={() => setQrModalOpen(true)}
+                      className="flex items-center gap-1 px-2 h-8 rounded-lg text-[11px] font-semibold text-dash-blue hover:bg-dash-blue/10 transition-colors"
+                      title="Respostas rápidas (digite / para usar)">
+                      <Zap className="size-3.5" /> Rápidas
                     </button>
                   </div>
 
-                  {/* Textarea */}
+                  {/* Textarea + picker de respostas rápidas */}
                   <div className="relative flex-1 group/input">
-                    <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                      placeholder="Digite uma mensagem..."
+                    {/* Picker de respostas rápidas — aparece ao digitar "/" */}
+                    <AnimatePresence>
+                      {showQrPicker && filteredQR.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 8 }}
+                          transition={{ duration: 0.12 }}
+                          className="absolute bottom-full left-0 right-0 mb-2 z-50 rounded-xl border border-dash-border shadow-2xl overflow-hidden"
+                          style={{ background: "var(--dash-bg, #fff)" }}
+                        >
+                          <div className="px-3 py-2 border-b border-dash-border flex items-center gap-2">
+                            <Zap className="size-3 text-dash-blue" />
+                            <span className="text-[11px] text-dash-faint2 font-medium">Respostas rápidas</span>
+                            <span className="text-[10px] text-dash-faint ml-auto">↑↓ navegar · ↵ usar · Esc fechar</span>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto">
+                            {filteredQR.map((qr, i) => (
+                              <button
+                                key={qr.id}
+                                onMouseDown={(e) => { e.preventDefault(); applyQR(qr); }}
+                                className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${i === qrPickerIdx ? "bg-dash-blue/8" : "hover:bg-dash-subtle"}`}
+                              >
+                                {qr.media_url && (
+                                  qr.media_type === "image"
+                                    ? <img src={qr.media_url} alt="" className="size-7 rounded object-cover shrink-0" />
+                                    : <span className="text-sm shrink-0">🎵</span>
+                                )}
+                                <span className="text-[11px] font-mono font-semibold text-dash-blue shrink-0">/{qr.shortcut}</span>
+                                <span className="text-[12px] text-dash-ink2 truncate flex-1">{qr.text}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <textarea
+                      value={draft}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setDraft(v);
+                        if (v.startsWith("/")) {
+                          setQrPickerQ(v.slice(1).toLowerCase());
+                          setShowQrPicker(true);
+                          setQrPickerIdx(0);
+                        } else {
+                          setShowQrPicker(false);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (showQrPicker && filteredQR.length > 0) {
+                          if (e.key === "ArrowDown") { e.preventDefault(); setQrPickerIdx((i) => Math.min(i + 1, filteredQR.length - 1)); return; }
+                          if (e.key === "ArrowUp")   { e.preventDefault(); setQrPickerIdx((i) => Math.max(i - 1, 0)); return; }
+                          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); applyQR(filteredQR[qrPickerIdx]); return; }
+                          if (e.key === "Escape") { setShowQrPicker(false); return; }
+                        }
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                      }}
+                      placeholder="Digite uma mensagem ou / para respostas rápidas..."
                       rows={1}
                       style={{ minHeight: 44, maxHeight: 120 }}
-                      className="dash-input resize-none !py-3" />
-                    {/* Dica de atalho — aparece no hover quando vazio */}
+                      className="dash-input resize-none !py-3"
+                    />
                     {!draft && (
                       <span className="absolute right-3 bottom-2.5 text-[10px] text-dash-placeholder pointer-events-none opacity-0 group-hover/input:opacity-100 transition-opacity duration-150 select-none">
                         ↵ enviar · Shift+↵ nova linha
@@ -1491,6 +1584,173 @@ export default function Conversas() {
           )}
         </aside>
       </div>
+
+      {/* ══════════════════════════════════════════════════
+          MODAL — RESPOSTAS RÁPIDAS
+      ══════════════════════════════════════════════════ */}
+      <DashModal
+        open={qrModalOpen}
+        onClose={() => { setQrModalOpen(false); setQrEditId(null); setQrForm({ shortcut: "", text: "" }); }}
+        title="Respostas Rápidas"
+        subtitle="Digite / no chat para usar • atalho sem a barra"
+        footer={null}
+      >
+        <div className="space-y-4">
+          {/* Formulário add/editar */}
+          <div className="rounded-xl border border-dash-border p-4 space-y-3 bg-dash-subtle/40">
+            <p className="text-xs font-semibold text-dash-ink2">{qrEditId ? "Editar resposta" : "Nova resposta rápida"}</p>
+            <div className="flex gap-2">
+              <div className="w-28 shrink-0">
+                <label className="text-[10px] text-dash-faint2 font-medium mb-1 block">Atalho</label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dash-faint text-sm">/</span>
+                  <input
+                    className="dash-input !pl-5 text-sm"
+                    placeholder="saudacao"
+                    value={qrForm.shortcut}
+                    onChange={(e) => setQrForm((f) => ({ ...f, shortcut: e.target.value.replace(/\s/g, "").replace(/^\//, "") }))}
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] text-dash-faint2 font-medium mb-1 block">Mensagem</label>
+                <input
+                  className="dash-input text-sm"
+                  placeholder="Olá! Como posso ajudar?"
+                  value={qrForm.text}
+                  onChange={(e) => setQrForm((f) => ({ ...f, text: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Mídia anexada */}
+            <div>
+              <label className="text-[10px] text-dash-faint2 font-medium mb-1.5 block">Mídia (opcional)</label>
+              <input
+                ref={qrFileRef}
+                type="file"
+                className="hidden"
+                accept="image/*,audio/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setQrMediaUploading(true);
+                  try {
+                    const token = (await import("../../../lib/api")).getToken();
+                    const form = new FormData();
+                    form.append("file", file);
+                    const res = await fetch(`${API_URL}/api/quick-replies/upload-media`, {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${token}` },
+                      body: form,
+                    });
+                    if (!res.ok) throw new Error("Falha no upload");
+                    const { url, type } = await res.json();
+                    setQrForm((f) => ({ ...f, media_url: url, media_type: type }));
+                  } catch (err) {
+                    setToast({ msg: `Erro no upload: ${err.message}`, duration: 3000 });
+                  } finally {
+                    setQrMediaUploading(false);
+                    if (qrFileRef.current) qrFileRef.current.value = "";
+                  }
+                }}
+              />
+              {qrForm.media_url ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-dash-subtle border border-dash-border">
+                  {qrForm.media_type === "image" ? (
+                    <img src={qrForm.media_url} alt="" className="size-10 rounded object-cover shrink-0" />
+                  ) : (
+                    <span className="text-xl shrink-0">🎵</span>
+                  )}
+                  <span className="text-[11px] text-dash-ink2 flex-1 truncate">
+                    {qrForm.media_type === "image" ? "Imagem anexada" : "Áudio anexado"}
+                  </span>
+                  <button
+                    onClick={() => setQrForm((f) => ({ ...f, media_url: null, media_type: null }))}
+                    className="text-dash-faint hover:text-red-500 transition-colors"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => qrFileRef.current?.click()}
+                  disabled={qrMediaUploading}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-dash-border text-[11px] text-dash-faint hover:text-dash-ink2 hover:border-dash-blue/40 transition-colors w-full disabled:opacity-50"
+                >
+                  <Paperclip className="size-3.5 shrink-0" />
+                  {qrMediaUploading ? "Enviando..." : "Anexar foto ou áudio"}
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              {qrEditId && (
+                <DashButton variant="secondary" onClick={() => { setQrEditId(null); setQrForm({ shortcut: "", text: "", media_url: null, media_type: null }); }}>
+                  Cancelar
+                </DashButton>
+              )}
+              <DashButton
+                disabled={!qrForm.shortcut.trim() || !qrForm.text.trim() || qrSaving || qrMediaUploading}
+                onClick={async () => {
+                  setQrSaving(true);
+                  try {
+                    if (qrEditId) {
+                      const updated = await api(`/api/quick-replies/${qrEditId}`, { method: "PUT", body: qrForm });
+                      setQuickReplies((prev) => prev.map((r) => r.id === qrEditId ? updated : r));
+                    } else {
+                      const created = await api("/api/quick-replies", { method: "POST", body: qrForm });
+                      setQuickReplies((prev) => [...prev, created]);
+                    }
+                    setQrEditId(null);
+                    setQrForm({ shortcut: "", text: "", media_url: null, media_type: null });
+                  } catch (e) { setToast({ msg: `Erro: ${e.message}`, duration: 4000 }); }
+                  finally { setQrSaving(false); }
+                }}
+              >
+                {qrSaving ? "Salvando..." : qrEditId ? "Salvar" : "Adicionar"}
+              </DashButton>
+            </div>
+          </div>
+
+          {/* Lista */}
+          {quickReplies.length === 0 ? (
+            <p className="text-center text-xs text-dash-faint py-4">Nenhuma resposta rápida cadastrada.</p>
+          ) : (
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {quickReplies.map((qr) => (
+                <div key={qr.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-dash-subtle group">
+                  {qr.media_url && (
+                    qr.media_type === "image"
+                      ? <img src={qr.media_url} alt="" className="size-8 rounded object-cover shrink-0" />
+                      : <span className="text-base shrink-0">🎵</span>
+                  )}
+                  <span className="text-[11px] font-mono font-semibold text-dash-blue shrink-0 w-24 truncate">/{qr.shortcut}</span>
+                  <span className="flex-1 text-xs text-dash-ink2 truncate">{qr.text}</span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => { setQrEditId(qr.id); setQrForm({ shortcut: qr.shortcut, text: qr.text, media_url: qr.media_url || null, media_type: qr.media_type || null }); }}
+                      className="text-[10px] px-2 py-1 rounded text-dash-blue hover:bg-dash-blue/10"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await api(`/api/quick-replies/${qr.id}`, { method: "DELETE" }).catch(() => {});
+                        setQuickReplies((prev) => prev.filter((r) => r.id !== qr.id));
+                        if (qrEditId === qr.id) { setQrEditId(null); setQrForm({ shortcut: "", text: "", media_url: null, media_type: null }); }
+                      }}
+                      className="text-[10px] px-2 py-1 rounded text-red-500 hover:bg-red-50"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DashModal>
 
       {/* ══════════════════════════════════════════════════
           MODAL — NOVA CONVERSA
