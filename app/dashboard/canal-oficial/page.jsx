@@ -1210,14 +1210,14 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
     const safeName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
     if (!safeName)    return setErr("Informe um nome para o template");
     if (!body.trim()) return setErr("O corpo da mensagem é obrigatório");
-    if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && !mediaUrl) {
-      return setErr("Aguarde o upload da mídia ou remova o header de mídia");
+    if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && uploading) {
+      return setErr("Aguarde o upload da mídia finalizar");
     }
     const components = [];
     if (headerType === "TEXT" && header.trim()) {
       components.push({ type: "HEADER", format: "TEXT", text: header.trim() });
-    } else if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && mediaUrl) {
-      components.push({ type: "HEADER", format: headerType, example: { header_url: [mediaUrl] } });
+    } else if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType)) {
+      components.push({ type: "HEADER", format: headerType });
     }
     components.push({ type: "BODY", text: body.trim() });
     if (footer.trim()) components.push({ type: "FOOTER", text: footer.trim() });
