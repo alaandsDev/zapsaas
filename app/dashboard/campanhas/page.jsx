@@ -832,8 +832,28 @@ export default function CampanhasPage() {
                     <div className="rounded-xl border border-dash-border bg-dash-subtle p-4 space-y-3">
                       <div className="dash-section-label !mb-0">Configurações de envio</div>
                       <div className="grid grid-cols-2 gap-3">
-                        <LightField label="Delay entre msgs (seg)" hint="Recomendado: 3–10 seg">
-                          <input type="number" min={1} max={60} value={delay} onChange={(e) => setDelay(e.target.value)} className="dash-input" />
+                        <LightField label="Velocidade de envio" hint="">
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[
+                              { label: "Rápido", s: 1, hint: "~1s" },
+                              { label: "Médio",  s: 3, hint: "~3s" },
+                              { label: "Lento",  s: 6, hint: "~6s" },
+                            ].map(({ label, s, hint }) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setDelay(s)}
+                                className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                                  Number(delay) === s
+                                    ? "border-dash-blue bg-dash-blue/8 text-dash-blue"
+                                    : "border-dash-border text-dash-ink2 hover:border-dash-blue/40"
+                                }`}
+                              >
+                                {label}
+                                <span className="text-[9px] font-normal text-dash-faint">{hint}</span>
+                              </button>
+                            ))}
+                          </div>
                         </LightField>
                         <LightField label="Pausar a cada X msgs" hint="0 = sem pausa">
                           <input type="number" min={0} max={1000} value={pauseEvery} onChange={(e) => setPauseEvery(e.target.value)} className="dash-input" />
@@ -947,7 +967,7 @@ export default function CampanhasPage() {
                       ["Quando", schedule ? new Date(schedule).toLocaleString("pt-BR") : "Agora"],
                       ["Canal", channel === "cloud" ? "API Meta" : channel === "baileys" ? "WhatsApp" : "Automático"],
                       ["Modo", dualChip ? "2 Chips (alternância)" : sourceSessionSlot ? `Número ${sourceSessionSlot}` : "Automático"],
-                      ["Delay / Pausa", `${delay}s · pausa a cada ${pauseEvery || 0}`],
+                      ["Velocidade / Pausa", `${Number(delay) === 1 ? "Rápido" : Number(delay) === 6 ? "Lento" : "Médio"} · pausa a cada ${pauseEvery || 0}`],
                       ["Anexo", media ? (media.originalname || media.filename) : "Nenhum"],
                     ].map(([k, v]) => (
                       <div key={k} className="flex items-center justify-between gap-3 text-sm border-b border-dash-border2 pb-2">
@@ -1594,7 +1614,7 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
               ["Contatos", `${contacts.length}`],
               ["Lista", listSel === "leads" ? "Leads do sistema" : lists.find(l => `list:${l.id}` === listSel)?.name || "—"],
               ["Quando", schedule ? new Date(schedule).toLocaleString("pt-BR") : "Imediatamente"],
-              ["Delay entre envios", `${delayMs}ms`],
+              ["Velocidade", Number(delayMs) === 800 ? "Rápido (800ms)" : Number(delayMs) === 2000 ? "Lento (2s)" : "Médio (1,2s)"],
             ].map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-3 text-sm border-b border-dash-border2 pb-2">
                 <span className="text-dash-faint">{k}</span>
@@ -1637,11 +1657,31 @@ function CloudTemplateCampaign({ cloudConfig, lists, leads, onRefresh }) {
             <div className="space-y-3">
               <label className="block text-sm font-medium text-dash-ink">Agendamento <span className="text-dash-faint font-normal text-xs">(opcional)</span></label>
               <input type="datetime-local" value={schedule} onChange={e => setSchedule(e.target.value)} className="dash-input w-full" />
-              <label className="block text-sm font-medium text-dash-ink">Delay entre envios (ms)</label>
-              <input type="number" min={500} max={10000} step={100} value={delayMs} onChange={e => setDelayMs(e.target.value)} className="dash-input w-full" />
+              <label className="block text-sm font-medium text-dash-ink">Velocidade de envio</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Rápido", ms: 800,  hint: "800ms · ~75/min" },
+                  { label: "Médio",  ms: 1200, hint: "1,2s · ~50/min" },
+                  { label: "Lento",  ms: 2000, hint: "2s · ~30/min" },
+                ].map(({ label, ms, hint }) => (
+                  <button
+                    key={ms}
+                    type="button"
+                    onClick={() => setDelayMs(ms)}
+                    className={`flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                      Number(delayMs) === ms
+                        ? "border-dash-blue bg-dash-blue/8 text-dash-blue"
+                        : "border-dash-border text-dash-ink2 hover:border-dash-blue/40"
+                    }`}
+                  >
+                    {label}
+                    <span className="text-[10px] font-normal text-dash-faint">{hint}</span>
+                  </button>
+                ))}
+              </div>
               <div className="flex items-start gap-1.5 text-xs text-dash-faint">
                 <Info className="size-3.5 shrink-0 mt-0.5" />
-                Meta limita ~80 msg/s. Mínimo recomendado: 1200ms (1,2s) entre envios.
+                Rápido requer tier ≥ 1K/dia. Para contas novas, use Médio ou Lento.
               </div>
             </div>
 
