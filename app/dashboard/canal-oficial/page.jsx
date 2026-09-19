@@ -1125,6 +1125,36 @@ export default function CanalOficialPage() {
   );
 }
 
+/* ════════════════ MODELOS PRONTOS ════════════════ */
+const PRESETS = [
+  {
+    label: "Convite Teste de Visão",
+    tag: "UTILITY",
+    tagColor: BLUE,
+    hint: "~R$ 0,04/conversa",
+    name: "convite_teste_visao_cliente",
+    category: "UTILITY",
+    language: "pt_BR",
+    header: "Teste de Visão Gratuito 👁️",
+    body: `Olá, {{1}}! 👓\n\nComo você já é cliente da Ótica Visão de Todos, liberamos um convite especial para realizar um teste de visão gratuito aqui na loja.\n\nNão deixe para depois algo tão importante quanto a sua visão. 💙\n\nQuer agendar o seu teste?\n\n📍 R. Timbiras, 618 – Vila Tupi`,
+    footer: "",
+    btn: "QUERO AGENDAR",
+  },
+  {
+    label: "Dia do Cliente – Ótica",
+    tag: "MARKETING",
+    tagColor: AMBER,
+    hint: "~R$ 0,34/conversa",
+    name: "dia_do_cliente_otica",
+    category: "MARKETING",
+    language: "pt_BR",
+    header: "Condição Especial pra Você! 🎉",
+    body: `Olá, {{1}}! 👓\n\nHoje tem consulta com o Dr. Leonardo na AmorSaúde? Se ele atualizar sua receita, *não vá embora sem conferir nossa promoção!* 💙\n\n📍 A Ótica Visão de Todos fica bem em frente — terminou a consulta, é só atravessar a rua!\n\nSomos parceiros do Cartão de Todos, com condições especiais para nossos clientes. 🔥`,
+    footer: "Ótica Visão de Todos · R. Timbiras, 618",
+    btn: "Quero saber mais",
+  },
+];
+
 /* ════════════════ MODAL: CRIAR TEMPLATE ════════════════ */
 function CreateTemplateModal({ open, onClose, onCreated }) {
   const [name, setName]         = useState("");
@@ -1137,6 +1167,17 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
   const [busy, setBusy]         = useState(false);
   const [err, setErr]           = useState("");
   const [done, setDone]         = useState(false);
+
+  function loadPreset(p) {
+    setName(p.name);
+    setCategory(p.category);
+    setLanguage(p.language);
+    setHeader(p.header);
+    setBody(p.body);
+    setFooter(p.footer);
+    setBtn(p.btn);
+    setErr("");
+  }
 
   async function submit() {
     setErr("");
@@ -1190,6 +1231,25 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
         </>
       }
     >
+      {/* Modelos prontos */}
+      <div className="mb-5">
+        <div className="text-[11px] text-dash-faint2 uppercase tracking-wider font-semibold mb-2">Modelos prontos</div>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map((p) => (
+            <button
+              key={p.name}
+              type="button"
+              onClick={() => loadPreset(p)}
+              className="flex items-center gap-2 px-3 py-2 rounded-[12px] border border-dash-border bg-dash-subtle hover:bg-dash-hover transition-colors text-left"
+            >
+              <span className="text-[12px] font-semibold text-dash-ink">{p.label}</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: `${p.tagColor}1a`, color: p.tagColor }}>{p.tag}</span>
+              <span className="text-[10px] text-dash-faint">{p.hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-5">
         <div className="space-y-4">
           <Field label="Nome do template" hint="Só minúsculas, números e _ (ex: boas_vindas)">
