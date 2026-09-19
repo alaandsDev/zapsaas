@@ -1599,28 +1599,69 @@ export default function Conversas() {
           {/* Formulário add/editar */}
           <div className="rounded-xl border border-dash-border p-4 space-y-3 bg-dash-subtle/40">
             <p className="text-xs font-semibold text-dash-ink2">{qrEditId ? "Editar resposta" : "Nova resposta rápida"}</p>
-            <div className="flex gap-2">
-              <div className="w-28 shrink-0">
-                <label className="text-[10px] text-dash-faint2 font-medium mb-1 block">Atalho</label>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dash-faint text-sm">/</span>
-                  <input
-                    className="dash-input !pl-5 text-sm"
-                    placeholder="saudacao"
-                    value={qrForm.shortcut}
-                    onChange={(e) => setQrForm((f) => ({ ...f, shortcut: e.target.value.replace(/\s/g, "").replace(/^\//, "") }))}
-                  />
+
+            {/* Layout: formulário + preview lado a lado */}
+            <div className="flex gap-3 items-start">
+              {/* Campos */}
+              <div className="flex-1 space-y-3 min-w-0">
+                <div className="flex gap-2 items-start">
+                  <div className="w-28 shrink-0">
+                    <label className="text-[10px] text-dash-faint2 font-medium mb-1 block">Atalho</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dash-faint text-sm">/</span>
+                      <input
+                        className="dash-input !pl-5 text-sm"
+                        placeholder="saudacao"
+                        value={qrForm.shortcut}
+                        onChange={(e) => setQrForm((f) => ({ ...f, shortcut: e.target.value.replace(/\s/g, "").replace(/^\//, "") }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] text-dash-faint2 font-medium mb-1 block">Mensagem <span className="text-dash-faint normal-case">(Shift+Enter = nova linha)</span></label>
+                    <textarea
+                      className="dash-input text-sm resize-none"
+                      placeholder={"Olá! Como posso ajudar?\n\nEstamos à disposição 😊"}
+                      rows={4}
+                      value={qrForm.text}
+                      onChange={(e) => setQrForm((f) => ({ ...f, text: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) e.preventDefault(); }}
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="flex-1">
-                <label className="text-[10px] text-dash-faint2 font-medium mb-1 block">Mensagem</label>
-                <input
-                  className="dash-input text-sm"
-                  placeholder="Olá! Como posso ajudar?"
-                  value={qrForm.text}
-                  onChange={(e) => setQrForm((f) => ({ ...f, text: e.target.value }))}
-                />
-              </div>
+
+              {/* Preview WhatsApp */}
+              {qrForm.text && (
+                <div className="shrink-0 w-44">
+                  <label className="text-[10px] text-dash-faint2 font-medium mb-1 block">Preview</label>
+                  <div className="rounded-xl overflow-hidden" style={{ background: "#e5ddd5" }}>
+                    <div className="px-2 py-2">
+                      {qrForm.media_url && qrForm.media_type === "image" && (
+                        <div className="rounded-lg overflow-hidden mb-0.5">
+                          <img src={qrForm.media_url} alt="" className="w-full max-h-24 object-cover" />
+                        </div>
+                      )}
+                      {qrForm.media_url && qrForm.media_type === "audio" && (
+                        <div className="rounded-lg bg-white px-2 py-1.5 mb-0.5 flex items-center gap-1.5">
+                          <span className="text-sm">🎵</span>
+                          <span className="text-[10px] text-dash-faint">Áudio</span>
+                        </div>
+                      )}
+                      <div className="bg-white rounded-lg px-2.5 py-1.5 shadow-sm max-w-full">
+                        <p className="text-[11px] text-gray-800 whitespace-pre-wrap break-words leading-snug m-0">
+                          {qrForm.text.split(/(\*[^*]+\*|_[^_]+_)/g).map((part, i) =>
+                            /^\*[^*]+\*$/.test(part) ? <strong key={i}>{part.slice(1,-1)}</strong>
+                            : /^_[^_]+_$/.test(part) ? <em key={i}>{part.slice(1,-1)}</em>
+                            : part
+                          )}
+                        </p>
+                        <div className="text-[9px] text-gray-400 text-right mt-0.5">agora ✓✓</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mídia anexada */}
