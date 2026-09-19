@@ -163,8 +163,8 @@ export default function CampanhasPage() {
           const update = {};
           if (d.field === 'delivered') update.delivered = d.delivered;
           if (d.field === 'read') update.read = d.read;
-          if (d.field === 'failed') {
-            update.failed = d.failed ?? dp.failed;
+          if (d.field === 'delivery_failed') {
+            update.delivery_failed = d.delivery_failed ?? dp.delivery_failed;
             if (d.failed_wamid && Array.isArray(dp.items)) {
               update.items = dp.items.map(it =>
                 it.wamid === d.failed_wamid
@@ -1037,10 +1037,11 @@ export default function CampanhasPage() {
                     const total = d.total || d.recipients_count || 0;
                     const sent = d.sent || 0;
                     const failed = d.failed || 0;
-                    const pct = total ? Math.round(((sent + failed) / total) * 100) : 0;
-                    const delivered = sent + failed;
-                    const okRate = delivered ? sent / delivered : (total ? 1 : 0);
-                    const hScore = Math.round(okRate * 100);
+                    const delivFailed = d.delivery_failed || 0;
+                    const processed = sent + failed;
+                    const pct = total ? Math.round((processed / total) * 100) : 0;
+                    const okRate = processed ? (sent - delivFailed) / processed : (total ? 1 : 0);
+                    const hScore = Math.max(0, Math.round(okRate * 100));
                     const hColor = hScore >= 85 ? DASH_ACCENT.emerald : hScore >= 60 ? DASH_ACCENT.amber : DASH_ACCENT.red;
                     const hLabel = hScore >= 85 ? "Saudável" : hScore >= 60 ? "Atenção" : "Crítico";
                     const s = STATUS[d.status] || { label: d.status || "—", color: DASH_ACCENT.slate };
@@ -1067,7 +1068,8 @@ export default function CampanhasPage() {
                         </div>
                         <div className="flex gap-3 mt-1.5 text-[11px] text-dash-muted">
                           <span style={{ color: DASH_ACCENT.emerald }}>{sent} enviados</span>
-                          <span style={{ color: DASH_ACCENT.red }}>{failed} falhas</span>
+                          {failed > 0 && <span style={{ color: DASH_ACCENT.red }}>{failed} falha API</span>}
+                          {delivFailed > 0 && <span style={{ color: DASH_ACCENT.amber }}>⚠ {delivFailed} não entregue</span>}
                           <span className="ml-auto text-dash-green font-medium">Ver relatório →</span>
                         </div>
                       </button>
@@ -1771,7 +1773,11 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
   const sent = counts.sent || 0;
   const failed = counts.failed || 0;
   const pending = (counts.pending || 0) + (counts.sending || 0);
-  const deliveryFailed = items.filter((i) => i.delivery_failed).length;
+  // Falha de entrega: usa o max entre o contador DB e a contagem dos items (mais preciso)
+  const deliveryFailed = Math.max(
+    dispatch.delivery_failed || 0,
+    items.filter((i) => i.delivery_failed).length
+  );
   // Contadores de entrega vindos direto do dispatch (atualizados via webhook SSE)
   const delivered = dispatch.delivered || 0;
   const readCount = dispatch.read || 0;

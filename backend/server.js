@@ -291,17 +291,17 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           .select('parent_dispatch_id,phone').eq('wamid', wamid).single();
         if (row?.parent_dispatch_id) {
           const dispatchId = row.parent_dispatch_id;
+          // 'failed' do webhook = falha de ENTREGA (≠ falha de API, que já está em dispatches.failed)
           const field = status === 'delivered' ? 'delivered'
             : status === 'read' ? 'read'
-            : status === 'failed' ? 'failed' : null;
+            : status === 'failed' ? 'delivery_failed' : null;
           if (field) {
-            // Lê contadores e items atuais
             const { data: disp } = await supabase.from('dispatches')
-              .select('delivered,read,failed,items').eq('id', dispatchId).single();
+              .select('delivered,read,delivery_failed,items').eq('id', dispatchId).single();
             if (disp) {
               const newVal = ((disp[field]) || 0) + 1;
               const update = { [field]: newVal };
-              // Para falha de entrega: também marca o item em items[]
+              // Para falha de entrega: marca o item em items[]
               if (status === 'failed' && Array.isArray(disp.items)) {
                 update.items = disp.items.map(it =>
                   it.wamid === wamid
