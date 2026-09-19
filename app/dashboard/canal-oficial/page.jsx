@@ -1169,7 +1169,7 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
   const [err, setErr]           = useState("");
   const [done, setDone]         = useState(false);
   const [mediaFile, setMediaFile]   = useState(null);   // { file, previewUrl }
-  const [mediaHandle, setMediaHandle] = useState(null); // handle retornado pela Meta
+  const [mediaUrl, setMediaUrl]     = useState(null);   // URL pública no Supabase
   const [uploading, setUploading]   = useState(false);
   const mediaInputRef = useRef(null);
 
@@ -1183,7 +1183,7 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
     setFooter(p.footer);
     setBtn(p.btn);
     setMediaFile(null);
-    setMediaHandle(null);
+    setMediaUrl(null);
     setErr("");
   }
 
@@ -1191,14 +1191,14 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setMediaFile({ file, previewUrl: URL.createObjectURL(file) });
-    setMediaHandle(null);
+    setMediaUrl(null);
     setErr("");
     setUploading(true);
     try {
       const form = new FormData();
       form.append("file", file);
       const r = await api("/api/wpp-cloud/upload-media", { method: "POST", body: form, rawBody: true });
-      setMediaHandle(r.handle);
+      setMediaUrl(r.url);
     } catch (e) {
       setErr("Erro ao fazer upload da mídia: " + (e.message || "tente novamente"));
       setMediaFile(null);
@@ -1210,14 +1210,14 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
     const safeName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
     if (!safeName)    return setErr("Informe um nome para o template");
     if (!body.trim()) return setErr("O corpo da mensagem é obrigatório");
-    if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && !mediaHandle) {
+    if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && !mediaUrl) {
       return setErr("Aguarde o upload da mídia ou remova o header de mídia");
     }
     const components = [];
     if (headerType === "TEXT" && header.trim()) {
       components.push({ type: "HEADER", format: "TEXT", text: header.trim() });
-    } else if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && mediaHandle) {
-      components.push({ type: "HEADER", format: headerType, example: { header_handle: [mediaHandle] } });
+    } else if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && mediaUrl) {
+      components.push({ type: "HEADER", format: headerType, example: { header_url: [mediaUrl] } });
     }
     components.push({ type: "BODY", text: body.trim() });
     if (footer.trim()) components.push({ type: "FOOTER", text: footer.trim() });
@@ -1342,13 +1342,13 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
                       <div className="flex-1 min-w-0">
                         <div className="text-[12px] font-medium text-dash-ink truncate">{mediaFile.file.name}</div>
                         {uploading
-                          ? <div className="text-[11px] text-dash-faint flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Enviando para Meta…</div>
-                          : mediaHandle
+                          ? <div className="text-[11px] text-dash-faint flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Enviando…</div>
+                          : mediaUrl
                             ? <div className="text-[11px]" style={{ color: GREEN }}>✓ Upload concluído</div>
                             : <div className="text-[11px]" style={{ color: RED }}>Falha no upload</div>
                         }
                       </div>
-                      <button type="button" onClick={() => { setMediaFile(null); setMediaHandle(null); }}
+                      <button type="button" onClick={() => { setMediaFile(null); setMediaUrl(null); }}
                         className="size-6 rounded-full flex items-center justify-center hover:bg-dash-hover shrink-0">
                         <X className="size-3.5 text-dash-faint" />
                       </button>
