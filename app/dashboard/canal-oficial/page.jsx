@@ -1235,7 +1235,7 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
       if (/verification/i.test(msg)) {
         setErr("A Meta exige verificação empresarial para criar templates. Complete a verificação em business.facebook.com.");
       } else {
-        setErr(msg);
+        setErr(e.detail ? `${msg} — ${e.detail}` : msg);
       }
     } finally { setBusy(false); }
   }

@@ -2113,6 +2113,7 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
     if (!name || !category || !Array.isArray(components)) {
       return res.status(400).json({ error: 'name, category e components são obrigatórios' });
     }
+    console.log('[template/create] payload:', JSON.stringify({ name, language: language || 'pt_BR', category, components }));
     const r = await wppCloud.createTemplate(
       { token: c.access_token, businessAccountId: c.business_account_id },
       { name, language: language || 'pt_BR', category, components }
@@ -2120,8 +2121,10 @@ app.post('/api/wpp-cloud/templates', requireAuth, async (req, res) => {
     res.json(r);
     try { await supabase.from('wpp_cloud_logs').insert({ user_id: uid(req), action: 'template_created', result: 'ok', details: { name, category, language: language || 'pt_BR' } }); } catch {}
   } catch (e) {
+    console.error('[template/create] Meta error:', JSON.stringify(e.details || e.message));
     try { await supabase.from('wpp_cloud_logs').insert({ user_id: uid(req), action: 'template_created', result: 'error', error_msg: e.message }); } catch {}
-    res.status(400).json({ error: e.message });
+    const detail = e.details?.error_user_msg || e.details?.error_data?.details || e.message;
+    res.status(400).json({ error: e.message, detail });
   }
 });
 
