@@ -2201,11 +2201,13 @@ async function executeCloudTemplateDispatch(dispatchId, userId) {
       sent++;
       // Registra wamid → dispatch para rastrear entrega via webhook de status
       if (wamid) {
-        await supabase.from('cloud_message_status').upsert({
-          wamid, user_id: userId, phone: item.contactPhone,
-          status: 'sent', parent_dispatch_id: dispatchId,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'wamid' }).catch(() => {});
+        try {
+          await supabase.from('cloud_message_status').upsert({
+            wamid, user_id: userId, phone: item.contactPhone,
+            status: 'sent', parent_dispatch_id: dispatchId,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'wamid' });
+        } catch {}
       }
     } catch (e) {
       const errDetail = e.details ? ` | ${JSON.stringify(e.details)}` : '';
@@ -2724,7 +2726,7 @@ app.post('/api/sms/send', requireAuth, async (req, res) => {
       res.json({ ...r, segmentsCharged: cost, remainingCredits: remaining });
     } catch (sendErr) {
       // Falhou o envio — estorna os créditos consumidos
-      await supabase.rpc('add_paid_sms_credits', { p_user_id: uid(req), p_amount: cost }).catch(() => {});
+      try { await supabase.rpc('add_paid_sms_credits', { p_user_id: uid(req), p_amount: cost }); } catch {}
       throw sendErr;
     }
   } catch (e) {
@@ -2789,7 +2791,7 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
           updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString(), segments: charged };
           sent++;
           // Débito atômico (base primeiro, depois pago)
-          await supabase.rpc('consume_sms_credits', { p_user_id: _smsBulkUserId, p_amount: charged }).catch(() => {});
+          try { await supabase.rpc('consume_sms_credits', { p_user_id: _smsBulkUserId, p_amount: charged }); } catch {}
         } catch (e) {
           updated[i] = { ...updated[i], status: 'failed', error: e.message };
           failed++;
