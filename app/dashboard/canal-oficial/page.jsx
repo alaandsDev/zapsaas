@@ -1135,7 +1135,7 @@ const PRESETS = [
     name: "convite_teste_visao_cliente",
     category: "UTILITY",
     language: "pt_BR",
-    header: "Teste de Visão Gratuito 👁️",
+    header: "Teste de Visao Gratuito",
     body: `Olá, {{1}}! 👓\n\nComo você já é cliente da Ótica Visão de Todos, liberamos um convite especial para realizar um teste de visão gratuito aqui na loja.\n\nNão deixe para depois algo tão importante quanto a sua visão. 💙\n\nQuer agendar o seu teste?\n\n📍 R. Timbiras, 618 – Vila Tupi`,
     footer: "",
     btn: "QUERO AGENDAR",
@@ -1215,11 +1215,21 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
     }
     const components = [];
     if (headerType === "TEXT" && header.trim()) {
-      components.push({ type: "HEADER", format: "TEXT", text: header.trim() });
+      // Header TEXT não aceita emojis, asteriscos nem formatação
+      const safeHeader = header.trim().replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}*_~]/gu, "").trim();
+      if (!safeHeader) return setErr("O cabeçalho não pode conter apenas emojis — escreva um texto sem emojis");
+      components.push({ type: "HEADER", format: "TEXT", text: safeHeader });
     } else if (["IMAGE","VIDEO","DOCUMENT"].includes(headerType)) {
       components.push({ type: "HEADER", format: headerType });
     }
-    components.push({ type: "BODY", text: body.trim() });
+    // Detecta variáveis {{1}}, {{2}}... e gera example.body_text com valores de exemplo
+    const bodyVars = [...body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => parseInt(m[1]));
+    const maxVar = bodyVars.length ? Math.max(...bodyVars) : 0;
+    const bodyComp = { type: "BODY", text: body.trim() };
+    if (maxVar > 0) {
+      bodyComp.example = { body_text: [Array.from({ length: maxVar }, (_, i) => `Exemplo ${i + 1}`)] };
+    }
+    components.push(bodyComp);
     if (footer.trim()) components.push({ type: "FOOTER", text: footer.trim() });
     if (btn.trim())    components.push({ type: "BUTTONS", buttons: [{ type: "QUICK_REPLY", text: btn.trim() }] });
     setBusy(true);
@@ -1321,7 +1331,10 @@ function CreateTemplateModal({ open, onClose, onCreated }) {
                 ))}
               </div>
               {headerType === "TEXT" && (
-                <Input value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial 🎉" />
+                <>
+                  <Input value={header} onChange={(e) => setHeader(e.target.value)} placeholder="Ex: Oferta especial (sem emojis)" />
+                  <p className="text-[10px] text-dash-faint mt-1">Sem emojis, asteriscos ou formatação — a Meta não aceita no cabeçalho.</p>
+                </>
               )}
               {["IMAGE","VIDEO","DOCUMENT"].includes(headerType) && (
                 <div>
