@@ -57,11 +57,13 @@ const VERIFICATION = {
   rejected:     { label: "Rejeitada",      color: RED },
 };
 const TIER_LABEL = {
+  TIER_250:      "250 / dia",
+  TIER_500:      "500 / dia",
   TIER_1K:       "1.000 / dia",
+  TIER_2K:       "2.000 / dia",
   TIER_10K:      "10.000 / dia",
   TIER_100K:     "100.000 / dia",
   TIER_UNLIMITED:"Ilimitado",
-  TIER_250:      "250 / dia",
 };
 
 const CATEGORIES = ["MARKETING", "UTILITY", "AUTHENTICATION"];
