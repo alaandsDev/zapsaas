@@ -1128,6 +1128,18 @@ export default function CanalOficialPage() {
 /* ════════════════ MODELOS PRONTOS ════════════════ */
 const PRESETS = [
   {
+    label: "Receita Vencendo – Aviso",
+    tag: "UTILITY",
+    tagColor: BLUE,
+    name: "aviso_receita_vencendo",
+    category: "UTILITY",
+    language: "pt_BR",
+    header: "",
+    body: `Oi, {{1}}! 👓\n\nSua receita de oculos vence em {{2}}.\n\nReceitas tem validade de 12 meses — apos isso, qualquer novo oculos ou lente de contato exige uma nova avaliacao.\n\nNosso optometrista tem horario disponivel essa semana se quiser renovar antes do prazo.\n\n📍 Otica Visao de Todos · R. Timbiras, 618`,
+    footer: "Otica Visao de Todos · R. Timbiras, 618",
+    btn: "Agendar revisao",
+  },
+  {
     label: "Convite Teste de Visão",
     tag: "UTILITY",
     tagColor: BLUE,
