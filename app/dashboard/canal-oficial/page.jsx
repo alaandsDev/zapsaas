@@ -1128,6 +1128,18 @@ export default function CanalOficialPage() {
 /* ════════════════ MODELOS PRONTOS ════════════════ */
 const PRESETS = [
   {
+    label: "Pos-Venda 12 Meses",
+    tag: "UTILITY",
+    tagColor: BLUE,
+    name: "posvendas_revisao_12_meses",
+    category: "UTILITY",
+    language: "pt_BR",
+    header: "",
+    body: `Oi, {{1}}!\n\nIdentificamos que voce adquiriu seus oculos aqui na Otica Visao de Todos ha aproximadamente 12 meses.\n\nOculos com mais de um ano de uso costumam precisar de uma revisao de graduacao para manter a visao correta. 👓\n\nCaso queira agendar uma verificacao rapida, estamos a disposicao.\n\n📍 Otica Visao de Todos · R. Timbiras, 618`,
+    footer: "Otica Visao de Todos · R. Timbiras, 618",
+    btn: "Agendar verificacao",
+  },
+  {
     label: "Receita Vencendo – Aviso",
     tag: "UTILITY",
     tagColor: BLUE,
@@ -1135,9 +1147,9 @@ const PRESETS = [
     category: "UTILITY",
     language: "pt_BR",
     header: "",
-    body: `Oi, {{1}}! 👓\n\nSua receita de oculos vence em {{2}}.\n\nReceitas tem validade de 12 meses — apos isso, qualquer novo oculos ou lente de contato exige uma nova avaliacao.\n\nNosso optometrista tem horario disponivel essa semana se quiser renovar antes do prazo.\n\n📍 Otica Visao de Todos · R. Timbiras, 618`,
+    body: `Oi, {{1}}! 👓\n\nSua receita de oculos vence em {{2}}.\n\nReceitas tem validade de 12 meses — apos isso, qualquer novo oculos ou lente de contato exige uma nova avaliacao.\n\nCaso queira renovar antes do prazo, pode responder essa mensagem.\n\n📍 Otica Visao de Todos · R. Timbiras, 618`,
     footer: "Otica Visao de Todos · R. Timbiras, 618",
-    btn: "Agendar revisao",
+    btn: "Renovar receita",
   },
   {
     label: "Convite Teste de Visão",
