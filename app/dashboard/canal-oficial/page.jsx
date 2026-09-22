@@ -1206,6 +1206,18 @@ const PRESETS = [
     btn: "Reservar horario",
   },
   {
+    label: "Novidade pra Voce – Cliente",
+    tag: "UTILITY",
+    tagColor: BLUE,
+    name: "novidade_cliente_otica",
+    category: "UTILITY",
+    language: "pt_BR",
+    header: "",
+    body: `Oi, {{1}}! 👓\n\nVoce e cliente da Otica Visao de Todos e tenho uma novidade que pode te interessar.\n\nClique no botao abaixo para saber mais 👇`,
+    footer: "Otica Visao de Todos · R. Timbiras, 618",
+    btn: "Quero saber mais",
+  },
+  {
     label: "Oportunidade Exclusiva",
     tag: "MARKETING",
     tagColor: AMBER,
