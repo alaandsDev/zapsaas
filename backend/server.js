@@ -301,13 +301,15 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
             if (disp) {
               const newVal = ((disp[field]) || 0) + 1;
               const update = { [field]: newVal };
-              // Para falha de entrega: marca o item em items[]
+              // Para falha de entrega: marca o item em items[] (por wamid ou phone)
               if (status === 'failed' && Array.isArray(disp.items)) {
-                update.items = disp.items.map(it =>
-                  it.wamid === wamid
-                    ? { ...it, delivery_failed: true, delivery_error: st.errors?.[0]?.message || 'delivery failed' }
-                    : it
-                );
+                const errMsg = st.errors?.[0]?.message || 'delivery failed';
+                const phone = row.phone ? String(row.phone).replace(/\D/g, '') : null;
+                update.items = disp.items.map(it => {
+                  const itPhone = String(it.contactPhone || it.phone || '').replace(/\D/g, '');
+                  const match = it.wamid === wamid || (phone && itPhone.endsWith(phone)) || (phone && phone.endsWith(itPhone));
+                  return match ? { ...it, delivery_failed: true, delivery_error: errMsg } : it;
+                });
               }
               await supabase.from('dispatches').update(update).eq('id', dispatchId);
               sseSend(config.user_id, 'dispatch_status_update', {
@@ -1210,10 +1212,18 @@ app.post('/api/dispatches/:id/resend-failed', requireAuth, async (req, res) => {
       .select('*').eq('id', req.params.id).eq('user_id', uid(req)).single();
     if (!orig) return res.status(404).json({ error: 'Disparo não encontrado' });
 
-    // Filtra items que falharam (API ou entrega)
-    const failedItems = (req.body.items || orig.items || []).filter(
-      (i) => i.status === 'failed' || i.delivery_failed
-    );
+    // Busca phones com falha de entrega na cloud_message_status
+    const { data: failedStatus } = await supabase.from('cloud_message_status')
+      .select('phone').eq('parent_dispatch_id', orig.id).eq('status', 'failed');
+    const failedPhones = new Set((failedStatus || []).map(r => String(r.phone || '').replace(/\D/g, '')));
+
+    // Filtra items: falha de API (status=failed) OU phone está na lista de falha de entrega
+    const allItems = orig.items || [];
+    const failedItems = allItems.filter(i => {
+      if (i.status === 'failed' || i.delivery_failed) return true;
+      const p = String(i.contactPhone || i.phone || '').replace(/\D/g, '');
+      return failedPhones.has(p) || [...failedPhones].some(fp => p.endsWith(fp) || fp.endsWith(p));
+    });
     if (!failedItems.length) return res.status(400).json({ error: 'Nenhum contato com falha encontrado' });
 
     // Prepara items para o novo disparo (reseta status)
