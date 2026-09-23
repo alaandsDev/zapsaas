@@ -1130,10 +1130,13 @@ function ContactFileImport({ onContacts }) {
         const ni = headers.findIndex(h => h.includes("NOME") || h.includes("NAME"));
         const pi = headers.findIndex(h => h.includes("NUMERO") || h.includes("NUMBER") || h.includes("TELEFONE") || h.includes("PHONE"));
         if (pi === -1) throw new Error("Coluna NUMERO/TELEFONE não encontrada");
+        const extraCols = headers.map((h, i) => i !== ni && i !== pi ? { idx: i, key: h.toLowerCase() } : null).filter(Boolean);
         parsed = lines.slice(1).map(l => {
           const c = l.split(sep).map(x => x.trim().replace(/"/g, ""));
           const phone = (c[pi] || "").replace(/\D/g, "");
-          return { name: ni >= 0 ? (c[ni] || "") : "", phone };
+          const extra = {};
+          extraCols.forEach(({ idx, key }) => { if (c[idx] != null) extra[key] = c[idx]; });
+          return { name: ni >= 0 ? (c[ni] || "") : "", phone, ...extra };
         }).filter(r => r.phone.length >= 10);
       } else {
         if (!window.XLSX) {
@@ -1153,17 +1156,23 @@ function ContactFileImport({ onContacts }) {
         const ni = headers.findIndex(h => h.includes("NOME") || h.includes("NAME"));
         const pi = headers.findIndex(h => h.includes("NUMERO") || h.includes("NUMBER") || h.includes("TELEFONE") || h.includes("PHONE"));
         if (pi === -1) throw new Error("Coluna NUMERO/TELEFONE não encontrada");
-        parsed = raw.slice(1).filter(r => r[pi]).map(r => ({
-          name: ni >= 0 ? String(r[ni] || "").trim() : "",
-          phone: String(r[pi] || "").replace(/\D/g, ""),
-        })).filter(r => r.phone.length >= 10);
+        const extraCols = headers.map((h, i) => i !== ni && i !== pi ? { idx: i, key: h.toLowerCase() } : null).filter(Boolean);
+        parsed = raw.slice(1).filter(r => r[pi]).map(r => {
+          const extra = {};
+          extraCols.forEach(({ idx, key }) => { if (r[idx] != null) extra[key] = String(r[idx]).trim(); });
+          return {
+            name: ni >= 0 ? String(r[ni] || "").trim() : "",
+            phone: String(r[pi] || "").replace(/\D/g, ""),
+            ...extra,
+          };
+        }).filter(r => r.phone.length >= 10);
       }
       const seen = new Set();
       const valid = parsed.filter(r => { if (seen.has(r.phone)) return false; seen.add(r.phone); return true; });
       if (!valid.length) throw new Error("Nenhum contato válido. Verifique se os números têm DDD (11 dígitos com 55).");
       setStats({ total: parsed.length, valid: valid.length, dupes: parsed.length - valid.length });
       setInfo("");
-      onContacts(valid.map(r => ({ name: r.name || r.phone, phone: r.phone })));
+      onContacts(valid.map(r => ({ name: r.name || r.phone, phone: r.phone, ...Object.fromEntries(Object.entries(r).filter(([k]) => k !== "name" && k !== "phone")) })));
     } catch (e) {
       setErr(e.message); setInfo(""); setStats(null);
     }
@@ -1180,7 +1189,7 @@ function ContactFileImport({ onContacts }) {
         <FileText className="size-7 text-dash-faint mx-auto mb-2" />
         <div className="text-sm font-medium text-dash-ink">Clique ou arraste o arquivo</div>
         <div className="text-xs text-dash-faint mt-1">Excel (.xlsx) ou CSV (.csv)</div>
-        <div className="text-xs text-dash-faint">Coluna obrigatória: <strong>NUMERO</strong> · Opcional: <strong>NOME</strong></div>
+        <div className="text-xs text-dash-faint">Coluna obrigatória: <strong>NUMERO</strong> · Opcional: <strong>NOME</strong> + colunas extras (ex: HORARIO)</div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
           onChange={e => readFile(e.target.files?.[0])} />
       </div>
