@@ -1226,11 +1226,15 @@ app.post('/api/dispatches/:id/resend-failed', requireAuth, async (req, res) => {
     });
     if (!failedItems.length) return res.status(400).json({ error: 'Nenhum contato com falha encontrado' });
 
-    // Prepara items para o novo disparo (reseta status)
+    // Prepara items para o novo disparo (reseta status, preserva mídia e varNames)
+    const firstOrig = allItems[0] || {};
     const newItems = failedItems.map((i) => ({
       contactName: i.contactName || i.name || '',
       contactPhone: i.contactPhone || i.phone || '',
       vars: i.vars || [],
+      varNames: i.varNames || firstOrig.varNames || [],
+      headerMediaUrl: i.headerMediaUrl || firstOrig.headerMediaUrl || null,
+      headerMediaType: i.headerMediaType || firstOrig.headerMediaType || null,
       status: 'pending',
     }));
 
