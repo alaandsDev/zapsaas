@@ -1790,7 +1790,7 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
       const res = await fetch(`${API}/api/dispatches/${dispatch.id}/resend-failed`, {
         method: "POST",
         headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ items: failedItems }),
+        body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
