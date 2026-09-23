@@ -1781,9 +1781,9 @@ function DispatchDetailModal({ dispatch, onClose, onRefresh }) {
   }
 
   async function handleResendFailed() {
-    const failedItems = items.filter((i) => i.delivery_failed || i.status === "failed");
-    if (!failedItems.length) return;
-    if (!confirm(`Reenviar para ${failedItems.length} contato(s) com falha?`)) return;
+    const count = (dispatch.delivery_failed || 0) + failed;
+    if (!count) return;
+    if (!confirm(`Reenviar para ${count} contato(s) com falha?`)) return;
     setResendsLoading(true);
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "";
