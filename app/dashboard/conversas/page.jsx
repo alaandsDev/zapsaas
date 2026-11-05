@@ -430,7 +430,13 @@ export default function Conversas() {
         setAllChats((prev) => {
           const idx = prev.findIndex((c) => c.id === data.chatId);
           if (idx === -1) return prev;
-          const updated = { ...prev[idx], last_message: data.text, last_message_at: data.timestamp };
+          const updated = {
+            ...prev[idx],
+            last_message: data.text,
+            last_message_at: data.timestamp,
+            last_direction: data.direction,
+            ...(data.direction === "out" ? { last_message_status: "sent" } : {}),
+          };
           if (data.direction === "in" && activeChatRef.current?.id !== data.chatId) {
             updated.unread = (updated.unread || 0) + 1;
           }
@@ -481,6 +487,11 @@ export default function Conversas() {
       try {
         const { chatId, messageId, wa_id, status } = e.detail || {};
         if (!chatId || !status) return;
+        // Atualiza last_message_status na lista de conversas
+        setAllChats((prev) => prev.map((c) =>
+          c.id === chatId ? { ...c, last_message_status: status } : c
+        ));
+        // Atualiza status dentro do chat ativo
         const cur = activeChatRef.current;
         if (cur?.id !== chatId) return;
         setMsgs((prev) => prev.map((m) =>
