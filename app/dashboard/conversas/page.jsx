@@ -155,9 +155,12 @@ const ChatItem = memo(function ChatItem({ chat, isActive, showChannel, onClick }
         <div className="flex items-center justify-between gap-2 mt-1">
           <div className="flex items-center gap-1.5 min-w-0">
             {showChannel && <ChannelBadge slot={chat.slot} tiny />}
-            {chat.last_direction === "out" && (
-              <Check className="size-3 shrink-0 text-dash-green" title="Você enviou" />
-            )}
+            {chat.last_direction === "out" && (() => {
+              const s = chat.last_message_status;
+              if (s === "read")      return <CheckCheck className="size-3 shrink-0 text-blue-500" title="Lido" />;
+              if (s === "delivered") return <CheckCheck className="size-3 shrink-0 text-dash-faint" title="Recebido" />;
+              return <Check className="size-3 shrink-0 text-dash-faint" title="Enviado" />;
+            })()}
             <div className="text-xs text-dash-muted truncate">{chat.last_message || "—"}</div>
           </div>
           <div className="flex items-center gap-1 shrink-0">

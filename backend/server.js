@@ -277,6 +277,8 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
             .select('id,chat_id').eq('wa_id', wamid).eq('user_id', config.user_id).maybeSingle();
           if (chatMsg) {
             await supabase.from('chat_messages').update({ status: chatMsgStatus }).eq('id', chatMsg.id);
+            // Propaga status para last_message_status do chat (para checks na lista)
+            await supabase.from('chats').update({ last_message_status: chatMsgStatus }).eq('id', chatMsg.chat_id);
             sseSend(config.user_id, 'message_status', {
               chatId: chatMsg.chat_id,
               messageId: chatMsg.id,
@@ -3956,7 +3958,7 @@ app.get('/api/chats', requireAuth, async (req, res) => {
     }
 
     let q = supabase.from('chats')
-      .select('id, session_slot, phone, name, last_message, last_message_at, unread, profile_pic_url')
+      .select('id, session_slot, phone, name, last_message, last_message_at, last_direction, last_message_status, unread, profile_pic_url')
       .eq('user_id', uid(req))
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(200);
@@ -4082,7 +4084,7 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
         }).select('id').single();
         chat = created;
       } else {
-        await supabase.from('chats').update({ last_message: message, last_message_at: ts, last_direction: 'out', updated_at: ts }).eq('id', chat.id);
+        await supabase.from('chats').update({ last_message: message, last_message_at: ts, last_direction: 'out', last_message_status: 'sent', updated_at: ts }).eq('id', chat.id);
       }
       if (chat?.id) {
         const { error: insErr } = await supabase.from('chat_messages').insert({
@@ -4150,7 +4152,7 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
       }).select('id').single();
       chat = created;
     } else {
-      await supabase.from('chats').update({ last_message: lastPreview, last_message_at: ts, last_direction: 'out', updated_at: ts }).eq('id', chat.id);
+      await supabase.from('chats').update({ last_message: lastPreview, last_message_at: ts, last_direction: 'out', last_message_status: 'sent', updated_at: ts }).eq('id', chat.id);
     }
     if (chat?.id) {
       const { error: insErr } = await supabase.from('chat_messages').insert({
