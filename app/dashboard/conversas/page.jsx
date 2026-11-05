@@ -155,19 +155,20 @@ const ChatItem = memo(function ChatItem({ chat, isActive, showChannel, onClick }
         <div className="flex items-center justify-between gap-2 mt-1">
           <div className="flex items-center gap-1.5 min-w-0">
             {showChannel && <ChannelBadge slot={chat.slot} tiny />}
+            {chat.last_direction === "out" && (
+              <Check className="size-3 shrink-0 text-dash-green" title="Você enviou" />
+            )}
             <div className="text-xs text-dash-muted truncate">{chat.last_message || "—"}</div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {/* Micro indicadores */}
             {chat.is_ai    && <span title="Respondido por IA" className="text-[9px] text-dash-blue">⚡</span>}
             {chat.lead_id  && <span title="Com lead" className="text-[9px] text-dash-amber">🏷</span>}
-            {chat.unread > 0 ? (
+            {chat.unread > 0 && (
               <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-dash-green text-white text-[10px] font-bold flex items-center justify-center">
                 {chat.unread > 99 ? "99+" : chat.unread}
               </span>
-            ) : chat.last_direction === "out" ? (
-              <Check className="size-3 text-dash-faint" title="Respondido" />
-            ) : null}
+            )}
           </div>
         </div>
       </div>
