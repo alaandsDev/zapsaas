@@ -1235,6 +1235,7 @@ export default function Conversas() {
                   const prev    = msgs[i - 1];
                   const showDay = !prev || new Date(prev.timestamp).toDateString() !== new Date(m.timestamp).toDateString();
                   const out     = m.direction === "out";
+                  const prevSameDir = prev && prev.direction === m.direction;
                   return (
                     <div key={m.id || m.wa_id || i}>
                       {showDay && (
@@ -1242,6 +1243,11 @@ export default function Conversas() {
                           <span className="text-[10px] uppercase tracking-wider text-dash-faint bg-white border border-dash-border px-3 py-1 rounded-full">
                             {fmtDayHeader(m.timestamp)}
                           </span>
+                        </div>
+                      )}
+                      {!prevSameDir && (
+                        <div className={`text-[10px] font-semibold mb-0.5 px-1 ${out ? "text-right text-dash-green" : "text-left text-dash-blue"}`}>
+                          {out ? "Você" : (activeChat?.name || activeChat?.phone || "Cliente")}
                         </div>
                       )}
                       <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
