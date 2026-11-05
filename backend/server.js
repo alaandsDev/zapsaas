@@ -404,7 +404,7 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
           } else {
             await supabase.from('chats').update({
               name: pushName || undefined, last_message: preview, last_message_at: ts,
-              unread: (existing.unread || 0) + 1, updated_at: new Date().toISOString(),
+              unread: (existing.unread || 0) + 1, last_direction: 'in', updated_at: new Date().toISOString(),
             }).eq('id', chatId);
           }
 
@@ -3638,6 +3638,7 @@ wpp.on('message', async (evt) => {
         ...(contactName ? { name: contactName } : {}),
         last_message: lastMsg,
         last_message_at: ts,
+        last_direction: evt.fromMe ? 'out' : 'in',
         unread: evt.fromMe ? (existing.unread || 0) : (existing.unread || 0) + 1,
         updated_at: new Date().toISOString(),
       }).eq('id', chatId);
@@ -4081,7 +4082,7 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
         }).select('id').single();
         chat = created;
       } else {
-        await supabase.from('chats').update({ last_message: message, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
+        await supabase.from('chats').update({ last_message: message, last_message_at: ts, last_direction: 'out', updated_at: ts }).eq('id', chat.id);
       }
       if (chat?.id) {
         const { error: insErr } = await supabase.from('chat_messages').insert({
@@ -4149,7 +4150,7 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
       }).select('id').single();
       chat = created;
     } else {
-      await supabase.from('chats').update({ last_message: lastPreview, last_message_at: ts, updated_at: ts }).eq('id', chat.id);
+      await supabase.from('chats').update({ last_message: lastPreview, last_message_at: ts, last_direction: 'out', updated_at: ts }).eq('id', chat.id);
     }
     if (chat?.id) {
       const { error: insErr } = await supabase.from('chat_messages').insert({
