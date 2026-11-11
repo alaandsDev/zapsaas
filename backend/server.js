@@ -2658,9 +2658,9 @@ app.post('/api/workflows/:id/run', requireAuth, rateLimit(60 * 1000, 10), async 
 // ═══════════════════════════════════════════════════════════════
 
 const SMS_PACKAGES = {
-  sms_1000: { credits: 1000, amountCents: 7000,  label: '1.000 SMS por R$ 70,00' },
-  sms_2500: { credits: 2500, amountCents: 13000, label: '2.500 SMS por R$ 130,00' },
-  sms_5000: { credits: 5000, amountCents: 25000, label: '5.000 SMS por R$ 250,00' },
+  sms_1000: { credits: 1000, amountCents: 20000,  label: '1.000 SMS por R$ 200,00' },
+  sms_2500: { credits: 2500, amountCents: 50000,  label: '2.500 SMS por R$ 500,00' },
+  sms_5000: { credits: 5000, amountCents: 100000, label: '5.000 SMS por R$ 1.000,00' },
 };
 const SMS_BASE_GRANT = 1000; // créditos base por renovação
 
