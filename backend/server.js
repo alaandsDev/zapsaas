@@ -2825,13 +2825,15 @@ app.post('/api/sms/bulk', requireAuth, async (req, res) => {
             .replace(/\{nome\}/gi, name)
             .replace(/\{name\}/gi, name)
             .replace(/\{numero\}/gi, phoneStr);
-          await sms.sendSms(phoneStr, personalized);
+          const r = await sms.sendSms(phoneStr, personalized);
+          console.log(`[sms/bulk] ✅ ${phoneStr}:`, JSON.stringify(r));
           const charged = smsSegments(personalized);
           updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString(), segments: charged };
           sent++;
           // Débito atômico (base primeiro, depois pago)
           try { await supabase.rpc('consume_sms_credits', { p_user_id: _smsBulkUserId, p_amount: charged }); } catch {}
         } catch (e) {
+          console.error(`[sms/bulk] ❌ ${phoneStr}:`, e.message);
           updated[i] = { ...updated[i], status: 'failed', error: e.message };
           failed++;
         }
