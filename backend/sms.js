@@ -13,20 +13,26 @@ async function sendComtele(to, text) {
   const sender = process.env.COMTELE_SENDER || '';
   if (!key) throw new Error('COMTELE_AUTH_KEY não configurada');
 
-  const res = await fetch('https://sms.comtele.com.br/api/v2/send', {
+  const route = parseInt(process.env.COMTELE_ROUTE || '17', 10);
+  const res = await fetch('https://api.comtele.com.br/messages/sms/send', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'auth-key': key },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key },
     body: JSON.stringify({
-      Sender: sender || undefined,
-      Receivers: clean(to),
-      Content: String(text).slice(0, 480),
+      receivers: [Number(clean(to))],
+      contactGroups: [],
+      message: String(text).slice(0, 480),
+      route,
+      tag: 'wayvo',
+      custom: '',
+      scheduleDate: null,
+      ...(sender ? { sourceAddress: Number(sender) } : {}),
     }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data?.Success === false) {
-    throw new Error(data?.Message || `Comtele HTTP ${res.status}`);
+  if (!res.ok || data?.hasError === true) {
+    throw new Error((data?.errors?.[0]) || data?.message || `Comtele HTTP ${res.status}`);
   }
-  return { id: data?.Object || null, status: 'sent' };
+  return { id: data?.object?.requestId || null, status: 'sent' };
 }
 
 function provider() {
