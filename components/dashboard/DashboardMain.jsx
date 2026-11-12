@@ -11,6 +11,7 @@ const LIGHT_ROUTES = [
   "/dashboard/vendas",
   "/dashboard/campanhas",
   "/dashboard/sms",
+  "/dashboard/email",
   "/dashboard/agente-ia",
   "/dashboard/canais",
   "/dashboard/canal-oficial",

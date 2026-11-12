@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, MessageSquare, Users, DollarSign, Megaphone,
   Radio, BadgeCheck, LifeBuoy, Pin, Sparkles, Bot,
-  MoreHorizontal, Kanban,
+  MoreHorizontal, Kanban, Mail,
 } from "lucide-react";
 import { api, getRole } from "../../lib/api";
 
@@ -33,6 +33,7 @@ const SECTIONS = [
     items: [
       { href: "/dashboard/campanhas", label: "Campanhas", Icon: Megaphone },
       { href: "/dashboard/sms", label: "SMS", Icon: MessageSquare },
+      { href: "/dashboard/email", label: "E-mail", Icon: Mail },
       { href: "/dashboard/agente-ia", label: "Agente de IA", Icon: Bot, highlight: true },
     ],
   },

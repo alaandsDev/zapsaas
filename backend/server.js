@@ -9,6 +9,7 @@ const workflowEngine = require('./workflow-engine');
 const wppCloud = require('./whatsapp_cloud');
 const ycloud = require('./ycloud');
 const sms = require('./sms'); // camada de provedor (comtele | zenvia)
+const emailProvider = require('./email');
 const Stripe = require('stripe');
 const cron = require('node-cron');
 const { sendEmail, sendWelcome, sendCampaignCompleted, sendSessionDisconnected } = require('./email');
@@ -121,7 +122,6 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       // Compra de pacote SMS (one-time)
       if (meta.type === 'sms_package' && meta.userId && meta.credits) {
         const credits = parseInt(meta.credits, 10);
-        // Idempotência: marca purchase como paid; só credita se ainda não creditou
         const { data: purchase } = await supabase
           .from('sms_purchases')
           .select('id, status')
@@ -131,9 +131,25 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           await supabase.from('sms_purchases').update({
             status: 'paid', paid_at: new Date().toISOString()
           }).eq('id', purchase.id);
-          // Créditos COMPRADOS vão para o balde pago (nunca resetam)
           await supabase.rpc('add_paid_sms_credits', { p_user_id: meta.userId, p_amount: credits });
           console.log(`[stripe] ✅ +${credits} SMS (pago) creditados para user ${meta.userId}`);
+        }
+      }
+
+      // Compra de pacote Email (one-time)
+      if (meta.type === 'email_package' && meta.userId && meta.credits) {
+        const credits = parseInt(meta.credits, 10);
+        const { data: purchase } = await supabase
+          .from('email_purchases')
+          .select('id, status')
+          .eq('stripe_session_id', session.id)
+          .single();
+        if (purchase && purchase.status !== 'paid') {
+          await supabase.from('email_purchases').update({
+            status: 'paid', paid_at: new Date().toISOString()
+          }).eq('id', purchase.id);
+          await supabase.rpc('add_paid_email_credits', { p_user_id: meta.userId, p_amount: credits });
+          console.log(`[stripe] ✅ +${credits} Email (pago) creditados para user ${meta.userId}`);
         }
       }
 
@@ -2858,6 +2874,171 @@ app.get('/api/sms/dispatches', requireAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('sms_dispatches')
       .select('id, title, total, sent, failed, status, created_at, finished_at')
+      .eq('user_id', uid(req))
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// EMAIL MARKETING — Resend (créditos pré-pagos)
+// ═══════════════════════════════════════════════════════════════
+
+const EMAIL_PACKAGES = {
+  email_10k:  { credits: 10000,  amountCents: 5000,  label: '10.000 e-mails por R$ 50,00' },
+  email_50k:  { credits: 50000,  amountCents: 20000, label: '50.000 e-mails por R$ 200,00' },
+  email_100k: { credits: 100000, amountCents: 35000, label: '100.000 e-mails por R$ 350,00' },
+};
+
+// Saldo + pacotes
+app.get('/api/email/balance', requireAuth, async (req, res) => {
+  try {
+    const { data: u } = await supabase.from('users')
+      .select('email_credits_base, email_credits_paid').eq('id', uid(req)).single();
+    const base = u?.email_credits_base || 0;
+    const paid = u?.email_credits_paid || 0;
+    res.json({
+      credits: base + paid,
+      base, paid,
+      packages: Object.entries(EMAIL_PACKAGES).map(([id, p]) => ({ id, ...p }))
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Checkout Stripe
+app.post('/api/email/purchase', requireAuth, async (req, res) => {
+  try {
+    const { packageId } = req.body;
+    const pkg = EMAIL_PACKAGES[packageId];
+    if (!pkg) return res.status(400).json({ error: 'Pacote inválido' });
+
+    const { data: user } = await supabase.from('users').select('*').eq('id', uid(req)).single();
+
+    let customerId = user.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email, name: user.name, metadata: { userId: user.id } });
+      customerId = customer.id;
+      await supabase.from('users').update({ stripe_customer_id: customerId }).eq('id', user.id);
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'brl',
+          product_data: { name: `Wayvo — ${pkg.label}`, description: 'Créditos de e-mail (não expira)' },
+          unit_amount: pkg.amountCents,
+        },
+        quantity: 1
+      }],
+      metadata: {
+        type: 'email_package',
+        userId: user.id,
+        packageId,
+        credits: String(pkg.credits)
+      },
+      success_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/dashboard/email?paid=1`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://www.wayvo.app.br'}/dashboard/email?cancelled=1`,
+    });
+
+    await supabase.from('email_purchases').insert({
+      user_id: user.id,
+      package_id: packageId,
+      amount_cents: pkg.amountCents,
+      credits: pkg.credits,
+      stripe_session_id: session.id,
+      status: 'pending'
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('[email/purchase]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Disparo em massa
+app.post('/api/email/bulk', requireAuth, async (req, res) => {
+  try {
+    const { contacts, subject, html, title, delaySeconds } = req.body;
+    if (!subject || !html || !Array.isArray(contacts) || !contacts.length) {
+      return res.status(400).json({ error: 'Assunto, corpo HTML e contatos obrigatórios' });
+    }
+
+    const { data: u } = await supabase.from('users').select('email_credits_base, email_credits_paid').eq('id', uid(req)).single();
+    const balance = (u?.email_credits_base || 0) + (u?.email_credits_paid || 0);
+    if (balance < contacts.length) {
+      return res.status(402).json({
+        error: `Saldo insuficiente: ${balance} crédito(s), precisa ${contacts.length}`,
+        code: 'NO_EMAIL_CREDITS', balance, needed: contacts.length
+      });
+    }
+
+    const items = contacts.map(c => ({ email: c.email, name: c.name || null, status: 'pending' }));
+
+    const { data: dispatch, error } = await supabase.from('email_dispatches').insert({
+      user_id: uid(req),
+      title: title || `Email ${new Date().toLocaleDateString('pt-BR')}`,
+      subject,
+      total: contacts.length,
+      status: 'sending',
+      items
+    }).select().single();
+    if (error) throw error;
+
+    res.json({ dispatchId: dispatch.id, total: contacts.length, message: 'Disparo iniciado!' });
+
+    // Background
+    const _userId = uid(req);
+    (async () => {
+      const delayMs = Math.max(200, (Number(delaySeconds) || 0.5) * 1000);
+      const updated = [...items];
+      let sent = 0, failed = 0;
+      for (let i = 0; i < contacts.length; i++) {
+        const c = contacts[i];
+        try {
+          const personalizedHtml = String(html)
+            .replace(/\{nome\}/gi, c.name || '')
+            .replace(/\{name\}/gi, c.name || '')
+            .replace(/\{email\}/gi, c.email || '');
+          const personalizedSubject = String(subject)
+            .replace(/\{nome\}/gi, c.name || '')
+            .replace(/\{name\}/gi, c.name || '');
+          await emailProvider.sendEmail({ to: c.email, subject: personalizedSubject, html: personalizedHtml });
+          console.log(`[email/bulk] ✅ ${c.email}`);
+          updated[i] = { ...updated[i], status: 'sent', sentAt: new Date().toISOString() };
+          sent++;
+          try { await supabase.rpc('consume_email_credits', { p_user_id: _userId, p_amount: 1 }); } catch {}
+        } catch (e) {
+          console.error(`[email/bulk] ❌ ${c.email}:`, e.message);
+          updated[i] = { ...updated[i], status: 'failed', error: e.message };
+          failed++;
+        }
+        if (i % 10 === 0) {
+          await supabase.from('email_dispatches').update({ sent, failed, items: updated }).eq('id', dispatch.id);
+        }
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+      await supabase.from('email_dispatches').update({
+        sent, failed, status: 'completed', items: updated, finished_at: new Date().toISOString()
+      }).eq('id', dispatch.id);
+    })();
+  } catch (e) {
+    console.error('[email/bulk]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Histórico
+app.get('/api/email/dispatches', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('email_dispatches')
+      .select('id, title, subject, total, sent, failed, status, created_at, finished_at')
       .eq('user_id', uid(req))
       .order('created_at', { ascending: false })
       .limit(50);
