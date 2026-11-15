@@ -8,7 +8,7 @@ export default function LinkArena() {
       justifyContent: "center",
     }}>
       <a
-        href="https://arenasete.com/a/F7X3EV7?c=facebook"
+        href="https://arenasete.com/a/F7X3EV7?c=facebook&para=/esportes%3Fdestaque%3D4"
         style={{
           display: "inline-block",
           background: "#2ea84f",
