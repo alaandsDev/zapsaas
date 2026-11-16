@@ -3,24 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Arena Sete — Plataforma de Entretenimento Esportivo</title>
-  <meta property="og:title" content="Arena Sete — Entretenimento Esportivo" />
-  <meta property="og:description" content="Explore os melhores mercados esportivos com odds competitivas e transmissões ao vivo." />
+  <title>Arena Sete — Sua Experiência Esportiva</title>
+  <meta property="og:title" content="Arena Sete — Sua Experiência Esportiva" />
+  <meta property="og:description" content="Cobertura esportiva completa, ao vivo e onde você estiver." />
   <meta property="og:image" content="arena-sete-logo.png" />
   <link rel="icon" href="arena-sete-logo.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,700;0,800;0,900;1,800;1,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --orange:       #f97316;
-      --orange-light: #fb923c;
-      --orange-bright:#ff6b00;
-      --orange-dark:  #c2410c;
-      --bg:           #070708;
-      --card:         rgba(255,255,255,0.04);
-      --border:       rgba(249,115,22,0.22);
+      --orange-soft:  #fb923c;
+      --orange-muted: rgba(249,115,22,0.15);
+      --bg:           #09090b;
+      --surface:      rgba(255,255,255,0.04);
+      --border:       rgba(255,255,255,0.08);
+      --border-o:     rgba(249,115,22,0.18);
+      --text-muted:   #71717a;
+      --text-soft:    #a1a1aa;
     }
 
     body {
@@ -31,204 +33,186 @@
       overflow-x: hidden;
     }
 
-    .bg-glow-top {
+    /* Soft background glow — não agressivo */
+    .bg-glow {
       position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background: radial-gradient(ellipse 100% 55% at 50% -5%, rgba(249,115,22,.2) 0%, transparent 65%);
-    }
-    .bg-glow-bottom {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background: radial-gradient(ellipse 60% 40% at 50% 110%, rgba(249,115,22,.08) 0%, transparent 70%);
-    }
-    .bg-grid {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .025;
-      background-image: linear-gradient(rgba(249,115,22,1) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(249,115,22,1) 1px, transparent 1px);
-      background-size: 44px 44px;
+      background:
+        radial-gradient(ellipse 80% 45% at 50% 0%, rgba(249,115,22,.1) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 30% at 20% 80%, rgba(249,115,22,.05) 0%, transparent 55%);
     }
 
-    /* Marquee */
-    .marquee-wrap {
+    /* Header strip — sutil */
+    .header-strip {
       position: relative; z-index: 1;
-      background: rgba(249,115,22,.1);
-      border-bottom: 1px solid rgba(249,115,22,.22);
-      padding: 9px 0; overflow: hidden;
+      background: rgba(249,115,22,.07);
+      border-bottom: 1px solid rgba(249,115,22,.12);
+      padding: 10px 0; overflow: hidden;
     }
-    .marquee-track { display: flex; width: max-content; animation: marquee 24s linear infinite; }
+    .marquee-track { display: flex; width: max-content; animation: marquee 28s linear infinite; }
     .marquee-item {
-      padding: 0 28px; font-size: .68rem; font-weight: 800;
-      letter-spacing: .14em; color: var(--orange-light); white-space: nowrap;
+      padding: 0 32px; font-size: .68rem; font-weight: 600;
+      letter-spacing: .1em; color: var(--text-soft); white-space: nowrap;
     }
+    .marquee-item span { color: var(--orange-soft); margin-right: 6px; }
 
+    /* Layout */
     .container {
       position: relative; z-index: 1;
       display: flex; flex-direction: column; align-items: center;
-      padding: 52px 20px 40px; max-width: 500px; margin: 0 auto;
+      padding: 56px 24px 48px; max-width: 480px; margin: 0 auto;
     }
 
     /* Logo */
     .logo-wrap {
-      position: relative; width: 180px; height: 180px;
-      margin-bottom: 22px;
-      animation: float 4s ease-in-out infinite;
+      position: relative; width: 160px; height: 160px;
+      margin-bottom: 28px;
+      animation: float 5s ease-in-out infinite;
     }
-    .logo-ring {
-      position: absolute; inset: -8px; border-radius: 50%;
-      background: conic-gradient(from 0deg, #f97316, #fb923c, #7c2d12, #f97316);
-      animation: pulse-orange 2.5s ease-in-out infinite; opacity: .7;
+    .logo-shadow {
+      position: absolute; inset: -16px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(249,115,22,.18) 0%, transparent 70%);
     }
-    .logo-bg { position: absolute; inset: -3px; border-radius: 50%; background: var(--bg); }
     .logo-img {
       position: relative; z-index: 1;
       width: 100%; height: 100%; border-radius: 50%;
-      object-fit: cover; border: 2px solid rgba(249,115,22,.5);
+      object-fit: cover;
+      border: 1.5px solid rgba(249,115,22,.3);
     }
-
-    /* Live badge */
-    .live-badge {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(0,0,0,.55); border: 1px solid rgba(249,115,22,.4);
-      border-radius: 50px; padding: 5px 16px; margin-bottom: 16px;
-      animation: fadeUp .6s .1s both;
-    }
-    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: live-dot 1.2s ease infinite; }
-    .live-text { font-size: .72rem; font-weight: 800; letter-spacing: .12em; color: var(--orange-light); }
 
     /* Brand */
-    .brand-wrap { text-align: center; margin-bottom: 8px; animation: fadeUp .6s .15s both; }
+    .brand-wrap { text-align: center; margin-bottom: 20px; animation: fadeUp .7s .1s both; }
     .brand-name {
-      font-size: 2.4rem; font-weight: 900; letter-spacing: .03em; line-height: 1;
-      text-shadow: 0 2px 24px rgba(0,0,0,.8);
+      font-size: 2rem; font-weight: 800; letter-spacing: .02em; line-height: 1.1;
     }
-    .brand-orange { color: var(--orange-light); font-style: italic; }
-    .brand-sub { font-size: .72rem; font-weight: 700; letter-spacing: .18em; color: #4b5563; text-transform: uppercase; margin-top: 6px; }
+    .brand-accent { color: var(--orange-soft); }
+    .brand-sub {
+      font-size: .78rem; font-weight: 500; letter-spacing: .1em;
+      color: var(--text-muted); text-transform: uppercase; margin-top: 6px;
+    }
 
-    .official-badge {
-      background: rgba(0,0,0,.45); border: 1px solid rgba(249,115,22,.35);
-      border-radius: 50px; padding: 6px 18px; margin: 14px 0 24px;
-      font-size: .7rem; font-weight: 800; letter-spacing: .12em; color: #fdba74;
-      animation: fadeUp .6s .2s both;
+    /* Tag */
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 50px; padding: 5px 14px; margin-bottom: 24px;
+      font-size: .7rem; font-weight: 600; color: var(--text-soft);
+      letter-spacing: .06em;
+      animation: fadeUp .7s .15s both;
     }
+    .tag-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); animation: live-dot 2s ease infinite; }
 
     /* Headline */
-    .headline { text-align: center; margin-bottom: 28px; animation: fadeUp .6s .25s both; }
-    .hl-line { font-size: 1.7rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; line-height: 1.15; text-shadow: 0 2px 20px rgba(0,0,0,.7); }
-    .hl-orange { color: var(--orange-light); font-style: italic; text-shadow: 0 0 32px rgba(249,115,22,.5); }
+    .headline { text-align: center; margin-bottom: 32px; animation: fadeUp .7s .2s both; }
+    .hl-main { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+    .hl-sub { font-size: 1rem; font-weight: 500; color: var(--text-soft); margin-top: 8px; line-height: 1.5; }
 
     /* CTA */
-    .cta-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; animation: fadeUp .6s .3s both; }
-    .btn-main {
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      background: linear-gradient(135deg, #fb923c 0%, #f97316 45%, #c2410c 100%);
-      color: #fff; font-weight: 900; font-size: 1.1rem;
-      letter-spacing: .1em; text-transform: uppercase;
-      padding: 1.1rem 2rem; border-radius: 14px; border: none;
-      cursor: pointer; width: 100%; max-width: 420px; text-decoration: none;
-      box-shadow: 0 4px 32px rgba(249,115,22,.5), 0 1px 0 rgba(255,255,255,.15) inset;
-      animation: pulse-orange 2.5s ease-in-out infinite;
-      transition: transform .15s;
+    .cta-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; animation: fadeUp .7s .25s both; }
+
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      background: var(--orange);
+      color: #fff; font-weight: 700; font-size: 1rem;
+      letter-spacing: .05em;
+      padding: 1rem 2rem; border-radius: 12px; border: none;
+      cursor: pointer; width: 100%; max-width: 400px; text-decoration: none;
+      box-shadow: 0 2px 20px rgba(249,115,22,.3);
+      transition: background .2s, transform .15s, box-shadow .2s;
     }
-    .btn-main:hover { transform: scale(1.02); }
-    .btn-main:active { transform: scale(.98); }
-    .btn-hint { font-size: .74rem; color: #6b7280; }
+    .btn-primary:hover { background: var(--orange-soft); transform: translateY(-1px); box-shadow: 0 4px 28px rgba(249,115,22,.4); }
+    .btn-primary:active { transform: translateY(0); }
 
-    .divider { width: 100%; height: 1px; background: linear-gradient(90deg, transparent, rgba(249,115,22,.3), transparent); margin: 40px 0; }
+    .btn-hint { font-size: .73rem; color: var(--text-muted); }
 
-    /* Sports pills */
-    .sports-strip { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 36px; animation: fadeUp .6s .32s both; }
-    .sport-pill {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 50px; padding: 5px 14px;
-      font-size: .7rem; font-weight: 700; color: #d1d5db; letter-spacing: .06em;
+    /* Divider */
+    .divider { width: 100%; height: 1px; background: var(--border); margin: 40px 0; }
+
+    /* Sport tags */
+    .sports-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 36px; animation: fadeUp .7s .3s both; }
+    .sport-tag {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 14px;
+      font-size: .75rem; font-weight: 500; color: var(--text-soft);
     }
 
     /* Features */
-    .features { width: 100%; display: flex; flex-direction: column; gap: 12px; animation: fadeUp .6s .35s both; }
-    .feature-card {
-      display: flex; gap: 16px; align-items: flex-start;
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 18px 20px; transition: border-color .2s;
+    .features { width: 100%; display: flex; flex-direction: column; gap: 10px; animation: fadeUp .7s .32s both; }
+    .feature-item {
+      display: flex; gap: 14px; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 18px;
     }
-    .feature-card:hover { border-color: rgba(249,115,22,.45); }
-    .feature-icon {
-      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-      background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.22);
-      display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+    .fi-icon {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      background: var(--orange-muted); border: 1px solid var(--border-o);
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
     }
-    .feature-tag { font-size: .6rem; color: var(--orange); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 3px; }
-    .feature-title { font-size: .95rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
-    .feature-desc { font-size: .8rem; color: #9ca3af; margin-top: 3px; line-height: 1.5; }
+    .fi-title { font-size: .88rem; font-weight: 700; }
+    .fi-desc { font-size: .77rem; color: var(--text-soft); margin-top: 2px; line-height: 1.4; }
 
-    /* Second CTA */
+    /* Second CTA — clean card */
     .cta2 {
       width: 100%;
-      background: linear-gradient(135deg, rgba(249,115,22,.09), rgba(124,45,18,.06));
-      border: 1px solid rgba(249,115,22,.22);
-      border-radius: 20px; padding: 32px 24px;
-      margin-top: 40px; text-align: center;
-      animation: fadeUp .6s .4s both;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 22px;
+      margin-top: 36px; text-align: center;
+      animation: fadeUp .7s .38s both;
     }
-    .cta2-tag { font-size: .65rem; color: var(--orange); font-weight: 800; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 10px; }
-    .cta2-title { font-size: 1.25rem; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; line-height: 1.25; }
-    .cta2-sub { font-size: .82rem; color: #6b7280; margin: 12px 0 24px; line-height: 1.6; }
-    .btn-outline {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      background: transparent; border: 2px solid var(--orange); color: var(--orange);
-      font-weight: 900; font-size: 1rem; letter-spacing: .08em; text-transform: uppercase;
-      padding: .9rem 2rem; border-radius: 14px;
-      width: 100%; max-width: 420px; text-decoration: none;
-      margin: 0 auto; transition: all .2s;
+    .cta2-eyebrow { font-size: .65rem; font-weight: 700; letter-spacing: .12em; color: var(--orange); text-transform: uppercase; margin-bottom: 8px; }
+    .cta2-title { font-size: 1.15rem; font-weight: 800; line-height: 1.3; }
+    .cta2-sub { font-size: .8rem; color: var(--text-muted); margin: 10px 0 22px; line-height: 1.6; }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: transparent; border: 1.5px solid rgba(249,115,22,.4); color: var(--orange-soft);
+      font-weight: 700; font-size: .9rem; letter-spacing: .04em;
+      padding: .85rem 2rem; border-radius: 10px;
+      width: 100%; max-width: 360px; text-decoration: none;
+      transition: all .2s;
     }
-    .btn-outline:hover { background: rgba(249,115,22,.1); box-shadow: 0 0 24px rgba(249,115,22,.25); }
+    .btn-ghost:hover { background: var(--orange-muted); border-color: var(--orange); }
 
     /* Responsible */
     .responsible {
-      margin-top: 28px; width: 100%;
-      background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
-      border-radius: 12px; padding: 14px 16px;
-      display: flex; gap: 10px; align-items: flex-start;
-      animation: fadeUp .6s .45s both;
+      margin-top: 24px; width: 100%;
+      background: rgba(255,255,255,.02); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+      animation: fadeUp .7s .42s both;
     }
-    .responsible-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
-    .responsible-text { font-size: .72rem; color: #6b7280; line-height: 1.6; }
-    .responsible-text strong { color: #9ca3af; }
+    .responsible p { font-size: .71rem; color: var(--text-muted); line-height: 1.65; }
+    .responsible strong { color: var(--text-soft); font-weight: 600; }
 
-    .footer { margin-top: 28px; font-size: .68rem; color: #374151; text-align: center; line-height: 1.7; }
+    .footer { margin-top: 24px; font-size: .67rem; color: #3f3f46; text-align: center; line-height: 1.7; }
 
     @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-    @keyframes pulse-orange {
-      0%,100% { box-shadow: 0 4px 32px rgba(249,115,22,.45); }
-      50%      { box-shadow: 0 4px 56px rgba(249,115,22,.75), 0 0 80px rgba(249,115,22,.2); }
-    }
-    @keyframes live-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
-    @keyframes fadeUp { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes live-dot { 0%,100%{opacity:1} 50%{opacity:.2} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
   </style>
 </head>
 <body>
 
-  <div class="bg-glow-top"></div>
-  <div class="bg-glow-bottom"></div>
-  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
 
-  <!-- Marquee -->
-  <div class="marquee-wrap">
+  <!-- Header strip -->
+  <div class="header-strip">
     <div class="marquee-track">
-      <span class="marquee-item">⚽ FUTEBOL</span>
-      <span class="marquee-item">🏀 BASQUETE</span>
-      <span class="marquee-item">🎾 TÊNIS</span>
-      <span class="marquee-item">🏈 AMERICANO</span>
-      <span class="marquee-item">⚡ AO VIVO</span>
-      <span class="marquee-item">🏆 ODDS COMPETITIVAS</span>
-      <span class="marquee-item">🥊 MMA & UFC</span>
-      <span class="marquee-item">🏐 VÔLEI</span>
-      <span class="marquee-item">⚽ FUTEBOL</span>
-      <span class="marquee-item">🏀 BASQUETE</span>
-      <span class="marquee-item">🎾 TÊNIS</span>
-      <span class="marquee-item">🏈 AMERICANO</span>
-      <span class="marquee-item">⚡ AO VIVO</span>
-      <span class="marquee-item">🏆 ODDS COMPETITIVAS</span>
-      <span class="marquee-item">🥊 MMA & UFC</span>
-      <span class="marquee-item">🏐 VÔLEI</span>
+      <span class="marquee-item"><span>⚽</span> Futebol</span>
+      <span class="marquee-item"><span>🏀</span> Basquete</span>
+      <span class="marquee-item"><span>🎾</span> Tênis</span>
+      <span class="marquee-item"><span>🥊</span> MMA & UFC</span>
+      <span class="marquee-item"><span>🏈</span> Futebol Americano</span>
+      <span class="marquee-item"><span>🏐</span> Vôlei</span>
+      <span class="marquee-item"><span>🏊</span> Natação</span>
+      <span class="marquee-item"><span>🏋️</span> Lutas</span>
+      <span class="marquee-item"><span>⚽</span> Futebol</span>
+      <span class="marquee-item"><span>🏀</span> Basquete</span>
+      <span class="marquee-item"><span>🎾</span> Tênis</span>
+      <span class="marquee-item"><span>🥊</span> MMA & UFC</span>
+      <span class="marquee-item"><span>🏈</span> Futebol Americano</span>
+      <span class="marquee-item"><span>🏐</span> Vôlei</span>
+      <span class="marquee-item"><span>🏊</span> Natação</span>
+      <span class="marquee-item"><span>🏋️</span> Lutas</span>
     </div>
   </div>
 
@@ -236,112 +220,103 @@
 
     <!-- Logo -->
     <div class="logo-wrap">
-      <div class="logo-ring"></div>
-      <div class="logo-bg"></div>
+      <div class="logo-shadow"></div>
       <img class="logo-img" src="arena-sete-logo.png" alt="Arena Sete" />
-    </div>
-
-    <!-- Live badge -->
-    <div class="live-badge">
-      <div class="live-dot"></div>
-      <span class="live-text">EVENTOS AO VIVO AGORA</span>
     </div>
 
     <!-- Brand -->
     <div class="brand-wrap">
-      <div class="brand-name">ARENA <span class="brand-orange">SETE</span></div>
-      <div class="brand-sub">Entretenimento Esportivo</div>
+      <div class="brand-name">Arena <span class="brand-accent">Sete</span></div>
+      <div class="brand-sub">Sua experiência esportiva</div>
     </div>
 
-    <div class="official-badge">🏆 PLATAFORMA OFICIAL</div>
+    <!-- Tag -->
+    <div class="tag">
+      <div class="tag-dot"></div>
+      Eventos ao vivo agora
+    </div>
 
     <!-- Headline -->
     <div class="headline">
-      <div class="hl-line">EXPLORE OS MELHORES</div>
-      <div class="hl-line hl-orange">MERCADOS ESPORTIVOS</div>
+      <div class="hl-main">Tudo do esporte<br>em um só lugar</div>
+      <div class="hl-sub">Acompanhe os eventos que você ama com cobertura completa e fácil acesso.</div>
     </div>
 
     <!-- Main CTA -->
     <div class="cta-wrap">
-      <a class="btn-main" href="https://arenasete.com/a/F7X3EV7?c=facebook&para=/esportes%3Fdestaque%3D4" target="_blank" rel="noopener">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/>
+      <a class="btn-primary" href="https://arenasete.com/a/F7X3EV7?c=facebook&para=/esportes%3Fdestaque%3D4" target="_blank" rel="noopener">
+        Acessar agora
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
         </svg>
-        ACESSAR PLATAFORMA
       </a>
-      <div class="btn-hint">Acesso rápido e seguro, sem complicações.</div>
+      <div class="btn-hint">Acesso gratuito · Sem cadastro complicado</div>
     </div>
 
     <div class="divider"></div>
 
-    <!-- Sports pills -->
-    <div class="sports-strip">
-      <span class="sport-pill">⚽ Futebol</span>
-      <span class="sport-pill">🏀 Basquete</span>
-      <span class="sport-pill">🎾 Tênis</span>
-      <span class="sport-pill">🥊 MMA</span>
-      <span class="sport-pill">🏈 Americano</span>
-      <span class="sport-pill">🏐 Vôlei</span>
-      <span class="sport-pill">+ muito mais</span>
+    <!-- Sports tags -->
+    <div class="sports-row">
+      <span class="sport-tag">⚽ Futebol</span>
+      <span class="sport-tag">🏀 Basquete</span>
+      <span class="sport-tag">🎾 Tênis</span>
+      <span class="sport-tag">🥊 MMA</span>
+      <span class="sport-tag">🏈 Americano</span>
+      <span class="sport-tag">🏐 Vôlei</span>
     </div>
 
     <!-- Features -->
     <div class="features">
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
+      <div class="feature-item">
+        <div class="fi-icon">📡</div>
         <div>
-          <div class="feature-tag">TEMPO REAL</div>
-          <div class="feature-title">EVENTOS AO VIVO</div>
-          <div class="feature-desc">Acompanhe partidas em tempo real com odds atualizadas ao longo do jogo.</div>
+          <div class="fi-title">Cobertura ao vivo</div>
+          <div class="fi-desc">Eventos transmitidos em tempo real com atualização constante.</div>
         </div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🏆</div>
+      <div class="feature-item">
+        <div class="fi-icon">🏟️</div>
         <div>
-          <div class="feature-tag">VARIEDADE</div>
-          <div class="feature-title">AMPLOS MERCADOS</div>
-          <div class="feature-desc">Dezenas de modalidades esportivas com centenas de mercados disponíveis todos os dias.</div>
+          <div class="fi-title">Ampla variedade</div>
+          <div class="fi-desc">Dezenas de modalidades esportivas disponíveis todos os dias.</div>
         </div>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔒</div>
+      <div class="feature-item">
+        <div class="fi-icon">📱</div>
         <div>
-          <div class="feature-tag">SEGURANÇA</div>
-          <div class="feature-title">PLATAFORMA CONFIÁVEL</div>
-          <div class="feature-desc">Ambiente seguro, pagamentos ágeis e suporte dedicado para sua experiência.</div>
+          <div class="fi-title">Fácil de usar</div>
+          <div class="fi-desc">Interface simples e intuitiva, funciona direto no celular.</div>
         </div>
       </div>
     </div>
 
     <!-- Second CTA -->
     <div class="cta2">
-      <div class="cta2-tag">ESPORTES EM DESTAQUE</div>
-      <div class="cta2-title">CONFIRA OS EVENTOS<br><span style="color:var(--orange-light);font-style:italic">DE HOJE</span></div>
-      <div class="cta2-sub">Acesse agora e explore os principais confrontos esportivos com as melhores condições.</div>
-      <a class="btn-outline" href="https://arenasete.com/a/F7X3EV7?c=facebook&para=/esportes%3Fdestaque%3D4" target="_blank" rel="noopener">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+      <div class="cta2-eyebrow">Esportes de hoje</div>
+      <div class="cta2-title">Veja o que está<br>acontecendo agora</div>
+      <div class="cta2-sub">Acesse a plataforma e confira todos os eventos esportivos disponíveis no momento.</div>
+      <a class="btn-ghost" href="https://arenasete.com/a/F7X3EV7?c=facebook&para=/esportes%3Fdestaque%3D4" target="_blank" rel="noopener">
+        Ver eventos
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
         </svg>
-        EXPLORAR AGORA
       </a>
     </div>
 
-    <!-- Responsible gambling -->
+    <!-- Responsible -->
     <div class="responsible">
-      <div class="responsible-icon">🛡️</div>
-      <div class="responsible-text">
-        <strong>Jogo Responsável</strong> — Esta plataforma é destinada a maiores de 18 anos.
-        O entretenimento esportivo deve ser praticado com responsabilidade e dentro dos seus limites financeiros.
-        Se precisar de ajuda: <strong>jogo-responsavel.com.br</strong>
-      </div>
+      <p>
+        <strong>Uso responsável</strong> — Plataforma destinada a maiores de 18 anos.
+        Utilize com moderação e dentro dos seus limites. Se precisar de apoio:
+        <strong>jogo-responsavel.com.br</strong>
+      </p>
     </div>
 
     <div class="footer">
-      18+ • Apenas para fins de entretenimento.<br>
-      Apostas podem envolver risco financeiro. Jogue com consciência.
+      18+ · Conteúdo para entretenimento.<br>
+      Jogue com responsabilidade e consciência.
     </div>
-  </div>
 
+  </div>
 </body>
 </html>
