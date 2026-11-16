@@ -615,7 +615,11 @@ export default function Conversas() {
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "sent" } : msg));
     } catch (e) {
       setMsgs((m) => m.map((msg) => msg.id === tempId ? { ...msg, status: "failed" } : msg));
-      setToast({ msg: `Erro ao enviar: ${e.message}`, duration: 6000 });
+      if (e.code === "window_expired") {
+        setToast({ msg: "⏰ Janela de 24h expirada — o cliente não respondeu recentemente. Envie um template aprovado para reabrir a conversa.", duration: 9000 });
+      } else {
+        setToast({ msg: `Erro ao enviar: ${e.message}`, duration: 6000 });
+      }
     } finally { setSending(false); }
   }
 

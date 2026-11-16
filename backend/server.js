@@ -1954,7 +1954,16 @@ async function executeCloudDispatch(dispatchId, userId, useTemplate = false) {
       } else {
         // Envia texto livre (só funciona dentro da janela 24h)
         const text = dispatch.message_content.replace(/\{nome\}/gi, contact.name || '');
-        await wppCloud.sendText(creds, contact.phone, text);
+        try {
+          await wppCloud.sendText(creds, contact.phone, text);
+        } catch (textErr) {
+          if (textErr.code === 131047 || textErr.details?.error_subcode === 2494055) {
+            updatedItems[i] = { ...updatedItems[i], status: 'failed', error: 'Janela 24h expirada — use template', sentVia: 'cloud_api' };
+            failed++;
+            continue;
+          }
+          throw textErr;
+        }
       }
       updatedItems[i] = { ...updatedItems[i], status: 'sent', sentAt: new Date().toISOString(), sentVia: 'cloud_api' };
       sent++;
@@ -4254,7 +4263,19 @@ app.post('/api/chats/send', requireAuth, rateLimit(60 * 1000, 30), async (req, r
       const c = await getCloudConfig(uid(req));
       if (!c?.access_token) return res.status(400).json({ error: 'Canal Oficial não configurado' });
       if (mediaUrl) return res.status(400).json({ error: 'Envio de mídia via Canal Oficial ainda não suportado nesta interface. Use um template ou envie pelo painel Meta.' });
-      const r = await wppCloud.sendText({ token: c.access_token, phoneNumberId: c.phone_number_id }, phone, message);
+      let r;
+      try {
+        r = await wppCloud.sendText({ token: c.access_token, phoneNumberId: c.phone_number_id }, phone, message);
+      } catch (cloudErr) {
+        if (cloudErr.code === 131047 || (cloudErr.details?.error_subcode === 2494055)) {
+          return res.status(400).json({
+            error: 'Janela de 24h expirada',
+            detail: 'O cliente não respondeu nas últimas 24h. Apenas templates aprovados podem ser enviados agora.',
+            code: 'window_expired',
+          });
+        }
+        throw cloudErr;
+      }
       const wamid = r?.messages?.[0]?.id || null;
 
       const ts = new Date().toISOString();
