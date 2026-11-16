@@ -485,7 +485,7 @@ export default function Conversas() {
   useEffect(() => {
     const handler = (e) => {
       try {
-        const { chatId, messageId, wa_id, status } = e.detail || {};
+        const { chatId, messageId, wa_id, status, error, errorCode } = e.detail || {};
         if (!chatId || !status) return;
         // Atualiza last_message_status na lista de conversas
         setAllChats((prev) => prev.map((c) =>
@@ -496,9 +496,18 @@ export default function Conversas() {
         if (cur?.id !== chatId) return;
         setMsgs((prev) => prev.map((m) =>
           (m.id === messageId || m.wa_id === wa_id)
-            ? { ...m, status }
+            ? { ...m, status, ...(error ? { error_detail: error, error_code: errorCode } : {}) }
             : m
         ));
+        // Toast quando mensagem falha via webhook da Meta
+        if (status === "failed") {
+          const isWindow = errorCode === 131047 || (error && error.toLowerCase().includes("24 hour"));
+          if (isWindow) {
+            setToast({ msg: "⏰ Janela de 24h expirada — o cliente não respondeu recentemente. Envie um template aprovado para reabrir a conversa.", duration: 9000 });
+          } else {
+            setToast({ msg: `❌ Mensagem não entregue: ${error || "falha desconhecida"}`, duration: 7000 });
+          }
+        }
       } catch {}
     };
     window.addEventListener("wayvo:message-status", handler);
@@ -1294,7 +1303,15 @@ export default function Conversas() {
                         <div className="text-[10px] font-mono text-dash-faint mt-1 text-right flex items-center justify-end gap-1">
                           {fmtTime(m.timestamp)}
                           {out && (
-                            m.status === "failed"    ? <X className="size-3 text-dash-red" />
+                            m.status === "failed"    ? (
+                              <span title={
+                                m.error_code === 131047 || (m.error_detail && m.error_detail.toLowerCase().includes("24 hour"))
+                                  ? "Janela de 24h expirada — use um template para reabrir"
+                                  : m.error_detail || "Falha no envio"
+                              } style={{ cursor: "help" }}>
+                                <X className="size-3 text-dash-red" />
+                              </span>
+                            )
                             : m.status === "pending" ? <Clock className="size-3" />
                             : m.status === "read"    ? <CheckCheck className="size-3 text-blue-400" />
                             : m.status === "delivered" ? <CheckCheck className="size-3" />

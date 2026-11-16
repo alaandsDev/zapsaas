@@ -295,11 +295,14 @@ app.post('/api/wpp-cloud/webhook', express.raw({ type: 'application/json' }), as
             await supabase.from('chat_messages').update({ status: chatMsgStatus }).eq('id', chatMsg.id);
             // Propaga status para last_message_status do chat (para checks na lista)
             await supabase.from('chats').update({ last_message_status: chatMsgStatus }).eq('id', chatMsg.chat_id);
+            const failErr = chatMsgStatus === 'failed' ? (st.errors?.[0]?.message || null) : null;
+            const failCode = chatMsgStatus === 'failed' ? (st.errors?.[0]?.code || null) : null;
             sseSend(config.user_id, 'message_status', {
               chatId: chatMsg.chat_id,
               messageId: chatMsg.id,
               wa_id: wamid,
               status: chatMsgStatus,
+              ...(failErr ? { error: failErr, errorCode: failCode } : {}),
             });
           }
         }
@@ -4180,7 +4183,23 @@ app.get('/api/chats/:chatId/messages', requireAuth, async (req, res) => {
     if (error) throw error;
     // Zera unread ao abrir — filtra por user_id para evitar cross-tenant
     await supabase.from('chats').update({ unread: 0 }).eq('id', req.params.chatId).eq('user_id', uid(req));
-    res.json(data || []);
+
+    // Enriquece mensagens falhas com motivo do erro (cloud_message_status)
+    const msgs = data || [];
+    const failedWamids = msgs.filter(m => m.status === 'failed' && m.wa_id).map(m => m.wa_id);
+    if (failedWamids.length) {
+      const { data: errRows } = await supabase.from('cloud_message_status')
+        .select('wamid, error').in('wamid', failedWamids);
+      if (errRows?.length) {
+        const errMap = Object.fromEntries(errRows.map(r => [r.wamid, r.error]));
+        for (const m of msgs) {
+          if (m.status === 'failed' && m.wa_id && errMap[m.wa_id]) {
+            m.error_detail = errMap[m.wa_id];
+          }
+        }
+      }
+    }
+    res.json(msgs);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
